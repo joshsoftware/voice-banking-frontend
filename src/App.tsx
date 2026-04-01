@@ -1,39 +1,23 @@
 import './App.css'
-import { useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Home from './pages/Home'
 import Welcome from './pages/Welcome'
 import OtpVerification from './pages/OtpVerification'
 import Listening from './pages/Listening'
 
-type Screen = 'welcome' | 'otp' | 'home' | 'listening'
-
 function App() {
-  const [screen, setScreen] = useState<Screen>('welcome')
-
-  if (screen === 'welcome') {
-    return (
-      <Welcome
-        onSendOtp={() => {
-          setScreen('otp')
-        }}
-      />
-    )
-  }
-
-  if (screen === 'otp') {
-    return (
-      <OtpVerification
-        onBack={() => setScreen('welcome')}
-        onVerified={() => setScreen('home')}
-      />
-    )
-  }
-
-  if (screen === 'listening') {
-    return <Listening onSubmit={() => setScreen('home')} />
-  }
-
-  return <Home onStartListening={() => setScreen('listening')} />
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/welcome" replace />} />
+        <Route path="/welcome" element={<Welcome />} />
+        <Route path="/verify-otp" element={<OtpVerification />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="/listening" element={<Listening />} />
+        <Route path="*" element={<Navigate to="/welcome" replace />} />
+      </Routes>
+    </BrowserRouter>
+  )
 }
 
 export default App

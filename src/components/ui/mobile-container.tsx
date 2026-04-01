@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 interface MobileContainerProps {
@@ -9,13 +9,12 @@ interface MobileContainerProps {
 
 export function MobileContainer({ children, className, gradient = true }: MobileContainerProps) {
   return (
-    <div className="min-h-screen bg-[#0b0f14] md:flex md:items-center md:justify-center md:p-4">
-      <div className="mx-auto w-full md:max-w-[393px]">
+    <div className="min-h-screen bg-[var(--color-surface-bg)] md:flex md:items-center md:justify-center md:p-4">
+      <div className="mx-auto w-full md:max-w-[var(--device-width)]">
         <div
           className={cn(
-            'relative min-h-screen w-full overflow-hidden md:min-h-[852px] md:rounded-[24px] md:shadow-[0px_25px_60px_-20px_rgba(0,0,0,0.45)]',
-            gradient &&
-              'bg-gradient-to-br from-[#2072b2] via-[#18405f] to-[#163955]',
+            'relative min-h-screen w-full overflow-hidden md:min-h-[var(--device-height)] md:rounded-[var(--device-radius)] md:shadow-[var(--shadow-device)]',
+            gradient && '[background:var(--gradient-brand)]',
             className
           )}
         >

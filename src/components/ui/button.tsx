@@ -12,10 +12,10 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const baseStyles = 'inline-flex items-center justify-center rounded-[14px] font-semibold transition-colors disabled:opacity-50 disabled:pointer-events-none'
     
     const variants = {
-      primary: 'bg-[#f4f9ff] text-[#1a1f36] shadow-[0px_10px_15px_0px_rgba(0,0,0,0.1),0px_4px_6px_0px_rgba(0,0,0,0.1)] hover:bg-[#e4e9ef]',
+      primary: 'bg-[var(--color-primary-btn)] text-[var(--color-text-dark)] shadow-[var(--shadow-mute)] hover:bg-[var(--color-primary-btn-hover)]',
       secondary: 'bg-white/20 text-white border border-white/30 hover:bg-white/30',
-      ghost: 'text-[#2072b2] hover:bg-gray-100',
-      success: 'bg-gradient-to-b from-[#5f8f40] to-[#1f4f1b] text-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.35)] hover:opacity-90',
+      ghost: 'text-[var(--color-brand-500)] hover:bg-gray-100',
+      success: '[background:var(--gradient-success)] text-white shadow-[var(--shadow-success)] hover:opacity-90',
     }
 
     const sizes = {

@@ -1,19 +1,18 @@
 import { useState, FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { MobileContainer } from '@/components/ui/mobile-container'
 import { Logo } from '@/components/ui/logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-interface WelcomeProps {
-  onSendOtp: (phone: string) => void
-}
-
-export default function Welcome({ onSendOtp }: WelcomeProps) {
+export default function Welcome() {
   const [phone, setPhone] = useState('')
+  const navigate = useNavigate()
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
-    onSendOtp(phone || '1234567890')
+    // TODO: Send OTP API call here
+    navigate('/verify-otp', { state: { phone: phone || '1234567890' } })
   }
 
   const handlePhoneChange = (value: string) => {

@@ -1,9 +1,67 @@
 @import 'tailwindcss';
+
+/* ─── Design Tokens ──────────────────────────────────────────── */
+:root {
+  /* Brand colours */
+  --color-brand-900: #0f3468;   /* dark navy – balance amount, eye icon */
+  --color-brand-800: #163955;   /* darkest gradient stop */
+  --color-brand-700: #18405f;   /* mid gradient stop */
+  --color-brand-600: #1a476a;   /* instructions text, mute hint */
+  --color-brand-500: #2072b2;   /* primary blue – mic btn, icons, status */
+  --color-brand-400: #2f80c8;   /* waveform bars */
+  --color-brand-300: #21528c;   /* "View Details" btn text */
+
+  /* Surface / background */
+  --color-surface-bg:   #0b0f14;  /* outer page background */
+  --color-surface-app:  #f5f7fa;  /* inner app bg, mute button bg */
+  --color-surface-card: #ffffff;  /* card / sheet background */
+
+  /* Text neutrals */
+  --color-text-muted-1: #4e5e71; /* "Available Balance" label */
+  --color-text-muted-2: #5c6e84; /* "Savings Account" sub-label */
+  --color-text-muted-3: #7c8fa1; /* masked account number */
+
+  /* Action / semantic */
+  --color-success-from:     #5f8f40;
+  --color-success-to:       #1f4f1b;
+  --color-primary-btn:      #f4f9ff; /* light primary button background */
+  --color-primary-btn-hover:#e4e9ef; /* light primary button hover */
+  --color-text-dark:        #1a1f36; /* near-black button label */
+
+  /* Device frame – replaces rigid Figma px values */
+  --device-width:  393px;
+  --device-height: 852px;
+  --device-radius: 24px;
+  --header-height: 346px;
+
+  /* Gradients */
+  --gradient-brand:
+    linear-gradient(
+      129.811deg,
+      var(--color-brand-500) 6.5%,
+      var(--color-brand-700) 45.6%,
+      var(--color-brand-800) 77.3%
+    );
+  --gradient-mic:     linear-gradient(to bottom, var(--color-brand-500), #13324a);
+  --gradient-success: linear-gradient(to bottom, var(--color-success-from), var(--color-success-to));
+
+  /* Shadows */
+  --shadow-device:    0px 25px 60px -20px rgba(0, 0, 0, 0.45);
+  --shadow-card:      0px 20px 40px rgba(0, 0, 0, 0.15);
+  --shadow-mic:       0px 25px 50px 0px rgba(26, 69, 104, 0.5);
+  --shadow-sheet:     -0.5px -3px 4px 0px rgba(174, 174, 174, 0.25);
+  --shadow-mute:      0px 10px 15px 0px rgba(0, 0, 0, 0.1), 0px 4px 6px 0px rgba(0, 0, 0, 0.1);
+  --shadow-voice-btn: 0px 3px 4px 0px rgba(0, 0, 0, 0.25), 0.5px -5px 4px 0px #efefef;
+  --shadow-success:   0px 25px 50px -12px rgba(0, 0, 0, 0.35);
+}
+
+/* ─── Keyframes ──────────────────────────────────────────────── */
 @keyframes pulse {
-  0%, 100% {
-    transform: scaleY(1);
-  }
-  50% {
-    transform: scaleY(1.5);
-  }
+  0%, 100% { transform: scaleY(1); }
+  50%       { transform: scaleY(1.5); }
+}
+
+@keyframes waveBar {
+  0%, 100% { transform: scaleY(0.6); opacity: 0.7; }
+  50%       { transform: scaleY(1.6); opacity: 1; }
 }

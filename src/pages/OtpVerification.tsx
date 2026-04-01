@@ -1,18 +1,17 @@
 import { useState, FormEvent, KeyboardEvent, useRef, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { MobileContainer } from '@/components/ui/mobile-container'
 import { Logo } from '@/components/ui/logo'
 import { Button } from '@/components/ui/button'
 import { ArrowLeftIcon } from '@/components/ui/icons'
 
-interface OtpVerificationProps {
-  onBack: () => void
-  onVerified: (otp: string) => void
-}
-
-export default function OtpVerification({ onBack, onVerified }: OtpVerificationProps) {
+export default function OtpVerification() {
   const [otp, setOtp] = useState(['', '', '', ''])
   const [timer, setTimer] = useState(27)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const navigate = useNavigate()
+  const location = useLocation()
+  const phone = (location.state as { phone?: string })?.phone
 
   useEffect(() => {
     if (timer > 0) {
@@ -54,7 +53,9 @@ export default function OtpVerification({ onBack, onVerified }: OtpVerificationP
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
-    onVerified(otp.join('') || '0000')
+    // TODO: Verify OTP API call here
+    const otpValue = otp.join('') || '0000'
+    navigate('/home')
   }
 
   const handleResend = () => {
@@ -69,7 +70,7 @@ export default function OtpVerification({ onBack, onVerified }: OtpVerificationP
         {/* Back Button */}
         <button
           type="button"
-          onClick={onBack}
+          onClick={() => navigate('/welcome')}
           className="inline-flex items-center gap-2 text-base font-medium transition-opacity hover:opacity-80"
         >
           <ArrowLeftIcon className="text-white" />

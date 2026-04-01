@@ -1,38 +1,32 @@
-import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Header } from '@/components/home/Header'
 import { BalanceCard } from '@/components/home/BalanceCard'
-import { TransactionList } from '@/components/home/TransactionList'
 import { VoiceSheet } from '@/components/home/VoiceSheet'
 
 interface HomeProps {
-  onStartListening?: () => void
   bottomSheet?: ReactNode
 }
 
-export default function Home({ onStartListening, bottomSheet }: HomeProps) {
+export default function Home({ bottomSheet }: HomeProps) {
+  const navigate = useNavigate()
   return (
-    <div className="min-h-screen bg-[#0b0f14] md:flex md:items-center md:justify-center md:p-4">
-      <div className="mx-auto w-full md:max-w-[393px]">
-        <div className="relative min-h-screen w-full overflow-hidden bg-[#f5f7fa] md:min-h-[852px] md:rounded-3xl md:shadow-[0px_25px_60px_-20px_rgba(0,0,0,0.45)]">
+    <div className="min-h-screen bg-[var(--color-surface-bg)] md:flex md:items-center md:justify-center md:p-4">
+      <div className="mx-auto w-full md:max-w-[var(--device-width)]">
+        <div className="relative min-h-screen w-full overflow-hidden bg-[var(--color-surface-app)] md:min-h-[var(--device-height)] md:rounded-[var(--device-radius)] md:shadow-[var(--shadow-device)]">
           {/* Header Section with gradient background */}
           <div
-            className="relative h-[346px] w-full rounded-b-2xl px-6 pt-6"
-            style={{
-              backgroundImage:
-                'linear-gradient(129.811deg, rgb(32, 114, 178) 6.5081%, rgb(24, 64, 95) 45.642%, rgb(22, 57, 85) 77.3%)',
-            }}
+            className="relative w-full rounded-b-[48px] px-6 pt-6"
+            style={{ backgroundImage: 'var(--gradient-brand)' }}
           >
-            <Header />
-            <BalanceCard />
-          </div>
-
-          {/* Transactions Section */}
-          <div className="relative pb-48">
-            <TransactionList />
+            <div className="relative z-10 pb-5">
+              <Header />
+              <BalanceCard />
+            </div>
           </div>
 
           {/* Bottom Sheet */}
-          {bottomSheet ?? <VoiceSheet onStart={onStartListening} />}
+          {bottomSheet ?? <VoiceSheet onStart={() => navigate('/listening')} />}
         </div>
       </div>
     </div>
