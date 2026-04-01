@@ -1,0 +1,235 @@
+.otp {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: radial-gradient(
+      900px 500px at 50% 18%,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0) 60%
+    ),
+    linear-gradient(180deg, #2b6f92 0%, #215d7e 55%, #1b4f70 100%);
+}
+
+.otp__frame {
+  width: min(420px, 100%);
+  min-height: min(760px, 100svh - 48px);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 32px 22px 18px;
+  box-sizing: border-box;
+}
+
+.otp__header {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+}
+
+.otp__back {
+  background: transparent;
+  border: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  padding: 8px 6px;
+  cursor: pointer;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+.otp__back:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.45);
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+
+.otp__hero {
+  display: grid;
+  place-items: center;
+  padding-top: 16px;
+  padding-bottom: 18px;
+}
+
+.otp__heroRing {
+  width: 164px;
+  height: 164px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(
+    circle at 50% 40%,
+    rgba(255, 255, 255, 0.22),
+    rgba(255, 255, 255, 0.06) 55%,
+    rgba(255, 255, 255, 0) 70%
+  );
+}
+
+.otp__heroIcon {
+  width: 164px;
+  height: 164px;
+}
+
+.otp__content {
+  display: grid;
+  align-content: start;
+  gap: 26px;
+}
+
+.otp__titles {
+  text-align: center;
+  padding-top: 8px;
+}
+
+.otp__title {
+  margin: 0;
+  color: white;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  font-size: 44px;
+  line-height: 1.05;
+}
+
+.otp__subtitle {
+  margin: 8px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 14px;
+  letter-spacing: 0.4px;
+}
+
+.otp__subtle {
+  margin: 8px 0 0;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+}
+ 
+.otp__form {
+  display: grid;
+  gap: 12px;
+}
+
+.otp__label {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  text-align: left;
+}
+ 
+.otp__boxes {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.otp__box {
+  height: 44px;
+  min-width: 0;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  padding: 0;
+}
+
+.otp__box:focus-visible {
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.otp__button {
+  margin-top: 8px;
+  height: 46px;
+  border-radius: 12px;
+  border: 0;
+  background: #ffffff;
+  color: #1e4661;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  width: 100%;
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.otp__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.otp__button:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.45);
+  outline-offset: 3px;
+}
+
+.otp__resend {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.otp__resendBtn {
+  background: transparent;
+  border: 0;
+  padding: 6px 8px;
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.otp__footer {
+  padding-top: 18px;
+}
+
+.otp__terms {
+  margin: 0;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 11px;
+}
+
+.otp__termsLink {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (min-width: 900px) {
+  .otp__frame {
+    border-radius: 22px;
+    background: rgba(0, 0, 0, 0.05);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+  }
+}
+
+@media (max-height: 700px) {
+  .otp__frame {
+    min-height: auto;
+  }
+
+  .otp__hero {
+    padding-top: 4px;
+    padding-bottom: 10px;
+  }
+
+  .otp__title {
+    font-size: 40px;
+  }
+}
