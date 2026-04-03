@@ -35,8 +35,11 @@ export default function Listening() {
           messages={messages}
           onToggleMute={toggleMute}
           onStop={handleStop}
+          showMuteControl={false}
         />
       }
+      isMuted={isMuted}
+      onToggleMute={toggleMute}
     />
   )
 }

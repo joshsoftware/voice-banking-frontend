@@ -4,6 +4,7 @@ import Home from './pages/Home'
 import Welcome from './pages/Welcome'
 import OtpVerification from './pages/OtpVerification'
 import Listening from './pages/Listening'
+import LanguageSelect from './pages/LanguageSelect'
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Route path="/" element={<Navigate to="/welcome" replace />} />
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/verify-otp" element={<OtpVerification />} />
+        <Route path="/language" element={<LanguageSelect />} />
         <Route path="/home" element={<Home />} />
         <Route path="/listening" element={<Listening />} />
         <Route path="*" element={<Navigate to="/welcome" replace />} />

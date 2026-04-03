@@ -1,17 +1,17 @@
-import { useState, FormEvent, KeyboardEvent, useRef, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useState, type FormEvent, type KeyboardEvent, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { MobileContainer } from '@/components/ui/mobile-container'
 import { Logo } from '@/components/ui/logo'
 import { Button } from '@/components/ui/button'
 import { ArrowLeftIcon } from '@/components/ui/icons'
+import { useTranslation } from '@/i18n/LanguageHooks'
 
 export default function OtpVerification() {
   const [otp, setOtp] = useState(['', '', '', ''])
   const [timer, setTimer] = useState(27)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   const navigate = useNavigate()
-  const location = useLocation()
-  const phone = (location.state as { phone?: string })?.phone
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (timer > 0) {
@@ -54,8 +54,7 @@ export default function OtpVerification() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     // TODO: Verify OTP API call here
-    const otpValue = otp.join('') || '0000'
-    navigate('/home')
+    navigate('/language')
   }
 
   const handleResend = () => {
@@ -74,7 +73,7 @@ export default function OtpVerification() {
           className="inline-flex items-center gap-2 text-base font-medium transition-opacity hover:opacity-80"
         >
           <ArrowLeftIcon className="text-white" />
-          <span>Back</span>
+          <span>{t('back')}</span>
         </button>
 
         {/* Logo Section */}
@@ -84,9 +83,9 @@ export default function OtpVerification() {
 
         {/* Title Section */}
         <div className="mt-6 flex flex-col items-center gap-3 text-center">
-          <h1 className="text-3xl font-bold leading-9 md:text-[30px]">Verify OTP</h1>
+          <h1 className="text-3xl font-bold leading-9 md:text-[30px]">{t('verifyOtp')}</h1>
           <p className="text-base leading-6 text-white/90 md:text-[16px]">
-            Enter the 4-digit code sent to your mobile
+            {t('enterOtpInstruction')}
           </p>
         </div>
 
@@ -96,12 +95,14 @@ export default function OtpVerification() {
           className="mt-10 flex flex-1 flex-col items-center justify-between"
         >
           <div className="w-full space-y-4">
-            <p className="text-center text-sm font-medium leading-5">Enter OTP</p>
+            <p className="text-center text-sm font-medium leading-5">{t('enterOtpLabel')}</p>
             <div className="flex justify-center gap-3 md:gap-4" onPaste={handlePaste}>
               {otp.map((value, index) => (
                 <input
                   key={index}
-                  ref={(el) => (inputRefs.current[index] = el)}
+                  ref={(el) => {
+                    inputRefs.current[index] = el
+                  }}
                   type="tel"
                   inputMode="numeric"
                   maxLength={1}
@@ -115,16 +116,16 @@ export default function OtpVerification() {
             </div>
             <div className="mt-2 text-center text-sm leading-5 text-white/90">
               {timer > 0 ? (
-                <>
-                  Resend OTP in <span className="font-semibold">{timer}s</span>
-                </>
+                <span>
+                  {t('resendOtpIn', { seconds: timer })}
+                </span>
               ) : (
                 <button
                   type="button"
                   onClick={handleResend}
                   className="font-semibold underline transition-opacity hover:opacity-80"
                 >
-                  Resend OTP
+                  {t('resendOtp')}
                 </button>
               )}
             </div>
@@ -133,12 +134,12 @@ export default function OtpVerification() {
           {/* Bottom Section */}
           <div className="w-full space-y-3">
             <Button type="submit" variant="primary" className="w-full">
-              Continue
+              {t('continue')}
             </Button>
             <p className="px-2 text-center text-sm leading-5 text-white/90">
-              By continuing, you agree to our{' '}
+              {t('termsPrefix')}{' '}
               <span className="font-semibold underline decoration-solid [text-decoration-skip-ink:none]">
-                Terms &amp; Conditions
+                {t('termsLink')}
               </span>
             </p>
           </div>
