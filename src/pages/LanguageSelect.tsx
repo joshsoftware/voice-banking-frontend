@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { LANGUAGES, type LanguageId } from '@/i18n/languages'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
 
+
 export default function LanguageSelect() {
   const navigate = useNavigate()
   const { setLanguage, language } = useLanguage()
