@@ -6,9 +6,11 @@ import { VoiceSheet } from '@/components/home/VoiceSheet'
 
 interface HomeProps {
   bottomSheet?: ReactNode
+  isMuted?: boolean
+  onToggleMute?: () => void
 }
 
-export default function Home({ bottomSheet }: HomeProps) {
+export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) {
   const navigate = useNavigate()
   return (
     <div className="min-h-screen bg-[var(--color-surface-bg)] md:flex md:items-center md:justify-center md:p-4">
@@ -20,7 +22,7 @@ export default function Home({ bottomSheet }: HomeProps) {
             style={{ backgroundImage: 'var(--gradient-brand)' }}
           >
             <div className="relative z-10 pb-5">
-              <Header />
+              <Header isMuted={isMuted} onToggleMute={onToggleMute} />
               <BalanceCard />
             </div>
           </div>
