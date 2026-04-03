@@ -1,111 +1,67 @@
+@import 'tailwindcss';
+
+/* ─── Design Tokens ──────────────────────────────────────────── */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  /* Brand colours */
+  --color-brand-900: #0f3468;   /* dark navy – balance amount, eye icon */
+  --color-brand-800: #163955;   /* darkest gradient stop */
+  --color-brand-700: #18405f;   /* mid gradient stop */
+  --color-brand-600: #1a476a;   /* instructions text, mute hint */
+  --color-brand-500: #2072b2;   /* primary blue – mic btn, icons, status */
+  --color-brand-400: #2f80c8;   /* waveform bars */
+  --color-brand-300: #21528c;   /* "View Details" btn text */
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* Surface / background */
+  --color-surface-bg:   #0b0f14;  /* outer page background */
+  --color-surface-app:  #f5f7fa;  /* inner app bg, mute button bg */
+  --color-surface-card: #ffffff;  /* card / sheet background */
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Text neutrals */
+  --color-text-muted-1: #4e5e71; /* "Available Balance" label */
+  --color-text-muted-2: #5c6e84; /* "Savings Account" sub-label */
+  --color-text-muted-3: #7c8fa1; /* masked account number */
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  /* Action / semantic */
+  --color-success-from:     #5f8f40;
+  --color-success-to:       #1f4f1b;
+  --color-primary-btn:      #f4f9ff; /* light primary button background */
+  --color-primary-btn-hover:#e4e9ef; /* light primary button hover */
+  --color-text-dark:        #1a1f36; /* near-black button label */
+
+  /* Device frame – replaces rigid Figma px values */
+  --device-width:  393px;
+  --device-height: 852px;
+  --device-radius: 24px;
+  --header-height: 346px;
+
+  /* Gradients */
+  --gradient-brand:
+    linear-gradient(
+      129.811deg,
+      var(--color-brand-500) 6.5%,
+      var(--color-brand-700) 45.6%,
+      var(--color-brand-800) 77.3%
+    );
+  --gradient-mic:     linear-gradient(to bottom, var(--color-brand-500), #13324a);
+  --gradient-success: linear-gradient(to bottom, var(--color-success-from), var(--color-success-to));
+
+  /* Shadows */
+  --shadow-device:    0px 25px 60px -20px rgba(0, 0, 0, 0.45);
+  --shadow-card:      0px 20px 40px rgba(0, 0, 0, 0.15);
+  --shadow-mic:       0px 25px 50px 0px rgba(26, 69, 104, 0.5);
+  --shadow-sheet:     -0.5px -3px 4px 0px rgba(174, 174, 174, 0.25);
+  --shadow-mute:      0px 10px 15px 0px rgba(0, 0, 0, 0.1), 0px 4px 6px 0px rgba(0, 0, 0, 0.1);
+  --shadow-voice-btn: 0px 3px 4px 0px rgba(0, 0, 0, 0.25), 0.5px -5px 4px 0px #efefef;
+  --shadow-success:   0px 25px 50px -12px rgba(0, 0, 0, 0.35);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+/* ─── Keyframes ──────────────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { transform: scaleY(1); }
+  50%       { transform: scaleY(1.5); }
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+@keyframes waveBar {
+  0%, 100% { transform: scaleY(0.6); opacity: 0.7; }
+  50%       { transform: scaleY(1.6); opacity: 1; }
 }

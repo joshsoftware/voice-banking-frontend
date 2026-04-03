@@ -1,0 +1,149 @@
+import { useState, FormEvent, KeyboardEvent, useRef, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { MobileContainer } from '@/components/ui/mobile-container'
+import { Logo } from '@/components/ui/logo'
+import { Button } from '@/components/ui/button'
+import { ArrowLeftIcon } from '@/components/ui/icons'
+
+export default function OtpVerification() {
+  const [otp, setOtp] = useState(['', '', '', ''])
+  const [timer, setTimer] = useState(27)
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const navigate = useNavigate()
+  const location = useLocation()
+  const phone = (location.state as { phone?: string })?.phone
+
+  useEffect(() => {
+    if (timer > 0) {
+      const interval = setInterval(() => {
+        setTimer((prev) => prev - 1)
+      }, 1000)
+      return () => clearInterval(interval)
+    }
+  }, [timer])
+
+  const handleChange = (index: number, value: string) => {
+    const cleaned = value.replace(/[^0-9]/g, '').slice(-1)
+    const newOtp = [...otp]
+    newOtp[index] = cleaned
+    setOtp(newOtp)
+
+    // Auto-focus next input
+    if (cleaned && index < 3) {
+      inputRefs.current[index + 1]?.focus()
+    }
+  }
+
+  const handleKeyDown = (index: number, e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus()
+    }
+  }
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const pastedData = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 4)
+    const newOtp = [...otp]
+    for (let i = 0; i < pastedData.length; i++) {
+      newOtp[i] = pastedData[i]
+    }
+    setOtp(newOtp)
+    inputRefs.current[Math.min(pastedData.length, 3)]?.focus()
+  }
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    // TODO: Verify OTP API call here
+    const otpValue = otp.join('') || '0000'
+    navigate('/home')
+  }
+
+  const handleResend = () => {
+    setTimer(27)
+    setOtp(['', '', '', ''])
+    inputRefs.current[0]?.focus()
+  }
+
+  return (
+    <MobileContainer>
+      <div className="relative flex h-full min-h-screen flex-col px-6 pb-10 pt-6 text-white md:min-h-[852px]">
+        {/* Back Button */}
+        <button
+          type="button"
+          onClick={() => navigate('/welcome')}
+          className="inline-flex items-center gap-2 text-base font-medium transition-opacity hover:opacity-80"
+        >
+          <ArrowLeftIcon className="text-white" />
+          <span>Back</span>
+        </button>
+
+        {/* Logo Section */}
+        <div className="mx-auto mt-8">
+          <Logo size={180} className="md:h-[210px] md:w-[210px]" />
+        </div>
+
+        {/* Title Section */}
+        <div className="mt-6 flex flex-col items-center gap-3 text-center">
+          <h1 className="text-3xl font-bold leading-9 md:text-[30px]">Verify OTP</h1>
+          <p className="text-base leading-6 text-white/90 md:text-[16px]">
+            Enter the 4-digit code sent to your mobile
+          </p>
+        </div>
+
+        {/* Form Section */}
+        <form
+          onSubmit={handleSubmit}
+          className="mt-10 flex flex-1 flex-col items-center justify-between"
+        >
+          <div className="w-full space-y-4">
+            <p className="text-center text-sm font-medium leading-5">Enter OTP</p>
+            <div className="flex justify-center gap-3 md:gap-4" onPaste={handlePaste}>
+              {otp.map((value, index) => (
+                <input
+                  key={index}
+                  ref={(el) => (inputRefs.current[index] = el)}
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={value}
+                  onChange={(e) => handleChange(index, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(index, e)}
+                  className="h-14 w-14 rounded-[14px] border border-white/30 bg-white/20 text-center text-2xl font-semibold tracking-[0.2em] text-white outline-none transition-colors focus:border-white/50 md:h-16 md:w-16"
+                  aria-label={`OTP digit ${index + 1}`}
+                />
+              ))}
+            </div>
+            <div className="mt-2 text-center text-sm leading-5 text-white/90">
+              {timer > 0 ? (
+                <>
+                  Resend OTP in <span className="font-semibold">{timer}s</span>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  className="font-semibold underline transition-opacity hover:opacity-80"
+                >
+                  Resend OTP
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom Section */}
+          <div className="w-full space-y-3">
+            <Button type="submit" variant="primary" className="w-full">
+              Continue
+            </Button>
+            <p className="px-2 text-center text-sm leading-5 text-white/90">
+              By continuing, you agree to our{' '}
+              <span className="font-semibold underline decoration-solid [text-decoration-skip-ink:none]">
+                Terms &amp; Conditions
+              </span>
+            </p>
+          </div>
+        </form>
+      </div>
+    </MobileContainer>
+  )
+}
