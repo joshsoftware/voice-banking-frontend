@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { VolumeIcon, VolumeMutedIcon } from '@/components/ui/icons'
 import { Button } from '@/components/ui/button'
 import { Waveform } from '@/components/ui/waveform'
-import type { WebRTCState, ChatMessage } from '@/hooks/useWebRTC'
+import type { WebRTCState, ChatMessage } from '@/hooks/useSmallWebRTC'
 import { useTranslation } from '@/i18n/LanguageHooks'
 
 // ─── Status chip ──────────────────────────────────────────────────────────────
