@@ -8,18 +8,25 @@ import { useTranslation } from '@/i18n/LanguageHooks'
 
 export default function Welcome() {
   const [phone, setPhone] = useState('')
+  const [error, setError] = useState('')
   const navigate = useNavigate()
   const { t } = useTranslation()
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
+    if (phone.length !== 10) {
+      setError('Please enter a valid 10-digit mobile number')
+      return
+    }
+    setError('')
     // TODO: Send OTP API call here
-    navigate('/verify-otp', { state: { phone: phone || '1234567890' } })
+    navigate('/verify-otp', { state: { phone } })
   }
 
   const handlePhoneChange = (value: string) => {
     const cleaned = value.replace(/[^0-9]/g, '').slice(0, 10)
     setPhone(cleaned)
+    if (error) setError('')
   }
 
   return (
@@ -27,7 +34,7 @@ export default function Welcome() {
       <div className="relative flex h-full min-h-screen flex-col px-6 pb-10 pt-6 md:min-h-[852px]">
         {/* Logo Section */}
         <div className="mx-auto mt-12 md:mt-16">
-          <Logo size={240} className="md:h-[280px] md:w-[280px]" />
+          <Logo />
         </div>
 
         {/* Title Section */}
@@ -60,6 +67,7 @@ export default function Welcome() {
                 className="flex-1"
               />
             </div>
+            {error && <p className="text-sm text-red-300">{error}</p>}
           </div>
 
           {/* Bottom Section */}
