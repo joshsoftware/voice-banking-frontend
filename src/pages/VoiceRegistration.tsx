@@ -7,15 +7,16 @@ import { Waveform } from '@/components/ui/waveform'
 import { ImageDescribeSheet, type ImageDescribeSheetState } from '@/components/voice-registration/ImageDescribeSheet'
 import { VoiceRegistrationSuccess } from '@/components/voice-registration/VoiceRegistrationSuccess'
 import { useMicLevel } from '@/hooks/useMicLevel'
+import { API_BASE, VOICEPRINT_API_BASE, VOICE_ENROLL_USER_ID } from '@/lib/constants'
 import { stopSpeech, speakText } from '@/lib/speech'
 import { VOICE_REGISTRATION_IMAGES } from '@/data/voiceRegistrationImages'
-import {
-  completeVoiceRegistration,
-  startVoiceRegistration,
-  submitVoiceConsent,
-} from '@/services/voiceRegistration'
 
-type Phase = 'consent' | 'initialRecording' | 'imageChallenge' | 'success'
+type Phase = 'consent' | 'imageChallenge' | 'success'
+const FALLBACK_ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
+const normalizeBase = (url: string) => url.replace(/\/+$/, '')
+// Voice registration must keep enrollment + WebRTC on the SAME backend host.
+// If VOICEPRINT_API_BASE is configured, use it as primary to avoid cross-host session mismatch.
+const getRegistrationBackendBase = () => normalizeBase(VOICEPRINT_API_BASE || API_BASE)
 
 function stopMediaStream(stream: MediaStream | null) {
   stream?.getTracks().forEach((t) => t.stop())
@@ -26,63 +27,234 @@ export default function VoiceRegistration() {
   const [phase, setPhase] = useState<Phase>('consent')
   const [consent, setConsent] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [registrationId, setRegistrationId] = useState<string | null>(null)
-
+  const [enrollmentSessionId, setEnrollmentSessionId] = useState<string | null>(null)
+  const [rtcSessionId, setRtcSessionId] = useState<string | null>(null)
   const [micStream, setMicStream] = useState<MediaStream | null>(null)
   const [micError, setMicError] = useState<string | null>(null)
+  const [submitLoading, setSubmitLoading] = useState(false)
+  const [enrollError, setEnrollError] = useState<string | null>(null)
+  const [isRtcReady, setIsRtcReady] = useState(false)
+
+  const pcRef = useRef<RTCPeerConnection | null>(null)
+  const pcIdRef = useRef<string | null>(null)
+  const enrollmentSessionIdRef = useRef<string | null>(null)
+  const rtcSessionIdRef = useRef<string | null>(null)
   const micStreamRef = useRef<MediaStream | null>(null)
+  const connectingRtcRef = useRef(false)
+  const imageFinalizeLockRef = useRef(false)
 
   const [imageIndex, setImageIndex] = useState(0)
   const [sheetState, setSheetState] = useState<ImageDescribeSheetState>('micIdle')
   const [countdown, setCountdown] = useState(3)
   const [recordProgress, setRecordProgress] = useState(0)
-  const [imageRecStream, setImageRecStream] = useState<MediaStream | null>(null)
-  const imageRecStreamRef = useRef<MediaStream | null>(null)
   const countdownToRecordingRef = useRef(false)
 
-  const micActiveInitial = useMicLevel(phase === 'initialRecording' ? micStream : null)
   const micActiveImage = useMicLevel(
-    phase === 'imageChallenge' && sheetState === 'recording' ? imageRecStream : null
+    phase === 'imageChallenge' && sheetState === 'recording' ? micStream : null
   )
 
   const canStart = useMemo(() => consent && !loading, [consent, loading])
-
-  const stopInitialMic = useCallback(() => {
-    stopMediaStream(micStreamRef.current)
-    micStreamRef.current = null
-    setMicStream(null)
-  }, [])
-
-  const stopImageMic = useCallback(() => {
-    stopMediaStream(imageRecStreamRef.current)
-    imageRecStreamRef.current = null
-    setImageRecStream(null)
-  }, [])
 
   useEffect(() => {
     micStreamRef.current = micStream
   }, [micStream])
 
   useEffect(() => {
-    imageRecStreamRef.current = imageRecStream
-  }, [imageRecStream])
+    enrollmentSessionIdRef.current = enrollmentSessionId
+  }, [enrollmentSessionId])
 
   useEffect(() => {
-    return () => {
-      stopMediaStream(micStreamRef.current)
-      stopMediaStream(imageRecStreamRef.current)
-      stopSpeech()
+    rtcSessionIdRef.current = rtcSessionId
+  }, [rtcSessionId])
+
+  const disconnectRtc = useCallback(() => {
+    stopMediaStream(micStreamRef.current)
+    micStreamRef.current = null
+    setMicStream(null)
+    if (pcRef.current) {
+      pcRef.current.close()
+      pcRef.current = null
     }
+    pcIdRef.current = null
+    setIsRtcReady(false)
   }, [])
 
   useEffect(() => {
+    return () => {
+      disconnectRtc()
+      stopSpeech()
+    }
+  }, [disconnectRtc])
+
+  const negotiate = useCallback(async () => {
+    const pc = pcRef.current
+    const sid = rtcSessionIdRef.current
+    const enrollmentSid = enrollmentSessionIdRef.current
+    const backendBase = getRegistrationBackendBase()
+    if (!pc || !sid) return
+    const offer = await pc.createOffer()
+    await pc.setLocalDescription(offer)
+    const offerRes = await fetch(`${backendBase}/sessions/${sid}/api/offer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sdp: pc.localDescription?.sdp,
+        type: pc.localDescription?.type,
+        pc_id: pcIdRef.current,
+        config: { data_channel_enabled: true },
+        request_data: enrollmentSid
+          ? {
+              enrollment_session_id: enrollmentSid,
+              session_id: enrollmentSid,
+            }
+          : undefined,
+      }),
+    })
+    if (!offerRes.ok) throw new Error(`Offer failed: ${offerRes.status}`)
+    const answer = await offerRes.json()
+    if (answer.pc_id || answer.pcId) {
+      pcIdRef.current = answer.pc_id || answer.pcId
+    }
+    await pc.setRemoteDescription(new RTCSessionDescription(answer))
+  }, [])
+
+  const startEnrollmentRealtime = useCallback(async () => {
+    if (connectingRtcRef.current) return
+    if (pcRef.current && enrollmentSessionIdRef.current && rtcSessionIdRef.current) return
+    connectingRtcRef.current = true
+    setMicError(null)
+    try {
+      const backendBase = getRegistrationBackendBase()
+      const startPayload = {
+        customer_id: VOICE_ENROLL_USER_ID,
+        device_id: 'web',
+        total_steps: VOICE_REGISTRATION_IMAGES.length,
+      }
+      // Support both backend mounting styles:
+      // 1) <base>/start
+      // 2) <base>/enrollment/start
+      const startCandidates = [`${backendBase}/start`, `${backendBase}/enrollment/start`]
+      let startEnrollmentPayload: { session_id?: string; status?: string; [k: string]: unknown } | null = null
+      let startEnrollmentError: string | null = null
+      for (const url of startCandidates) {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(startPayload),
+        })
+        if (res.ok) {
+          const payload = (await res.json().catch(() => ({}))) as {
+            session_id?: string
+            status?: string
+            sessionId?: string
+            iceConfig?: unknown
+          }
+          // Avoid accidentally accepting WebRTC `/start` response.
+          const looksLikeEnrollmentStart =
+            payload.status === 'started' ||
+            (typeof payload.session_id === 'string' && !payload.sessionId && !payload.iceConfig)
+
+          if (looksLikeEnrollmentStart) {
+            startEnrollmentPayload = payload
+            break
+          }
+
+          startEnrollmentError =
+            'Received WebRTC /start response while expecting enrollment session start.'
+          continue
+        }
+        const err = await res.json().catch(() => ({}))
+        const detail = (err as { detail?: string }).detail
+        if (res.status !== 404) {
+          throw new Error(detail || `Enrollment start failed (${res.status})`)
+        }
+        // Keep last 404 detail so user sees whether it is path-missing vs session issue.
+        if (detail) {
+          startEnrollmentError = detail
+        }
+      }
+      if (!startEnrollmentPayload) {
+        const hint =
+          startEnrollmentError ?? 'Enrollment start endpoint not found. Checked /start and /enrollment/start.'
+        throw new Error(hint)
+      }
+      const enrollmentId = startEnrollmentPayload.session_id
+      if (!enrollmentId) {
+        throw new Error('Enrollment start succeeded but no session_id was returned.')
+      }
+      setEnrollmentSessionId(enrollmentId)
+      enrollmentSessionIdRef.current = enrollmentId
+
+      const startRtc = await fetch(`${backendBase}/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      if (!startRtc.ok) throw new Error(`/start failed: ${startRtc.status}`)
+      const rtc = await startRtc.json()
+      const sid: string = rtc.sessionId
+      const iceServers: RTCIceServer[] = rtc.iceConfig?.iceServers?.length
+        ? rtc.iceConfig.iceServers
+        : FALLBACK_ICE_SERVERS
+      setRtcSessionId(sid)
+      rtcSessionIdRef.current = sid
+
+      const pc = new RTCPeerConnection({ iceServers })
+      pcRef.current = pc
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      micStreamRef.current = stream
+      setMicStream(stream)
+      stream.getTracks().forEach((t) => pc.addTrack(t, stream))
+
+      pc.onicecandidate = (ev) => {
+        if (!ev.candidate || !pcIdRef.current || !rtcSessionIdRef.current) return
+        fetch(`${backendBase}/sessions/${rtcSessionIdRef.current}/api/offer`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pc_id: pcIdRef.current,
+            candidates: [
+              {
+                candidate: ev.candidate.candidate,
+                sdpMid: ev.candidate.sdpMid,
+                sdpMLineIndex:
+                  ev.candidate.sdpMLineIndex !== null ? Number(ev.candidate.sdpMLineIndex) : null,
+              },
+            ],
+          }),
+        }).catch(() => {})
+      }
+
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') setIsRtcReady(true)
+        if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) {
+          setIsRtcReady(false)
+        }
+      }
+
+      pc.onnegotiationneeded = () => {
+        void negotiate().catch((e) => setMicError(e instanceof Error ? e.message : 'Negotiation failed'))
+      }
+      await negotiate()
+      setIsRtcReady(true)
+    } catch (e) {
+      disconnectRtc()
+      setMicError(e instanceof Error ? e.message : 'Could not initialize voice enrollment.')
+      throw e
+    } finally {
+      connectingRtcRef.current = false
+    }
+  }, [disconnectRtc, negotiate])
+
+  useEffect(() => {
     if (phase !== 'imageChallenge') return
-    stopImageMic()
     setSheetState('micIdle')
     setCountdown(3)
     setRecordProgress(0)
+    imageFinalizeLockRef.current = false
     countdownToRecordingRef.current = false
-  }, [imageIndex, phase, stopImageMic])
+  }, [imageIndex, phase])
 
   useEffect(() => {
     if (sheetState !== 'countdown' || countdown > 0) return
@@ -90,10 +262,11 @@ export default function VoiceRegistration() {
     countdownToRecordingRef.current = true
     void (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        imageRecStreamRef.current = stream
-        setImageRecStream(stream)
+        if (!pcRef.current || !micStreamRef.current) {
+          await startEnrollmentRealtime()
+        }
         setRecordProgress(0)
+        imageFinalizeLockRef.current = false
         setSheetState('recording')
       } catch {
         setSheetState('micIdle')
@@ -101,7 +274,7 @@ export default function VoiceRegistration() {
         countdownToRecordingRef.current = false
       }
     })()
-  }, [sheetState, countdown])
+  }, [sheetState, countdown, startEnrollmentRealtime])
 
   useEffect(() => {
     if (sheetState !== 'countdown' || countdown <= 0) return
@@ -115,13 +288,9 @@ export default function VoiceRegistration() {
       setRecordProgress((p) => {
         if (p >= 100) return 100
         const n = p + 1
-        if (n >= 100) {
-          window.setTimeout(() => {
-            stopMediaStream(imageRecStreamRef.current)
-            imageRecStreamRef.current = null
-            setImageRecStream(null)
-            setSheetState('review')
-          }, 0)
+        if (n >= 100 && !imageFinalizeLockRef.current) {
+          imageFinalizeLockRef.current = true
+          setSheetState('review')
         }
         return n
       })
@@ -130,20 +299,19 @@ export default function VoiceRegistration() {
   }, [sheetState])
 
   const skipForNow = () => {
-    stopInitialMic()
-    stopImageMic()
+    disconnectRtc()
     stopSpeech()
     navigate('/home')
   }
 
   const goToImageChallenge = () => {
-    stopInitialMic()
     stopSpeech()
     setImageIndex(0)
     setSheetState('micIdle')
     setCountdown(3)
     setRecordProgress(0)
     countdownToRecordingRef.current = false
+    setEnrollError(null)
     setPhase('imageChallenge')
   }
 
@@ -152,19 +320,8 @@ export default function VoiceRegistration() {
     setLoading(true)
     setMicError(null)
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      micStreamRef.current = stream
-      setMicStream(stream)
-      try {
-        const start = await startVoiceRegistration('isha-kulkarni')
-        setRegistrationId(start.registrationId)
-        await submitVoiceConsent(start.registrationId, true)
-      } catch {
-        // Backend optional until wired.
-      }
-      setPhase('initialRecording')
+      setPhase('imageChallenge')
     } catch (e) {
-      stopInitialMic()
       if (e instanceof DOMException) {
         if (e.name === 'NotAllowedError') {
           setMicError('Microphone access was denied. Allow the mic to register your voice.')
@@ -189,51 +346,81 @@ export default function VoiceRegistration() {
 
   const handleTapImageMic = () => {
     stopSpeech()
+    setEnrollError(null)
     countdownToRecordingRef.current = false
     setCountdown(3)
     setSheetState('countdown')
   }
 
   const handleRerecord = () => {
-    stopImageMic()
+    imageFinalizeLockRef.current = false
     setRecordProgress(0)
     countdownToRecordingRef.current = false
     setSheetState('micIdle')
     setCountdown(3)
   }
 
-  const handleImageSubmit = () => {
-    stopImageMic()
+  const handleImageSubmit = async () => {
+    if (!enrollmentSessionIdRef.current) {
+      setEnrollError('Enrollment session is not active. Tap mic again to start.')
+      return
+    }
     stopSpeech()
-    if (imageIndex < VOICE_REGISTRATION_IMAGES.length - 1) {
-      setImageIndex((i) => i + 1)
-    } else {
-      setPhase('success')
+    setSubmitLoading(true)
+    setEnrollError(null)
+    try {
+      const backendBase = getRegistrationBackendBase()
+      const sid = encodeURIComponent(enrollmentSessionIdRef.current)
+      // Support both:
+      // 1) <base>/{session_id}/submit-step
+      // 2) <base>/enrollment/{session_id}/submit-step
+      const submitCandidates = [
+        `${backendBase}/${sid}/submit-step`,
+        `${backendBase}/enrollment/${sid}/submit-step`,
+      ]
+      let res: Response | null = null
+      let submitStepError: string | null = null
+      for (const url of submitCandidates) {
+        const attempt = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ step_index: imageIndex + 1 }),
+        })
+        if (attempt.ok) {
+          res = attempt
+          break
+        }
+        const err = await attempt.json().catch(() => ({}))
+        const detail = (err as { detail?: string }).detail
+        if (attempt.status !== 404) {
+          throw new Error(detail || `Step submit failed (${attempt.status})`)
+        }
+        if (detail) {
+          submitStepError = detail
+        }
+      }
+      if (!res) {
+        throw new Error(
+          submitStepError ??
+            'Submit-step endpoint not found for this backend.'
+        )
+      }
+      const data = await res.json()
+      if (data.status === 'enrolled' || imageIndex >= VOICE_REGISTRATION_IMAGES.length - 1) {
+        setPhase('success')
+      } else {
+        setImageIndex((i) => i + 1)
+      }
+    } catch (e) {
+      setEnrollError(e instanceof Error ? e.message : 'Could not submit this step.')
+    } finally {
+      setSubmitLoading(false)
     }
   }
 
   async function handleStartBanking() {
+    disconnectRtc()
     stopSpeech()
-    if (registrationId) {
-      try {
-        await completeVoiceRegistration(registrationId)
-      } catch {
-        // non-blocking
-      }
-    }
-    navigate('/home')
-  }
-
-  async function finishRegistrationEarly() {
-    stopInitialMic()
-    stopImageMic()
-    if (!registrationId) {
-      navigate('/home')
-      return
-    }
-    try {
-      await completeVoiceRegistration(registrationId)
-    } catch {}
     navigate('/home')
   }
 
@@ -248,7 +435,11 @@ export default function VoiceRegistration() {
       >
         {phase === 'success' ? (
           <div className="flex min-h-0 flex-1 flex-col px-5 pb-6 pt-6">
-            <VoiceRegistrationSuccess onStartBanking={handleStartBanking} />
+            <VoiceRegistrationSuccess
+              onStartBanking={handleStartBanking}
+              isSubmitting={submitLoading}
+              error={enrollError}
+            />
           </div>
         ) : phase === 'imageChallenge' ? (
           <div className="relative flex min-h-0 flex-1 flex-col px-5 pt-4">
@@ -293,8 +484,16 @@ export default function VoiceRegistration() {
               micActive={micActiveImage}
               onTapMic={handleTapImageMic}
               onRerecord={handleRerecord}
-              onSubmit={handleImageSubmit}
+              onSubmit={() => void handleImageSubmit()}
             />
+            {micError ? (
+              <p className="mx-auto mt-2 max-w-[320px] text-center text-xs leading-snug text-red-600">{micError}</p>
+            ) : null}
+            {!isRtcReady && enrollmentSessionId ? (
+              <p className="mx-auto mt-1 max-w-[320px] text-center text-[11px] text-[var(--color-text-muted-2)]">
+                Connecting voice session…
+              </p>
+            ) : null}
           </div>
         ) : (
           <>
@@ -363,9 +562,9 @@ export default function VoiceRegistration() {
                     <div className="h-0.5 w-10 rounded-full bg-black/25" />
                     <p className="text-center text-sm font-semibold text-[var(--color-brand-500)]">Speaking...</p>
                     <p className="max-w-[260px] text-center text-[10px] leading-tight text-[var(--color-text-muted-2)]">
-                      Bars reflect your microphone input.
+                      Live voice session is active for enrollment.
                     </p>
-                    <Waveform active={micActiveInitial} className="origin-center scale-90" />
+                    <Waveform active={false} className="origin-center scale-90" />
                   </div>
                 </div>
               </div>
@@ -412,7 +611,7 @@ export default function VoiceRegistration() {
 
               <button
                 type="button"
-                onClick={phase === 'initialRecording' ? finishRegistrationEarly : skipForNow}
+                onClick={skipForNow}
                 className="w-full pb-0.5 text-center text-base font-medium text-[var(--color-text-muted-1)]"
               >
                 Skip for Now

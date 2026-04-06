@@ -2,9 +2,15 @@ import { Button } from '@/components/ui/button'
 
 interface VoiceRegistrationSuccessProps {
   onStartBanking: () => void
+  isSubmitting?: boolean
+  error?: string | null
 }
 
-export function VoiceRegistrationSuccess({ onStartBanking }: VoiceRegistrationSuccessProps) {
+export function VoiceRegistrationSuccess({
+  onStartBanking,
+  isSubmitting = false,
+  error = null,
+}: VoiceRegistrationSuccessProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center px-1 pt-2">
       <div className="grid size-24 place-items-center rounded-full bg-[var(--color-success-from)] text-white shadow-[var(--shadow-success)]">
@@ -45,14 +51,21 @@ export function VoiceRegistrationSuccess({ onStartBanking }: VoiceRegistrationSu
         </ul>
       </div>
 
+      {error ? (
+        <p className="mt-6 max-w-[320px] text-center text-sm text-red-600" role="alert">
+          {error}
+        </p>
+      ) : null}
+
       <div className="mt-auto w-full max-w-[320px] pt-8">
         <Button
           type="button"
           variant="primary"
-          className="h-14 w-full rounded-full bg-[var(--color-brand-900)] text-base font-semibold text-white hover:opacity-95"
+          disabled={isSubmitting}
+          className="h-14 w-full rounded-full bg-[var(--color-brand-900)] text-base font-semibold text-white hover:opacity-95 disabled:opacity-60"
           onClick={onStartBanking}
         >
-          Start Banking
+          {isSubmitting ? 'Saving voice profile…' : 'Start Banking'}
         </Button>
       </div>
     </div>
