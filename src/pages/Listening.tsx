@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useNavigationType } from 'react-router-dom'
 import Home from './Home'
 import { ListeningSheet } from '@/components/home/ListeningSheet'
 import { useSmallWebRTC } from '@/hooks/useSmallWebRTC'
@@ -7,12 +7,17 @@ import { BotAudio } from '@/components/BotAudio'
 
 export default function Listening() {
   const navigate = useNavigate()
+  const navigationType = useNavigationType()
   const { state, isMuted, messages, connect, disconnect, toggleMute, stopAudioTracks, client } = useSmallWebRTC()
 
-  // Auto-connect on mount
+  // Auto-connect only on intentional navigation (not browser back/forward)
   useEffect(() => {
-    connect()
-  }, [connect])
+    if (navigationType !== 'POP') {
+      connect()
+    } else {
+      navigate('/home', { replace: true })
+    }
+  }, [connect, navigationType, navigate])
 
   // Navigate back when session ends or errors
   useEffect(() => {
