@@ -371,39 +371,15 @@ export default function VoiceRegistration() {
     try {
       const backendBase = getRegistrationBackendBase()
       const sid = encodeURIComponent(enrollmentSessionIdRef.current)
-      // Support both:
-      // 1) <base>/{session_id}/submit-step
-      // 2) <base>/enrollment/{session_id}/submit-step
-      const submitCandidates = [
-        `${backendBase}/${sid}/submit-step`,
-        `${backendBase}/enrollment/${sid}/submit-step`,
-      ]
-      let res: Response | null = null
-      let submitStepError: string | null = null
-      for (const url of submitCandidates) {
-        const attempt = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ step_index: imageIndex + 1 }),
-        })
-        if (attempt.ok) {
-          res = attempt
-          break
-        }
-        const err = await attempt.json().catch(() => ({}))
+      const res = await fetch(`${backendBase}/enrollment/${sid}/submit-step`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step_index: imageIndex + 1 }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
         const detail = (err as { detail?: string }).detail
-        if (attempt.status !== 404) {
-          throw new Error(detail || `Step submit failed (${attempt.status})`)
-        }
-        if (detail) {
-          submitStepError = detail
-        }
-      }
-      if (!res) {
-        throw new Error(
-          submitStepError ??
-            'Submit-step endpoint not found for this backend.'
-        )
+        throw new Error(detail || `Step submit failed (${res.status})`)
       }
       const data = await res.json()
       if (data.status === 'enrolled' || imageIndex >= VOICE_REGISTRATION_IMAGES.length - 1) {

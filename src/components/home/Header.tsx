@@ -9,7 +9,7 @@ interface HeaderProps {
   onToggleMute?: () => void
 }
 
-export function Header({ name = 'Isha Kulkarni', isMuted, onToggleMute }: HeaderProps) {
+export function Header({ name = 'Test User', isMuted, onToggleMute }: HeaderProps) {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
