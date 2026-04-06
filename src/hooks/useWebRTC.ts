@@ -205,9 +205,7 @@ export function useWebRTC() {
               // pushMsg('assistant', data.text) // we might not want llm_text if TTS sends transcription
               // setState('speaking')
             }
-          } catch {
-            // Ignore non-standard DataChannel payloads / JSON parse failures
-          }
+          } catch {}
         }
       }
 
