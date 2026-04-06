@@ -54,7 +54,7 @@ export default function OtpVerification() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     // TODO: Verify OTP API call here
-    navigate('/language')
+      navigate('/home')
   }
 
   const handleResend = () => {
@@ -65,7 +65,7 @@ export default function OtpVerification() {
 
   return (
     <MobileContainer>
-      <div className="relative flex h-full min-h-screen flex-col px-6 pb-10 pt-6 text-white md:min-h-[852px]">
+      <div className="relative flex h-full min-h-screen flex-col px-6 pb-10 pt-6 text-white md:min-h-[var(--device-height)]">
         {/* Back Button */}
         <button
           type="button"
