@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { VolumeIcon, VolumeMutedIcon } from '@/components/ui/icons'
 import { Button } from '@/components/ui/button'
-import type { WebRTCState, ChatMessage } from '@/hooks/useWebRTC'
+import type { WebRTCState, ChatMessage } from '@/hooks/useSmallWebRTC'
 
 // ─── Waveform ─────────────────────────────────────────────────────────────────
 

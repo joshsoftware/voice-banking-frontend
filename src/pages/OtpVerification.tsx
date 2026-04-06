@@ -7,6 +7,7 @@ import { ArrowLeftIcon } from '@/components/ui/icons'
 
 export default function OtpVerification() {
   const [otp, setOtp] = useState(['', '', '', ''])
+  const [error, setError] = useState('')
   const [timer, setTimer] = useState(27)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   const navigate = useNavigate()
@@ -27,6 +28,7 @@ export default function OtpVerification() {
     const newOtp = [...otp]
     newOtp[index] = cleaned
     setOtp(newOtp)
+    if (error) setError('')
 
     // Auto-focus next input
     if (cleaned && index < 3) {
@@ -53,8 +55,12 @@ export default function OtpVerification() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
+    if (otp.some((d) => d === '')) {
+      setError('Please enter all 4 digits of your OTP')
+      return
+    }
+    setError('')
     // TODO: Verify OTP API call here
-    const otpValue = otp.join('') || '0000'
     navigate('/home')
   }
 
@@ -79,7 +85,7 @@ export default function OtpVerification() {
 
         {/* Logo Section */}
         <div className="mx-auto mt-8">
-          <Logo size={180} className="md:h-[210px] md:w-[210px]" />
+          <Logo />
         </div>
 
         {/* Title Section */}
@@ -113,6 +119,7 @@ export default function OtpVerification() {
                 />
               ))}
             </div>
+            {error && <p className="text-center text-sm text-red-300">{error}</p>}
             <div className="mt-2 text-center text-sm leading-5 text-white/90">
               {timer > 0 ? (
                 <>
