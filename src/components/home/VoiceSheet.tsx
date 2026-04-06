@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { MicIcon, VolumeIcon, VolumeMutedIcon } from '@/components/ui/icons'
+import { useTranslation } from '@/i18n/LanguageHooks'
 
 interface VoiceSheetProps {
   onStart?: () => void
@@ -7,6 +8,7 @@ interface VoiceSheetProps {
 
 export function VoiceSheet({ onStart }: VoiceSheetProps) {
   const [muted, setMuted] = useState(false)
+  const { t } = useTranslation()
 
   return (
     <div className="absolute bottom-0 left-0 w-full">
@@ -31,15 +33,15 @@ export function VoiceSheet({ onStart }: VoiceSheetProps) {
 
               {/* Instructions */}
               <div className="text-center text-lg font-semibold leading-7 text-[var(--color-brand-600)]">
-                <div>Say &ldquo;Hey, Fin&rdquo;</div>
-                <div>to start conversation</div>
+                <div>{t('voiceSheetSayHeyFin')}</div>
+                <div>{t('voiceSheetToStartConversation')}</div>
               </div>
             </div>
 
             {/* Mute button */}
             <div className="flex w-full items-center justify-end gap-2 pb-2">
               <div className="text-center text-[10px] font-medium leading-normal text-[var(--color-brand-600)]/50">
-                Tap to {muted ? 'unmute' : 'mute'}
+                {muted ? t('tapToUnmute') : t('tapToMute')}
               </div>
               <button
                 type="button"

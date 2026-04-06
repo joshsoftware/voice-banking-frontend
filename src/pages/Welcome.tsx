@@ -1,14 +1,16 @@
-import { useState, FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MobileContainer } from '@/components/ui/mobile-container'
 import { Logo } from '@/components/ui/logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useTranslation } from '@/i18n/LanguageHooks'
 
 export default function Welcome() {
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -38,7 +40,7 @@ export default function Welcome() {
         {/* Title Section */}
         <div className="mt-6 flex flex-col items-center gap-2 text-center text-white">
           <h1 className="text-4xl font-bold leading-tight md:text-[36px]">VoiceBank</h1>
-          <p className="text-lg leading-7 text-white/90 md:text-[18px]">Bank with Your Voice</p>
+          <p className="text-lg leading-7 text-white/90 md:text-[18px]">{t('bankWithYourVoice')}</p>
         </div>
 
         {/* Form Section */}
@@ -48,7 +50,7 @@ export default function Welcome() {
         >
           <div className="space-y-3">
             <label htmlFor="phone" className="block text-sm font-medium leading-5">
-              Mobile Number
+              {t('mobileNumber')}
             </label>
             <div className="flex gap-3">
               <div className="flex h-[52px] w-20 items-center justify-center rounded-[14px] border border-white/30 bg-white/20 text-sm font-medium">
@@ -71,13 +73,13 @@ export default function Welcome() {
           {/* Bottom Section */}
           <div className="mt-6 space-y-4">
             <Button type="submit" variant="primary" className="w-full">
-              Send OTP
+              {t('sendOtp')}
             </Button>
 
             <p className="px-2 text-center text-sm leading-5 text-white/90">
-              By continuing, you agree to our{' '}
+              {t('termsPrefix')}{' '}
               <span className="font-semibold underline decoration-solid [text-decoration-skip-ink:none]">
-                Terms &amp; Conditions
+                {t('termsLink')}
               </span>
             </p>
           </div>

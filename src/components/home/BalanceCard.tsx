@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { EyeIcon } from '@/components/ui/icons'
+import { useTranslation } from '@/i18n/LanguageHooks'
 
 export function BalanceCard() {
   const [showBalance, setShowBalance] = useState(true)
+  const { t } = useTranslation()
 
   return (
     <div className="relative mx-auto mt-10 w-full max-w-[345px] overflow-hidden rounded-[32px] bg-[var(--color-surface-card)] shadow-[var(--shadow-card)] md:mt-12">
       {/* Card content */}
       <div className="relative p-6">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-medium leading-5 text-[var(--color-text-muted-1)]">Available Balance</div>
+          <div className="text-sm font-medium leading-5 text-[var(--color-text-muted-1)]">{t('availableBalance')}</div>
           <button
             type="button"
             aria-label={showBalance ? 'Hide balance' : 'Show balance'}
@@ -24,7 +26,7 @@ export function BalanceCard() {
           <div className="text-[40px] font-bold leading-tight tracking-tight text-[var(--color-brand-900)]">
             {showBalance ? '₹45,250.75' : '₹••,•••.••'}
           </div>
-          <div className="text-sm font-medium leading-5 text-[var(--color-text-muted-2)]">Savings Account</div>
+          <div className="text-sm font-medium leading-5 text-[var(--color-text-muted-2)]">{t('savingsAccount')}</div>
         </div>
 
         <div className="mt-10 flex items-center justify-between">
@@ -33,7 +35,7 @@ export function BalanceCard() {
             type="button"
             className="rounded-xl px-4 py-2 text-sm font-semibold leading-5 text-[var(--color-brand-300)] transition-colors hover:bg-gray-50"
           >
-            View Details
+            {t('viewDetails')}
           </button>
         </div>
       </div>

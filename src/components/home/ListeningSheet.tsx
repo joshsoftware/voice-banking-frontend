@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { VolumeIcon, VolumeMutedIcon } from '@/components/ui/icons'
 import { Button } from '@/components/ui/button'
 import type { WebRTCState, ChatMessage } from '@/hooks/useSmallWebRTC'
+import { useTranslation } from '@/i18n/LanguageHooks'
 
 // ─── Waveform ─────────────────────────────────────────────────────────────────
 
@@ -30,17 +31,6 @@ function Waveform({ active }: { active: boolean }) {
 
 
 // ─── Status chip ──────────────────────────────────────────────────────────────
-
-const STATUS_LABELS: Record<WebRTCState, string> = {
-  idle: '',
-  connecting: 'Connecting…',
-  connected: 'Ready',
-  listening: 'Listening…',
-  processing: 'Processing…',
-  speaking: 'Speaking…',
-  error: 'Connection error',
-  disconnected: 'Disconnected',
-}
 
 const STATUS_COLORS: Record<WebRTCState, string> = {
   idle: 'text-[var(--color-brand-500)]',
@@ -86,6 +76,7 @@ interface ListeningSheetProps {
   messages: ChatMessage[]
   onToggleMute: () => void
   onStop: () => void
+  showMuteControl?: boolean
 }
 
 export function ListeningSheet({
@@ -94,10 +85,23 @@ export function ListeningSheet({
   messages,
   onToggleMute,
   onStop,
+  showMuteControl = true,
 }: ListeningSheetProps) {
   const chatBottomRef = useRef<HTMLDivElement>(null)
   const isActive = state === 'listening' || state === 'speaking'
   const isError = state === 'error'
+  const { t } = useTranslation()
+
+  const statusLabels: Record<WebRTCState, string> = {
+    idle: '',
+    connecting: t('statusConnecting'),
+    connected: t('statusReady'),
+    listening: t('statusListening'),
+    processing: t('statusProcessing'),
+    speaking: t('statusSpeaking'),
+    error: t('statusConnectionError'),
+    disconnected: t('statusDisconnected'),
+  }
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -119,7 +123,7 @@ export function ListeningSheet({
             <div
               className={`text-sm font-medium leading-5 transition-colors duration-300 ${STATUS_COLORS[state]}`}
             >
-              {STATUS_LABELS[state]}
+              {statusLabels[state]}
             </div>
 
             {/* Waveform */}
@@ -144,27 +148,28 @@ export function ListeningSheet({
                 isError ? 'bg-red-500 hover:bg-red-600' : ''
               }`}
             >
-              {isError ? 'Dismiss' : 'Stop'}
+              {isError ? t('dismiss') : t('stop')}
             </Button>
 
-            {/* Mute button */}
-            <div className="flex w-full items-center justify-end gap-2 pb-1">
-              <div className="text-center text-[10px] font-medium leading-normal text-[var(--color-brand-600)]/50">
-                Tap to {isMuted ? 'unmute' : 'mute'}
+            {showMuteControl && (
+              <div className="flex w-full items-center justify-end gap-2 pb-1">
+                <div className="text-center text-[10px] font-medium leading-normal text-[var(--color-brand-600)]/50">
+                  {isMuted ? t('tapToUnmute') : t('tapToMute')}
+                </div>
+                <button
+                  type="button"
+                  aria-label={isMuted ? 'Unmute' : 'Mute'}
+                  onClick={onToggleMute}
+                  className="grid size-10 place-items-center rounded-full bg-[var(--color-surface-app)] shadow-[var(--shadow-mute)] transition-colors hover:bg-gray-200"
+                >
+                  {isMuted ? (
+                    <VolumeMutedIcon className="text-[var(--color-brand-500)]" />
+                  ) : (
+                    <VolumeIcon className="text-[var(--color-brand-500)]" />
+                  )}
+                </button>
               </div>
-              <button
-                type="button"
-                aria-label={isMuted ? 'Unmute' : 'Mute'}
-                onClick={onToggleMute}
-                className="grid size-10 place-items-center rounded-full bg-[var(--color-surface-app)] shadow-[var(--shadow-mute)] transition-colors hover:bg-gray-200"
-              >
-                {isMuted ? (
-                  <VolumeMutedIcon className="text-[var(--color-brand-500)]" />
-                ) : (
-                  <VolumeIcon className="text-[var(--color-brand-500)]" />
-                )}
-              </button>
-            </div>
+            )}
           </div>
         </div>
       </div>
