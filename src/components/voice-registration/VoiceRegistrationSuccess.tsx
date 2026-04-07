@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { useTranslation } from '@/i18n/LanguageHooks'
 
 interface VoiceRegistrationSuccessProps {
   onStartBanking: () => void
@@ -11,6 +12,8 @@ export function VoiceRegistrationSuccess({
   isSubmitting = false,
   error = null,
 }: VoiceRegistrationSuccessProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center px-1 pt-2">
       <div className="grid size-24 place-items-center rounded-full bg-[var(--color-success-from)] text-white shadow-[var(--shadow-success)]">
@@ -25,7 +28,7 @@ export function VoiceRegistrationSuccess({
         </svg>
       </div>
       <h2 className="mt-6 text-center text-xl font-bold leading-snug text-[var(--color-brand-900)] text-balance">
-        Your Secure Voice Banking Starts Now!
+        {t('voiceRegistrationSuccessTitle')}
       </h2>
 
       <div className="mx-auto mt-6 w-full max-w-[320px] rounded-2xl bg-white px-4 py-5 shadow-[var(--shadow-card)]">
@@ -33,19 +36,22 @@ export function VoiceRegistrationSuccess({
           <li className="flex gap-3">
             <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[rgba(32,114,178,0.1)] text-sm">🛡</span>
             <span className="text-sm leading-snug">
-              <span className="font-semibold">Enhanced security</span> for all your transactions
+              <span className="font-semibold">{t('voiceRegistrationSuccessSecurityTitle')}</span>{' '}
+              {t('voiceRegistrationSuccessSecurityDesc')}
             </span>
           </li>
           <li className="flex gap-3">
             <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[rgba(32,114,178,0.1)] text-sm">⚡</span>
             <span className="text-sm leading-snug">
-              <span className="font-semibold">Quick access</span> to banking features with voice commands
+              <span className="font-semibold">{t('voiceRegistrationSuccessQuickTitle')}</span>{' '}
+              {t('voiceRegistrationSuccessQuickDesc')}
             </span>
           </li>
           <li className="flex gap-3">
             <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[rgba(32,114,178,0.1)] text-sm">🎙</span>
             <span className="text-sm leading-snug">
-              <span className="font-semibold">Hands-free banking</span> anytime, anywhere
+              <span className="font-semibold">{t('voiceRegistrationSuccessHandsFreeTitle')}</span>{' '}
+              {t('voiceRegistrationSuccessHandsFreeDesc')}
             </span>
           </li>
         </ul>
@@ -65,7 +71,7 @@ export function VoiceRegistrationSuccess({
           className="h-14 w-full rounded-full bg-[var(--color-brand-900)] text-base font-semibold text-white hover:opacity-95 disabled:opacity-60"
           onClick={onStartBanking}
         >
-          {isSubmitting ? 'Saving voice profile…' : 'Start Banking'}
+          {isSubmitting ? t('voiceRegistrationSavingProfile') : t('voiceRegistrationStartBanking')}
         </Button>
       </div>
     </div>

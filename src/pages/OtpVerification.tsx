@@ -56,12 +56,12 @@ export default function OtpVerification() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (otp.some((d) => d === '')) {
-      setError('Please enter all 4 digits of your OTP')
+      setError(t('otpEnterAllDigits'))
       return
     }
     setError('')
     // TODO: Verify OTP API call here
-      navigate('/home')
+    navigate('/home')
   }
 
   const handleResend = () => {
@@ -117,7 +117,7 @@ export default function OtpVerification() {
                   onChange={(e) => handleChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
                   className="h-14 w-14 rounded-[14px] border border-white/30 bg-white/20 text-center text-2xl font-semibold tracking-[0.2em] text-white outline-none transition-colors focus:border-white/50 md:h-16 md:w-16"
-                  aria-label={`OTP digit ${index + 1}`}
+                  aria-label={t('otpDigitAria', { index: index + 1 })}
                 />
               ))}
             </div>

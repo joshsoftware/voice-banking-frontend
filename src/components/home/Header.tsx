@@ -37,7 +37,7 @@ export function Header({ name = 'Test User', isMuted, onToggleMute }: HeaderProp
         {showMuteButton ? (
           <button
             type="button"
-            aria-label={isMuted ? 'Unmute' : 'Mute'}
+            aria-label={isMuted ? t('ariaUnmute') : t('ariaMute')}
             onClick={onToggleMute}
             className="grid size-10 place-items-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
           >
@@ -50,7 +50,7 @@ export function Header({ name = 'Test User', isMuted, onToggleMute }: HeaderProp
         ) : (
           <button
             type="button"
-            aria-label="Open language settings"
+            aria-label={t('ariaOpenLanguageSettings')}
             className="grid size-10 place-items-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
             onClick={() => navigate('/language')}
           >
@@ -61,7 +61,7 @@ export function Header({ name = 'Test User', isMuted, onToggleMute }: HeaderProp
         <div className="relative" ref={menuRef}>
           <button
             type="button"
-            aria-label="Open user actions"
+            aria-label={t('ariaOpenUserActions')}
             onClick={() => setMenuOpen((v) => !v)}
             className="grid size-10 place-items-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
           >
@@ -78,7 +78,7 @@ export function Header({ name = 'Test User', isMuted, onToggleMute }: HeaderProp
                   navigate('/voice-registration')
                 }}
               >
-                Register your voice
+                {t('menuRegisterVoice')}
               </button>
               <button
                 type="button"
@@ -88,7 +88,7 @@ export function Header({ name = 'Test User', isMuted, onToggleMute }: HeaderProp
                   navigate('/profile')
                 }}
               >
-                View profile
+                {t('menuViewProfile')}
               </button>
               <button
                 type="button"
@@ -98,7 +98,7 @@ export function Header({ name = 'Test User', isMuted, onToggleMute }: HeaderProp
                   navigate('/welcome')
                 }}
               >
-                Log out
+                {t('menuLogOut')}
               </button>
             </div>
           )}

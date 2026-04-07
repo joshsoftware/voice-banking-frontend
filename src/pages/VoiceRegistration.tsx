@@ -10,6 +10,7 @@ import { useMicLevel } from '@/hooks/useMicLevel'
 import { API_BASE, VOICEPRINT_API_BASE, VOICE_ENROLL_USER_ID } from '@/lib/constants'
 import { stopSpeech, speakText } from '@/lib/speech'
 import { VOICE_REGISTRATION_IMAGES } from '@/data/voiceRegistrationImages'
+import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
 
 type Phase = 'consent' | 'imageChallenge' | 'success'
 const FALLBACK_ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -24,6 +25,8 @@ function stopMediaStream(stream: MediaStream | null) {
 
 export default function VoiceRegistration() {
   const navigate = useNavigate()
+  const { language } = useLanguage()
+  const { t } = useTranslation()
   const [phase, setPhase] = useState<Phase>('consent')
   const [consent, setConsent] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -341,7 +344,8 @@ export default function VoiceRegistration() {
   const playImageDescription = () => {
     const item = VOICE_REGISTRATION_IMAGES[imageIndex]
     if (!item) return
-    speakText(item.spokenDescription)
+    const localizedDescription = item.spokenDescriptions[language] || item.spokenDescriptions.en
+    speakText(localizedDescription, language)
   }
 
   const handleTapImageMic = () => {
@@ -421,14 +425,17 @@ export default function VoiceRegistration() {
           <div className="relative flex min-h-0 flex-1 flex-col px-5 pt-4">
             <div className="shrink-0 text-center">
               <h1 className="text-xl font-bold leading-snug text-[var(--color-brand-900)]">
-                Set up your voice by{' '}
+                {t('voiceRegistrationSetupPrefix')}{' '}
               </h1>
               <h1 className="text-xl font-bold leading-snug text-[var(--color-brand-900)]">
-                <span className="text-[var(--color-brand-500)]">describing the image.</span>
+                <span className="text-[var(--color-brand-500)]">{t('voiceRegistrationSetupHighlight')}</span>
               </h1>
-              <p className="mt-2 text-sm text-[var(--color-text-muted-2)]">Takes under 30 seconds.</p>
+              <p className="mt-2 text-sm text-[var(--color-text-muted-2)]">{t('voiceRegistrationTakesUnder30s')}</p>
               <p className="mt-1 text-xs text-[var(--color-text-muted-3)]">
-                Image {imageIndex + 1} of {VOICE_REGISTRATION_IMAGES.length}
+                {t('voiceRegistrationImageXOfY', {
+                  current: imageIndex + 1,
+                  total: VOICE_REGISTRATION_IMAGES.length,
+                })}
               </p>
             </div>
 
@@ -444,7 +451,7 @@ export default function VoiceRegistration() {
                 ) : null}
                 <button
                   type="button"
-                  aria-label="Play image description"
+                  aria-label={t('voiceRegistrationPlayImageDescription')}
                   onClick={playImageDescription}
                   className="absolute right-3 top-3 grid size-10 place-items-center rounded-full bg-white text-[var(--color-brand-500)] shadow-[var(--shadow-mute)] transition-transform active:scale-95"
                 >
@@ -467,7 +474,7 @@ export default function VoiceRegistration() {
             ) : null}
             {!isRtcReady && enrollmentSessionId ? (
               <p className="mx-auto mt-1 max-w-[320px] text-center text-[11px] text-[var(--color-text-muted-2)]">
-                Connecting voice session…
+                {t('voiceRegistrationConnectingSession')}
               </p>
             ) : null}
           </div>
@@ -478,10 +485,10 @@ export default function VoiceRegistration() {
                 <MicIcon className="h-10 w-10" />
               </div>
               <h1 className="mt-3 text-center text-2xl font-bold leading-snug tracking-tight text-[var(--color-brand-900)] text-balance">
-                Enable Voice Banking
+                {t('voiceRegistrationEnableTitle')}
               </h1>
               <p className="mt-1.5 max-w-[340px] text-center text-sm font-medium leading-snug text-[var(--color-text-muted-1)] text-balance">
-                Secure your account with voice biometrics
+                {t('voiceRegistrationEnableSubtitle')}
               </p>
             </div>
 
@@ -495,10 +502,10 @@ export default function VoiceRegistration() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold leading-snug text-[var(--color-brand-900)]">
-                          Enhanced Security
+                          {t('voiceRegistrationBenefitSecurityTitle')}
                         </div>
                         <p className="mt-0.5 text-xs leading-[1.35] text-[var(--color-text-muted-1)]">
-                          Your unique voice pattern adds an extra layer of protection
+                          {t('voiceRegistrationBenefitSecurityDesc')}
                         </p>
                       </div>
                     </div>
@@ -508,10 +515,10 @@ export default function VoiceRegistration() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold leading-snug text-[var(--color-brand-900)]">
-                          Quick Commands
+                          {t('voiceRegistrationBenefitQuickTitle')}
                         </div>
                         <p className="mt-0.5 text-xs leading-[1.35] text-[var(--color-text-muted-1)]">
-                          Perform banking tasks instantly with voice commands
+                          {t('voiceRegistrationBenefitQuickDesc')}
                         </p>
                       </div>
                     </div>
@@ -521,10 +528,10 @@ export default function VoiceRegistration() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold leading-snug text-[var(--color-brand-900)]">
-                          3 Simple Steps
+                          {t('voiceRegistrationBenefitStepsTitle')}
                         </div>
                         <p className="mt-0.5 text-xs leading-[1.35] text-[var(--color-text-muted-1)]">
-                          Record your voice 3 times to create your unique profile
+                          {t('voiceRegistrationBenefitStepsDesc')}
                         </p>
                       </div>
                     </div>
@@ -536,9 +543,9 @@ export default function VoiceRegistration() {
                 <div className="flex min-h-0 flex-1 flex-col rounded-2xl bg-white px-4 py-5 shadow-[var(--shadow-card)]">
                   <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4">
                     <div className="h-0.5 w-10 rounded-full bg-black/25" />
-                    <p className="text-center text-sm font-semibold text-[var(--color-brand-500)]">Speaking...</p>
+                    <p className="text-center text-sm font-semibold text-[var(--color-brand-500)]">{t('voiceRegistrationSpeaking')}</p>
                     <p className="max-w-[260px] text-center text-[10px] leading-tight text-[var(--color-text-muted-2)]">
-                      Live voice session is active for enrollment.
+                      {t('voiceRegistrationSpeakingHint')}
                     </p>
                     <Waveform active={false} className="origin-center scale-90" />
                   </div>
@@ -555,8 +562,10 @@ export default function VoiceRegistration() {
                   className="mt-0.5 size-4 shrink-0 rounded border-[#9bb0c7]"
                 />
                 <span className="text-pretty">
-                  I consent to <strong>voice data collection</strong> for <strong>authentication</strong>. Recordings will be{' '}
-                  <strong>securely stored</strong> for verification only.
+                  {t('voiceRegistrationConsentPrefix')} <strong>{t('voiceRegistrationConsentVoiceData')}</strong>{' '}
+                  {t('voiceRegistrationConsentFor')} <strong>{t('voiceRegistrationConsentAuthentication')}</strong>.{' '}
+                  {t('voiceRegistrationConsentRecordings')} <strong>{t('voiceRegistrationConsentSecurelyStored')}</strong>{' '}
+                  {t('voiceRegistrationConsentVerificationOnly')}
                 </span>
               </label>
             ) : null}
@@ -569,7 +578,7 @@ export default function VoiceRegistration() {
                   disabled={!canStart}
                   className="h-14 w-full rounded-full text-base font-semibold disabled:bg-[#c8d4e2] disabled:text-white"
                 >
-                  {loading ? 'Starting...' : 'Start Registration'}
+                  {loading ? t('voiceRegistrationStarting') : t('voiceRegistrationStartCta')}
                 </Button>
               ) : (
                 <Button
@@ -578,7 +587,7 @@ export default function VoiceRegistration() {
                   variant="primary"
                   className="h-14 w-full rounded-full text-base font-semibold"
                 >
-                  Continue — describe images
+                  {t('voiceRegistrationContinueDescribe')}
                 </Button>
               )}
               {phase === 'consent' && micError ? (
@@ -590,7 +599,7 @@ export default function VoiceRegistration() {
                 onClick={skipForNow}
                 className="w-full pb-0.5 text-center text-base font-medium text-[var(--color-text-muted-1)]"
               >
-                Skip for Now
+                {t('voiceRegistrationSkipForNow')}
               </button>
             </div>
           </>

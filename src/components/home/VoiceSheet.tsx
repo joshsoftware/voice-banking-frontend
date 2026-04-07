@@ -23,7 +23,7 @@ export function VoiceSheet({ onStart }: VoiceSheetProps) {
               <div className="w-52 rounded-[52px] bg-[var(--color-surface-card)] px-3 py-2 shadow-[var(--shadow-voice-btn)]">
                 <button
                   type="button"
-                  aria-label="Start voice conversation"
+                  aria-label={t('ariaStartVoiceConversation')}
                   onClick={onStart}
                   className="flex h-16 w-full items-center justify-center rounded-full [background:var(--gradient-mic)] shadow-[var(--shadow-mic)] transition-transform hover:scale-105 active:scale-95"
                 >
@@ -45,7 +45,7 @@ export function VoiceSheet({ onStart }: VoiceSheetProps) {
               </div>
               <button
                 type="button"
-                aria-label={muted ? 'Unmute' : 'Mute'}
+                aria-label={muted ? t('ariaUnmute') : t('ariaMute')}
                 onClick={() => setMuted(!muted)}
                 className="grid size-10 place-items-center rounded-full bg-[var(--color-surface-app)] shadow-[var(--shadow-mute)] transition-colors hover:bg-gray-200"
               >

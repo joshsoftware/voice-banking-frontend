@@ -1,29 +1,58 @@
+import type { LanguageId } from '@/i18n/languages'
+
 /** Voice enrollment image prompts. `src` is served from `/public`; swap for API URLs when backend is ready. */
 export interface VoiceRegistrationImageItem {
   id: string
   /** Public URL path (Vite: files in `public/`). */
   src: string
   /** Spoken when the user taps the speaker icon (browser TTS). */
-  spokenDescription: string
+  spokenDescriptions: Record<LanguageId, string>
 }
 
 export const VOICE_REGISTRATION_IMAGES: VoiceRegistrationImageItem[] = [
   {
     id: 'children-painting',
     src: '/voice-registration/children-painting.png',
-    spokenDescription:
-      'Five children sit on a carpet near a large window, happily painting colorful pictures together inside a bright living room.',
+    spokenDescriptions: {
+      en: 'Five children sit on a carpet near a large window, happily painting colorful pictures together inside a bright living room.',
+      hi: 'पांच बच्चे एक बड़े खिड़की के पास कालीन पर बैठकर एक उजले लिविंग रूम में रंग-बिरंगी तस्वीरें खुशी से बना रहे हैं।',
+      ta: 'ஐந்து குழந்தைகள் பெரிய ஜன்னலின் அருகில் கம்பளத்தின் மேல் அமர்ந்து, பிரகாசமான ஹாலில் வண்ணமயமான படங்களை மகிழ்ச்சியாக வரைகின்றனர்.',
+      kn: 'ಐದು ಮಕ್ಕಳು ದೊಡ್ಡ ಕಿಟಕಿಯ ಬಳಿಯಲ್ಲಿ ಹಾಸಿನ ಮೇಲೆ ಕುಳಿತು, ಬೆಳಕಿನಿಂದ ತುಂಬಿದ ಹಾಲ್‌ನಲ್ಲಿ ಬಣ್ಣದ ಚಿತ್ರಗಳನ್ನು ಸಂತೋಷವಾಗಿ ಬಿಡಿಸುತ್ತಿದ್ದಾರೆ.',
+      te: 'ఐదుగురు పిల్లలు పెద్ద కిటికీ పక్కన కార్పెట్‌పై కూర్చొని, వెలుగున్న గదిలో రంగురంగుల చిత్రాలు ఆనందంగా వేస్తున్నారు.',
+      ml: 'അഞ്ച് കുട്ടികൾ വലിയ ജനലിന്റെ സമീപം കാർപ്പറ്റിൽ ഇരുന്ന്, വെളിച്ചമുള്ള ലിവിംഗ് റൂമിൽ നിറമുള്ള ചിത്രങ്ങൾ സന്തോഷത്തോടെ വരയ്ക്കുന്നു.',
+      bn: 'পাঁচটি শিশু বড় জানালার পাশে কার্পেটে বসে উজ্জ্বল ঘরে আনন্দের সাথে রঙিন ছবি আঁকছে।',
+      mr: 'पाच मुले मोठ्या खिडकीजवळ गालिच्यावर बसून उजळ हॉलमध्ये आनंदाने रंगीत चित्रे काढत आहेत.',
+      gu: 'પાંચ બાળકો મોટી બારી પાસે ગાલિચા પર બેસીને પ્રકાશિત હોલમાં આનંદથી રંગબેરંગી ચિત્રો દોરી રહ્યા છે.',
+    },
   },
   {
     id: 'children-dogs-frisbee',
     src: '/voice-registration/children-dogs-frisbee.png',
-    spokenDescription:
-      'Four children play joyfully with two dogs in a lush green garden, tossing a frisbee under the bright afternoon sun.',
+    spokenDescriptions: {
+      en: 'Four children play joyfully with two dogs in a lush green garden, tossing a frisbee under the bright afternoon sun.',
+      hi: 'चार बच्चे हरे-भरे बगीचे में दो कुत्तों के साथ तेज दोपहर की धूप में फ्रिस्बी फेंकते हुए खुशी से खेल रहे हैं।',
+      ta: 'நான்கு குழந்தைகள் செழிப்பான பச்சை தோட்டத்தில் இரண்டு நாய்களுடன் பிரகாசமான மதிய சூரியனில் ஃபிரிஸ்பி வீசி மகிழ்ச்சியாக விளையாடுகின்றனர்.',
+      kn: 'ನಾಲ್ಕು ಮಕ್ಕಳು ಹಸಿರಿನಿಂದ ತುಂಬಿದ ತೋಟದಲ್ಲಿ ಎರಡು ನಾಯಿಗಳೊಂದಿಗೆ ಪ್ರಕಾಶಮಾನ ಮಧ್ಯಾಹ್ನ ಸೂರ್ಯನಡಿ ಫ್ರಿಸ್ಬಿ ಎಸೆದು ಸಂತೋಷದಿಂದ ಆಟವಾಡುತ್ತಿದ್ದಾರೆ.',
+      te: 'నాలుగు పిల్లలు పచ్చని తోటలో రెండు కుక్కలతో ప్రకాశవంతమైన మధ్యాహ్న సూర్యరశ్మిలో ఫ్రిస్బీ విసురుతూ ఆనందంగా ఆడుతున్నారు.',
+      ml: 'നാലു കുട്ടികൾ പച്ചപ്പാർന്ന തോട്ടത്തിൽ രണ്ട് നായകളോടൊപ്പം തെളിഞ്ഞ ഉച്ചസൂര്യത്തിൽ ഫ്രിസ്ബി എറിഞ്ഞ് സന്തോഷത്തോടെ കളിക്കുന്നു.',
+      bn: 'চারটি শিশু সবুজে ভরা বাগানে দুটি কুকুরের সাথে উজ্জ্বল দুপুরের রোদে ফ্রিসবি ছুঁড়ে আনন্দে খেলছে।',
+      mr: 'चार मुले हिरव्यागार बागेत दोन कुत्र्यांसोबत तेजस्वी दुपारच्या उन्हात फ्रिस्बी फेकत आनंदाने खेळत आहेत.',
+      gu: 'ચાર બાળકો હરિયાળા બગીચામાં બે કુતરાઓ સાથે તેજસ્વી બપોરના સૂર્યપ્રકાશમાં ફ્રિસ્બી ફેંકીને આનંદથી રમી રહ્યા છે.',
+    },
   },
   {
     id: 'mom-son-kitchen',
     src: '/voice-registration/mom-son-kitchen.png',
-    spokenDescription:
-      'A mother helps her young son cook at the stove, standing on a wooden stool in a bright, modern white kitchen.',
+    spokenDescriptions: {
+      en: 'A mother helps her young son cook at the stove, standing on a wooden stool in a bright, modern white kitchen.',
+      hi: 'एक मां अपने छोटे बेटे को चमकदार आधुनिक सफेद रसोई में लकड़ी के स्टूल पर खड़े होकर चूल्हे पर खाना बनाने में मदद कर रही है।',
+      ta: 'ஒளிவான நவீன வெள்ளை சமையலறையில் மர நாற்காலியில் நின்று கொண்டு ஒரு தாய் தனது இளம் மகனுக்கு அடுப்பில் சமைக்க உதவுகிறார்.',
+      kn: 'ಬೆಳಕಿನಿಂದ ತುಂಬಿದ ಆಧುನಿಕ ಬಿಳಿ ಅಡುಗೆಮನೆಯಲ್ಲಿ ಮರದ ಸ್ಟೂಲ್ ಮೇಲೆ ನಿಂತು ತಾಯಿ ತನ್ನ ಚಿಕ್ಕ ಮಗನಿಗೆ ಸ್ಟೌವ್ ಬಳಿ ಅಡುಗೆ ಮಾಡಲು ಸಹಾಯ ಮಾಡುತ್ತಿದ್ದಾರೆ.',
+      te: 'ప్రకాశవంతమైన ఆధునిక తెల్ల వంటగదిలో చెక్క స్టూల్‌పై నిలబడి ఉన్న తన చిన్న కుమారుడు స్టౌవ్‌పై వండటానికి తల్లి సహాయం చేస్తోంది.',
+      ml: 'പ്രകാശമുള്ള ആധുനിക വെളുത്ത അടുക്കളയിൽ മരച്ചാരിയിൽ നിൽക്കുന്ന ചെറുമകനെ അടുപ്പിൽ പാചകം ചെയ്യാൻ ഒരു അമ്മ സഹായിക്കുന്നു.',
+      bn: 'উজ্জ্বল আধুনিক সাদা রান্নাঘরে কাঠের স্টুলে দাঁড়িয়ে থাকা ছোট ছেলেকে চুলায় রান্না করতে একজন মা সাহায্য করছেন।',
+      mr: 'उजळ, आधुनिक पांढऱ्या स्वयंपाकघरात लाकडी स्टूलवर उभ्या असलेल्या आपल्या लहान मुलाला आई गॅसजवळ स्वयंपाक करायला मदत करत आहे.',
+      gu: 'ઉજળી આધુનિક સફેદ રસોડામાં લાકડાના સ્ટૂલ પર ઉભેલા પોતાના નાનકડા દીકરાને માતા સ્ટોવ પર રસોઈમાં મદદ કરી રહી છે.',
+    },
   },
 ]

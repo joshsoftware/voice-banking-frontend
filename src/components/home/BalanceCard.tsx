@@ -14,7 +14,7 @@ export function BalanceCard() {
           <div className="text-sm font-medium leading-5 text-[var(--color-text-muted-1)]">{t('availableBalance')}</div>
           <button
             type="button"
-            aria-label={showBalance ? 'Hide balance' : 'Show balance'}
+            aria-label={showBalance ? t('ariaHideBalance') : t('ariaShowBalance')}
             onClick={() => setShowBalance(!showBalance)}
             className="rounded-full p-1.5 transition-colors hover:bg-gray-50"
           >
