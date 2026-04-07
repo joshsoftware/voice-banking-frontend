@@ -31,7 +31,7 @@ export default function Welcome() {
 
   return (
     <MobileContainer>
-      <div className="relative flex h-full min-h-screen flex-col px-6 pb-10 pt-6 md:min-h-[852px]">
+      <div className="relative flex h-full min-h-screen flex-col px-6 pb-10 pt-6 md:min-h-[var(--device-height)]">
         {/* Logo Section */}
         <div className="mx-auto mt-12 md:mt-16">
           <Logo />

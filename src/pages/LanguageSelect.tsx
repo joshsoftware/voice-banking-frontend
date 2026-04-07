@@ -22,7 +22,7 @@ export default function LanguageSelect() {
         <div className="flex items-center justify-between">
           <button
             type="button"
-            onClick={() => navigate('/verify-otp')}
+            onClick={() => navigate('/home')}
             className="inline-flex items-center gap-2 text-base font-medium text-[var(--color-brand-900)] transition-opacity hover:opacity-80"
           >
             <ArrowLeftIcon className="text-[var(--color-brand-900)]" />
