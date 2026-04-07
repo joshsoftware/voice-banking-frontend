@@ -1,5 +1,6 @@
 import { MicIcon } from '@/components/ui/icons'
 import { Waveform } from '@/components/ui/waveform'
+import { useTranslation } from '@/i18n/LanguageHooks'
 
 export type ImageDescribeSheetState = 'micIdle' | 'countdown' | 'recording' | 'review'
 
@@ -22,6 +23,8 @@ export function ImageDescribeSheet({
   onRerecord,
   onSubmit,
 }: ImageDescribeSheetProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="absolute bottom-0 left-0 w-full">
       <div className="rounded-t-3xl bg-[var(--color-surface-card)] px-4 pb-6 pt-2 shadow-[var(--shadow-sheet)]">
@@ -33,7 +36,7 @@ export function ImageDescribeSheet({
               <div className="w-full rounded-[52px] bg-[var(--color-surface-card)] px-2 py-2 shadow-[var(--shadow-voice-btn)]">
                 <button
                   type="button"
-                  aria-label="Start speaking"
+                  aria-label={t('voiceRegistrationStartSpeaking')}
                   onClick={onTapMic}
                   className="flex h-16 w-full items-center justify-center rounded-full [background:var(--gradient-mic)] shadow-[var(--shadow-mic)] transition-transform active:scale-95"
                 >
@@ -41,7 +44,7 @@ export function ImageDescribeSheet({
                 </button>
               </div>
               <p className="text-center text-base font-semibold text-[var(--color-brand-600)]">
-                Tap to start speaking
+                {t('voiceRegistrationTapToStartSpeaking')}
               </p>
             </>
           )}
@@ -50,7 +53,8 @@ export function ImageDescribeSheet({
             <div className="flex w-full flex-col items-center gap-3 py-2">
               <div className="flex h-16 w-full max-w-[280px] items-center justify-center rounded-full [background:var(--gradient-mic)] px-6 shadow-[var(--shadow-mic)]">
                 <span className="text-lg font-bold text-white">
-                  Be ready in <span className="inline-flex size-8 items-center justify-center rounded-full bg-white/20">{countdown}</span>
+                  {t('voiceRegistrationBeReadyIn')}{' '}
+                  <span className="inline-flex size-8 items-center justify-center rounded-full bg-white/20">{countdown}</span>
                 </span>
               </div>
             </div>
@@ -59,7 +63,7 @@ export function ImageDescribeSheet({
           {state === 'recording' && (
             <div className="flex w-full flex-col items-center gap-3 py-1">
               <p className="text-sm font-semibold text-[var(--color-brand-500)]">
-                Recording…{Math.min(100, Math.round(recordProgress))}%
+                {t('voiceRegistrationRecordingProgress', { percent: Math.min(100, Math.round(recordProgress)) })}
               </p>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-app)]">
                 <div
@@ -78,14 +82,14 @@ export function ImageDescribeSheet({
                 onClick={onRerecord}
                 className="h-12 flex-1 rounded-full border-2 border-[var(--color-brand-500)] bg-white text-sm font-semibold text-[var(--color-brand-500)] transition-colors hover:bg-[rgba(32,114,178,0.06)]"
               >
-                Re-record
+                {t('voiceRegistrationRerecord')}
               </button>
               <button
                 type="button"
                 onClick={onSubmit}
                 className="h-12 flex-1 rounded-full bg-[var(--color-success-from)] text-sm font-semibold text-white shadow-md transition-colors hover:opacity-95"
               >
-                Submit
+                {t('voiceRegistrationSubmit')}
               </button>
             </div>
           )}

@@ -15,7 +15,7 @@ export default function Welcome() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (phone.length !== 10) {
-      setError('Please enter a valid 10-digit mobile number')
+      setError(t('welcomeInvalidPhone'))
       return
     }
     setError('')
