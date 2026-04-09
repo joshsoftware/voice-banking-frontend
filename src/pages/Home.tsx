@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Header } from '@/components/home/Header'
 import { BalanceCard } from '@/components/home/BalanceCard'
 import { VoiceSheet } from '@/components/home/VoiceSheet'
+import { getActiveCustomer, getPrimaryAccount } from '@/lib/demoCustomer'
 
 interface HomeProps {
   bottomSheet?: ReactNode
@@ -12,6 +13,9 @@ interface HomeProps {
 
 export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) {
   const navigate = useNavigate()
+  const customer = getActiveCustomer()
+  const primaryAccount = customer ? getPrimaryAccount(customer.customer_id) : null
+
   return (
     <div className="min-h-screen bg-[var(--color-surface-bg)] md:flex md:items-center md:justify-center md:p-4">
       <div className="mx-auto w-full md:max-w-[var(--device-width)]">
@@ -22,8 +26,8 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
             style={{ backgroundImage: 'var(--gradient-brand)' }}
           >
             <div className="relative z-10 pb-5">
-              <Header isMuted={isMuted} onToggleMute={onToggleMute} />
-              <BalanceCard />
+              <Header name={customer?.name ?? 'Test User'} isMuted={isMuted} onToggleMute={onToggleMute} />
+              <BalanceCard account={primaryAccount} />
             </div>
           </div>
 

@@ -1,10 +1,11 @@
 import { useState, type FormEvent, type KeyboardEvent, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { MobileContainer } from '@/components/ui/mobile-container'
 import { Logo } from '@/components/ui/logo'
 import { Button } from '@/components/ui/button'
 import { ArrowLeftIcon } from '@/components/ui/icons'
 import { useTranslation } from '@/i18n/LanguageHooks'
+import { setActiveCustomerByPhone } from '@/lib/demoCustomer'
 
 export default function OtpVerification() {
   const [otp, setOtp] = useState(['', '', '', ''])
@@ -12,7 +13,9 @@ export default function OtpVerification() {
   const [timer, setTimer] = useState(27)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   const navigate = useNavigate()
+  const location = useLocation()
   const { t } = useTranslation()
+  const phone = (location.state as { phone?: string } | null)?.phone ?? ''
 
   useEffect(() => {
     if (timer > 0) {
@@ -59,8 +62,8 @@ export default function OtpVerification() {
       setError(t('otpEnterAllDigits'))
       return
     }
+    setActiveCustomerByPhone(phone)
     setError('')
-    // TODO: Verify OTP API call here
     navigate('/home')
   }
 

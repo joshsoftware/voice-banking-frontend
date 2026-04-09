@@ -7,10 +7,11 @@ import { Waveform } from '@/components/ui/waveform'
 import { ImageDescribeSheet, type ImageDescribeSheetState } from '@/components/voice-registration/ImageDescribeSheet'
 import { VoiceRegistrationSuccess } from '@/components/voice-registration/VoiceRegistrationSuccess'
 import { useMicLevel } from '@/hooks/useMicLevel'
-import { API_BASE, VOICEPRINT_API_BASE, VOICE_ENROLL_USER_ID } from '@/lib/constants'
+import { API_BASE, VOICEPRINT_API_BASE } from '@/lib/constants'
 import { stopSpeech, speakText } from '@/lib/speech'
 import { VOICE_REGISTRATION_IMAGES } from '@/data/voiceRegistrationImages'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
+import { getActiveCustomer } from '@/lib/demoCustomer'
 
 type Phase = 'consent' | 'imageChallenge' | 'success'
 const FALLBACK_ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -27,6 +28,7 @@ export default function VoiceRegistration() {
   const navigate = useNavigate()
   const { language } = useLanguage()
   const { t } = useTranslation()
+  const activeCustomer = getActiveCustomer()
   const [phase, setPhase] = useState<Phase>('consent')
   const [consent, setConsent] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -129,7 +131,7 @@ export default function VoiceRegistration() {
     try {
       const backendBase = getRegistrationBackendBase()
       const startPayload = {
-        customer_id: VOICE_ENROLL_USER_ID,
+        customer_id: activeCustomer?.customer_id ?? 'test-user',
         device_id: 'web',
         total_steps: VOICE_REGISTRATION_IMAGES.length,
       }

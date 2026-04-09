@@ -1,10 +1,26 @@
 import { useState } from 'react'
 import { EyeIcon } from '@/components/ui/icons'
 import { useTranslation } from '@/i18n/LanguageHooks'
+import type { DemoAccount } from '@/lib/demoCustomer'
 
-export function BalanceCard() {
+interface BalanceCardProps {
+  account?: DemoAccount | null
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
+export function BalanceCard({ account }: BalanceCardProps) {
   const [showBalance, setShowBalance] = useState(true)
   const { t } = useTranslation()
+  const balanceValue = account?.balance ?? 45250.75
+  const accountTypeLabel = account?.account_type === 'CURRENT' ? 'Current Account' : t('savingsAccount')
+  const maskedAccount = account ? `****${account.account_id.slice(-4)}` : '****7890'
 
   return (
     <div className="relative mx-auto mt-10 w-full max-w-[345px] overflow-hidden rounded-[32px] bg-[var(--color-surface-card)] shadow-[var(--shadow-card)] md:mt-12">
@@ -24,13 +40,13 @@ export function BalanceCard() {
 
         <div className="mt-6 flex flex-col gap-1.5">
           <div className="text-[40px] font-bold leading-tight tracking-tight text-[var(--color-brand-900)]">
-            {showBalance ? '₹45,250.75' : '₹••,•••.••'}
+            {showBalance ? formatCurrency(balanceValue) : '₹••,•••.••'}
           </div>
-          <div className="text-sm font-medium leading-5 text-[var(--color-text-muted-2)]">{t('savingsAccount')}</div>
+          <div className="text-sm font-medium leading-5 text-[var(--color-text-muted-2)]">{accountTypeLabel}</div>
         </div>
 
         <div className="mt-10 flex items-center justify-between">
-          <div className="text-sm font-medium leading-5 text-[var(--color-text-muted-3)]">****7890</div>
+          <div className="text-sm font-medium leading-5 text-[var(--color-text-muted-3)]">{maskedAccount}</div>
           <button
             type="button"
             className="rounded-xl px-4 py-2 text-sm font-semibold leading-5 text-[var(--color-brand-300)] transition-colors hover:bg-gray-50"
