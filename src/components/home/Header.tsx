@@ -8,9 +8,17 @@ interface HeaderProps {
   name?: string
   isMuted?: boolean
   onToggleMute?: () => void
+  canUnregisterVoice?: boolean
+  onUnregisterVoice?: () => void
 }
 
-export function Header({ name = 'Test User', isMuted, onToggleMute }: HeaderProps) {
+export function Header({
+  name = 'Test User',
+  isMuted,
+  onToggleMute,
+  canUnregisterVoice = false,
+  onUnregisterVoice,
+}: HeaderProps) {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -81,6 +89,18 @@ export function Header({ name = 'Test User', isMuted, onToggleMute }: HeaderProp
               >
                 {t('menuRegisterVoice')}
               </button>
+              {canUnregisterVoice && onUnregisterVoice ? (
+                <button
+                  type="button"
+                  className="w-full px-4 py-2 text-left text-sm font-medium text-amber-700 hover:bg-gray-100"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    onUnregisterVoice()
+                  }}
+                >
+                  Unregister voice
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="w-full px-4 py-2 text-left text-sm font-medium hover:bg-gray-100"

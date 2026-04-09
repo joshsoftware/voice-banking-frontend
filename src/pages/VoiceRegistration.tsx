@@ -11,7 +11,7 @@ import { API_BASE, VOICEPRINT_API_BASE } from '@/lib/constants'
 import { stopSpeech, speakText } from '@/lib/speech'
 import { VOICE_REGISTRATION_IMAGES } from '@/data/voiceRegistrationImages'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
-import { getActiveCustomer } from '@/lib/demoCustomer'
+import { getActiveCustomer, markVoiceRegistered } from '@/lib/demoCustomer'
 
 type Phase = 'consent' | 'imageChallenge' | 'success'
 const FALLBACK_ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -401,6 +401,9 @@ export default function VoiceRegistration() {
   }
 
   async function handleStartBanking() {
+    if (activeCustomer?.customer_id) {
+      markVoiceRegistered(activeCustomer.customer_id)
+    }
     disconnectRtc()
     stopSpeech()
     navigate('/home')
