@@ -31,7 +31,8 @@ export const voiceprintApi = {
 
   async verify(
     userId: string,
-    audioFile: File | Blob
+    audioFile: File | Blob,
+    isVoicePrint = true
   ): Promise<{
     verified: boolean
     score: number
@@ -44,6 +45,7 @@ export const voiceprintApi = {
         ? audioFile
         : new File([audioFile], 'verify.wav', { type: 'audio/webm' })
     formData.append('file', f)
+    formData.append('is_voice_print', String(isVoicePrint))
 
     const response = await fetch(`${VOICEPRINT_API_BASE}/verify/${encodeURIComponent(userId)}`, {
       method: 'POST',

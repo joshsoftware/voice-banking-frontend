@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { PipecatClient } from '@pipecat-ai/client-js'
 import { CustomSmallWebRTCTransport } from '@/lib/customTransport'
 import { API_BASE } from '@/lib/constants'
+import { getActiveCustomer, isVoiceRegistered } from '@/lib/demoCustomer'
 
 // Helper to get client instance (for audio component)
 let globalClientInstance: PipecatClient | null = null
@@ -34,6 +35,9 @@ export function useSmallWebRTC() {
   const clientRef = useRef<PipecatClient | null>(null)
   const isConnectingRef = useRef(false)
   const audioElRef = useRef<HTMLAudioElement | null>(null)
+  const activeCustomer = getActiveCustomer()
+  const activeCustomerId = activeCustomer?.customer_id ?? null
+  const shouldVerifyVoice = activeCustomerId ? isVoiceRegistered(activeCustomerId) : false
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -177,6 +181,8 @@ export function useSmallWebRTC() {
           createDailyRoom: false,
           enableDefaultIceServers: true,
           transport: 'webrtc',
+          customer_id: activeCustomerId,
+          is_voice_print: shouldVerifyVoice,
         },
         timeout: 30000,
       })
@@ -190,7 +196,7 @@ export function useSmallWebRTC() {
     } finally {
       isConnectingRef.current = false
     }
-  }, [pushMsg])
+  }, [activeCustomerId, pushMsg, shouldVerifyVoice])
 
   // ── Disconnect ─────────────────────────────────────────────────────────────
 

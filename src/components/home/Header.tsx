@@ -79,16 +79,6 @@ export function Header({
 
           {menuOpen && (
             <div className="absolute right-0 top-12 z-30 min-w-52 rounded-xl bg-white py-2 text-[var(--color-brand-900)] shadow-[0_12px_30px_rgba(0,0,0,0.2)]">
-              <button
-                type="button"
-                className="w-full px-4 py-2 text-left text-sm font-medium hover:bg-gray-100"
-                onClick={() => {
-                  setMenuOpen(false)
-                  navigate('/voice-registration')
-                }}
-              >
-                {t('menuRegisterVoice')}
-              </button>
               {canUnregisterVoice && onUnregisterVoice ? (
                 <button
                   type="button"
@@ -100,7 +90,18 @@ export function Header({
                 >
                   Unregister voice
                 </button>
-              ) : null}
+              ) : (
+                <button
+                  type="button"
+                  className="w-full px-4 py-2 text-left text-sm font-medium hover:bg-gray-100"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    navigate('/voice-registration')
+                  }}
+                >
+                  {t('menuRegisterVoice')}
+                </button>
+              )}
               <button
                 type="button"
                 className="w-full px-4 py-2 text-left text-sm font-medium hover:bg-gray-100"
