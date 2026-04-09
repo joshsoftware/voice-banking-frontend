@@ -2,6 +2,7 @@ import { LanguageIcon, UserIcon, VolumeIcon, VolumeMutedIcon } from '@/component
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../../i18n/LanguageHooks'
+import { clearActiveCustomer } from '@/lib/demoCustomer'
 
 interface HeaderProps {
   name?: string
@@ -95,6 +96,7 @@ export function Header({ name = 'Test User', isMuted, onToggleMute }: HeaderProp
                 className="w-full px-4 py-2 text-left text-sm font-medium text-red-600 hover:bg-gray-100"
                 onClick={() => {
                   setMenuOpen(false)
+                  clearActiveCustomer()
                   navigate('/welcome')
                 }}
               >
