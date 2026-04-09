@@ -39,6 +39,7 @@ export interface DemoLoanAccount {
 
 const ACTIVE_CUSTOMER_STORAGE_KEY = 'voicebank.activeCustomerId'
 const VOICE_REGISTERED_CUSTOMERS_STORAGE_KEY = 'voicebank.voiceRegisteredCustomers'
+const VOICE_SKIP_ALLOWED_CUSTOMERS_STORAGE_KEY = 'voicebank.voiceSkipAllowedCustomers'
 
 const CUSTOMERS: DemoCustomer[] = [
   { customer_id: 'CIF202602260001', email: 'amit.sharma@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-02-26T07:15:16.424Z', date_of_birth: '1990-05-21', mobile_number: '9876543213', name: 'Amit Sharma', status: 'ACTIVE' },
@@ -201,6 +202,25 @@ function setRegisteredVoiceCustomerIds(customerIds: string[]): void {
   }
 }
 
+function getVoiceSkipAllowedCustomerIds(): string[] {
+  try {
+    const raw = localStorage.getItem(VOICE_SKIP_ALLOWED_CUSTOMERS_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function setVoiceSkipAllowedCustomerIds(customerIds: string[]): void {
+  try {
+    localStorage.setItem(VOICE_SKIP_ALLOWED_CUSTOMERS_STORAGE_KEY, JSON.stringify(customerIds))
+  } catch {
+    // ignore storage issues
+  }
+}
+
 export function isVoiceRegistered(customerId: string): boolean {
   return getRegisteredVoiceCustomerIds().includes(customerId)
 }
@@ -209,9 +229,26 @@ export function markVoiceRegistered(customerId: string): void {
   const ids = new Set(getRegisteredVoiceCustomerIds())
   ids.add(customerId)
   setRegisteredVoiceCustomerIds([...ids])
+  disallowVoiceSkip(customerId)
 }
 
 export function markVoiceUnregistered(customerId: string): void {
   const ids = getRegisteredVoiceCustomerIds().filter((id) => id !== customerId)
   setRegisteredVoiceCustomerIds(ids)
+  disallowVoiceSkip(customerId)
+}
+
+export function isVoiceSkipAllowed(customerId: string): boolean {
+  return getVoiceSkipAllowedCustomerIds().includes(customerId)
+}
+
+export function allowVoiceSkip(customerId: string): void {
+  const ids = new Set(getVoiceSkipAllowedCustomerIds())
+  ids.add(customerId)
+  setVoiceSkipAllowedCustomerIds([...ids])
+}
+
+export function disallowVoiceSkip(customerId: string): void {
+  const ids = getVoiceSkipAllowedCustomerIds().filter((id) => id !== customerId)
+  setVoiceSkipAllowedCustomerIds(ids)
 }

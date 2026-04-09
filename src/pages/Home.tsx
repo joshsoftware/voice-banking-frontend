@@ -4,9 +4,11 @@ import { Header } from '@/components/home/Header'
 import { BalanceCard } from '@/components/home/BalanceCard'
 import { VoiceSheet } from '@/components/home/VoiceSheet'
 import {
+  disallowVoiceSkip,
   getActiveCustomer,
   getPrimaryAccount,
   isVoiceRegistered,
+  isVoiceSkipAllowed,
   markVoiceUnregistered,
 } from '@/lib/demoCustomer'
 import { API_BASE, VOICEPRINT_API_BASE } from '@/lib/constants'
@@ -22,16 +24,17 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
   const customer = getActiveCustomer()
   const primaryAccount = customer ? getPrimaryAccount(customer.customer_id) : null
   const voiceRegistered = customer ? isVoiceRegistered(customer.customer_id) : false
+  const voiceSkipAllowed = customer ? isVoiceSkipAllowed(customer.customer_id) : false
 
   useEffect(() => {
     if (!customer) {
       navigate('/welcome', { replace: true })
       return
     }
-    if (!voiceRegistered) {
+    if (!voiceRegistered && !voiceSkipAllowed) {
       navigate('/voice-registration', { replace: true })
     }
-  }, [customer, voiceRegistered, navigate])
+  }, [customer, voiceRegistered, voiceSkipAllowed, navigate])
 
   const handleUnregisterVoice = async () => {
     if (!customer) return
@@ -48,6 +51,7 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
         throw new Error(detail || `Unregister failed (${res.status})`)
       }
       markVoiceUnregistered(customer.customer_id)
+      disallowVoiceSkip(customer.customer_id)
       navigate('/voice-registration', { replace: true })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to unregister voice.'

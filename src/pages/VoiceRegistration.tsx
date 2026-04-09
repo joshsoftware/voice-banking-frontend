@@ -11,7 +11,7 @@ import { API_BASE, VOICEPRINT_API_BASE } from '@/lib/constants'
 import { stopSpeech, speakText } from '@/lib/speech'
 import { VOICE_REGISTRATION_IMAGES } from '@/data/voiceRegistrationImages'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
-import { getActiveCustomer, markVoiceRegistered } from '@/lib/demoCustomer'
+import { allowVoiceSkip, disallowVoiceSkip, getActiveCustomer, markVoiceRegistered } from '@/lib/demoCustomer'
 
 type Phase = 'consent' | 'imageChallenge' | 'success'
 const FALLBACK_ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -53,6 +53,7 @@ export default function VoiceRegistration() {
   const [countdown, setCountdown] = useState(3)
   const [recordProgress, setRecordProgress] = useState(0)
   const countdownToRecordingRef = useRef(false)
+  const speechDetectedDuringRecordingRef = useRef(false)
 
   const micActiveImage = useMicLevel(
     phase === 'imageChallenge' && sheetState === 'recording' ? micStream : null
@@ -257,6 +258,7 @@ export default function VoiceRegistration() {
     setSheetState('micIdle')
     setCountdown(3)
     setRecordProgress(0)
+    speechDetectedDuringRecordingRef.current = false
     imageFinalizeLockRef.current = false
     countdownToRecordingRef.current = false
   }, [imageIndex, phase])
@@ -271,6 +273,7 @@ export default function VoiceRegistration() {
           await startEnrollmentRealtime()
         }
         setRecordProgress(0)
+        speechDetectedDuringRecordingRef.current = false
         imageFinalizeLockRef.current = false
         setSheetState('recording')
       } catch {
@@ -289,12 +292,26 @@ export default function VoiceRegistration() {
 
   useEffect(() => {
     if (sheetState !== 'recording') return
+    if (micActiveImage) {
+      speechDetectedDuringRecordingRef.current = true
+    }
+  }, [sheetState, micActiveImage])
+
+  useEffect(() => {
+    if (sheetState !== 'recording') return
     const id = window.setInterval(() => {
       setRecordProgress((p) => {
         if (p >= 100) return 100
         const n = p + 1
         if (n >= 100 && !imageFinalizeLockRef.current) {
           imageFinalizeLockRef.current = true
+          if (!speechDetectedDuringRecordingRef.current) {
+            setEnrollError('No voice detected. Try again.')
+            setSheetState('micIdle')
+            setCountdown(3)
+            countdownToRecordingRef.current = false
+            return 0
+          }
           setSheetState('review')
         }
         return n
@@ -304,6 +321,9 @@ export default function VoiceRegistration() {
   }, [sheetState])
 
   const skipForNow = () => {
+    if (activeCustomer?.customer_id) {
+      allowVoiceSkip(activeCustomer.customer_id)
+    }
     disconnectRtc()
     stopSpeech()
     navigate('/home')
@@ -403,6 +423,7 @@ export default function VoiceRegistration() {
   async function handleStartBanking() {
     if (activeCustomer?.customer_id) {
       markVoiceRegistered(activeCustomer.customer_id)
+      disallowVoiceSkip(activeCustomer.customer_id)
     }
     disconnectRtc()
     stopSpeech()
