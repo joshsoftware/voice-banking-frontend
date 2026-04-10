@@ -71,6 +71,7 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
             <div className="relative z-10 pb-5">
               <Header
                 name={customer?.name ?? 'Test User'}
+                email={customer?.email ?? ''}
                 isMuted={isMuted}
                 onToggleMute={onToggleMute}
                 canUnregisterVoice={voiceRegistered}
