@@ -5,22 +5,28 @@ import { Logo } from '@/components/ui/logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useTranslation } from '@/i18n/LanguageHooks'
+import { useAuth } from '@/context/AuthContext'
 
 export default function Welcome() {
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
   const navigate = useNavigate()
+  const { requestOtp } = useAuth()
   const { t } = useTranslation()
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (phone.length !== 10) {
       setError(t('welcomeInvalidPhone'))
       return
     }
     setError('')
-    // TODO: Send OTP API call here
-    navigate('/verify-otp', { state: { phone } })
+    try {
+      await requestOtp(phone)
+      navigate('/verify-otp', { state: { phone } })
+    } catch (err: any) {
+      setError(err.message || 'Failed to send OTP')
+    }
   }
 
   const handlePhoneChange = (value: string) => {

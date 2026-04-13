@@ -37,6 +37,7 @@ export function Header({
   }, [menuOpen])
 
   return (
+    <>
     <div className="flex items-start justify-between">
       <div className="flex flex-col gap-0.5">
         <div className="text-xs leading-4 text-white/70">{t('headerGoodAfternoon')}</div>
@@ -128,5 +129,8 @@ export function Header({
         </div>
       </div>
     </div>
+
+
+    </>
   )
 }

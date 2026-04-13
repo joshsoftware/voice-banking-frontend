@@ -31,10 +31,12 @@ export function useSmallWebRTC() {
   const [state, setState] = useState<WebRTCState>('idle')
   const [isMuted, setIsMuted] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [sessionId, setSessionId] = useState<string | null>(null)
 
   const clientRef = useRef<PipecatClient | null>(null)
   const isConnectingRef = useRef(false)
   const audioElRef = useRef<HTMLAudioElement | null>(null)
+  const llmTextBufferRef = useRef<string>('')
   const activeCustomer = getActiveCustomer()
   const activeCustomerId = activeCustomer?.customer_id ?? null
   const shouldVerifyVoice = activeCustomerId ? isVoiceRegistered(activeCustomerId) : false
@@ -53,6 +55,8 @@ export function useSmallWebRTC() {
 
     setState('connecting')
     setMessages([])
+    setSessionId(null)
+    llmTextBufferRef.current = ''
     pushMsg('status', 'Connecting…')
 
     try {
@@ -96,11 +100,18 @@ export function useSmallWebRTC() {
 
       client.on('botStartedSpeaking', () => {
         console.log('[SmallWebRTC] Bot started speaking')
+        llmTextBufferRef.current = ''
         setState('speaking')
       })
 
       client.on('botStoppedSpeaking', () => {
         console.log('[SmallWebRTC] Bot stopped speaking')
+        // Flush any remaining buffer not yet flushed by botLlmStopped
+        const accumulated = llmTextBufferRef.current.trim()
+        if (accumulated) {
+          pushMsg('assistant', accumulated)
+          llmTextBufferRef.current = ''
+        }
         setState('listening')
       })
 
@@ -147,19 +158,37 @@ export function useSmallWebRTC() {
         }
       })
 
-      client.on('botOutput', (data: any) => {
-        console.log('[SmallWebRTC] Bot output:', data)
-        if (data.text) {
-          pushMsg('assistant', data.text)
+      // botLlmText fires per streaming token — accumulate into buffer
+      client.on('botLlmText', (data: any) => {
+        const token = typeof data === 'string' ? data : (data?.text ?? '')
+        console.log('[SmallWebRTC] Bot LLM text token:', token)
+        llmTextBufferRef.current += token
+      })
+
+      // botLlmStopped fires when the LLM finishes streaming — flush buffer immediately
+      client.on('botLlmStopped', () => {
+        console.log('[SmallWebRTC] Bot LLM stopped, flushing buffer')
+        const accumulated = llmTextBufferRef.current.trim()
+        if (accumulated) {
+          pushMsg('assistant', accumulated)
+          llmTextBufferRef.current = ''
         }
       })
 
+      // botTtsText carries the full TTS sentence — use as fallback if no LLM tokens came in
+      client.on('botTtsText', (data: any) => {
+        console.log('[SmallWebRTC] Bot TTS text:', data)
+        if (llmTextBufferRef.current) return // already handled via botLlmText
+        const text = typeof data === 'string' ? data : data?.text
+        if (text) pushMsg('assistant', text)
+      })
+
+      // botTranscript — final fallback for older backends
       client.on('botTranscript', (data: any) => {
         console.log('[SmallWebRTC] Bot transcript:', data)
-        const text = typeof data === 'string' ? data : data.text;
-        if (text) {
-          pushMsg('assistant', text)
-        }
+        if (llmTextBufferRef.current) return // already handled via botLlmText
+        const text = typeof data === 'string' ? data : data?.text
+        if (text) pushMsg('assistant', text)
       })
 
       // Error handling
@@ -186,6 +215,16 @@ export function useSmallWebRTC() {
         },
         timeout: 30000,
       })
+
+      // Extract session_id from the transport endpoint URL (/sessions/{id}/api/offer)
+      try {
+        const transport = client.transport as any
+        const endpoint: string = transport?._webrtcRequest?.endpoint ?? ''
+        const m = endpoint.match(/\/sessions\/([^/]+)\//)
+        if (m) setSessionId(m[1])
+      } catch {
+        // session_id extraction is best-effort
+      }
 
     } catch (err) {
       console.error('[SmallWebRTC] Connect error:', err)
@@ -308,12 +347,10 @@ export function useSmallWebRTC() {
 
       // 3. Stop any remaining tracks on the transport's local stream
       const transport = clientRef.current.transport as any
-      
-      // Check common Pipecat/Daily property names for local media
-      const localStream = transport?.localStream || 
-                         transport?._localStream || 
-                         transport?.mediaManager?.localStream ||
-                         (transport as any)._pc?.getSenders?.().find((s: any) => s.track)?.track;
+
+      const localStream = transport?.localStream ||
+                         transport?._localStream ||
+                         transport?.mediaManager?.localStream
 
       if (localStream && typeof localStream.getAudioTracks === 'function') {
         localStream.getAudioTracks().forEach((track: MediaStreamTrack) => {
@@ -322,11 +359,16 @@ export function useSmallWebRTC() {
         })
       }
 
-      // 4. Nuclear option: global browser media track search
-      // This is often needed if the SDK or Transport created a "hidden" stream
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        stream.getTracks().forEach(t => t.stop());
-      }).catch(() => {});
+      // 4. Stop via RTCPeerConnection senders (catches any tracks the SDK attached directly)
+      const pc = transport?.pc || transport?._pc
+      if (pc && typeof pc.getSenders === 'function') {
+        pc.getSenders().forEach((sender: RTCRtpSender) => {
+          if (sender.track) {
+            sender.track.stop()
+            console.log('[SmallWebRTC] Stopped sender track:', sender.track.kind)
+          }
+        })
+      }
       
     } catch (err) {
       console.error('[SmallWebRTC] Error stopping audio tracks:', err)
@@ -370,6 +412,7 @@ export function useSmallWebRTC() {
     state,
     isMuted,
     messages,
+    sessionId,
     connect,
     disconnect,
     toggleMute,
