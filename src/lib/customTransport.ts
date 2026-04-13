@@ -116,7 +116,10 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
 
       await fetch(webrtcRequest.endpoint, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(webrtcRequest.headers || {})
+        },
         body: JSON.stringify(payload),
       });
     } catch (e) {
