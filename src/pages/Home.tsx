@@ -11,7 +11,7 @@ import {
   isVoiceSkipAllowed,
   markVoiceUnregistered,
 } from '@/lib/demoCustomer'
-import { API_BASE, VOICEPRINT_API_BASE } from '@/lib/constants'
+import { httpClient } from '@/lib/httpClient'
 
 interface HomeProps {
   bottomSheet?: ReactNode
@@ -38,23 +38,13 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
 
   const handleUnregisterVoice = async () => {
     if (!customer) return
-    const backendBase = (VOICEPRINT_API_BASE || API_BASE).replace(/\/+$/, '')
-    const url = `${backendBase}/voiceprint/${encodeURIComponent(customer.customer_id)}`
     try {
-      const res = await fetch(url, {
-        method: 'DELETE',
-        headers: { accept: 'application/json' },
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        const detail = (err as { detail?: string; message?: string }).detail || (err as { message?: string }).message
-        throw new Error(detail || `Unregister failed (${res.status})`)
-      }
+      await httpClient.delete(`/voiceprint/${encodeURIComponent(customer.customer_id)}`)
       markVoiceUnregistered(customer.customer_id)
       disallowVoiceSkip(customer.customer_id)
       navigate('/voice-registration', { replace: true })
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to unregister voice.'
+    } catch (e: any) {
+      const msg = e.message || 'Failed to unregister voice.'
       window.alert(msg)
     }
   }

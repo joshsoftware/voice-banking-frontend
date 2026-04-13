@@ -100,9 +100,13 @@ export default function VoiceRegistration() {
     if (!pc || !sid) return
     const offer = await pc.createOffer()
     await pc.setLocalDescription(offer)
+    const accessToken = localStorage.getItem('access_token')
     const offerRes = await fetch(`${backendBase}/sessions/${sid}/api/offer`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+      },
       body: JSON.stringify({
         sdp: pc.localDescription?.sdp,
         type: pc.localDescription?.type,
@@ -142,10 +146,14 @@ export default function VoiceRegistration() {
       const startCandidates = [`${backendBase}/start`, `${backendBase}/enrollment/start`]
       let startEnrollmentPayload: { session_id?: string; status?: string; [k: string]: unknown } | null = null
       let startEnrollmentError: string | null = null
+      const registrationToken = localStorage.getItem('access_token')
       for (const url of startCandidates) {
         const res = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(registrationToken ? { 'Authorization': `Bearer ${registrationToken}` } : {})
+          },
           body: JSON.stringify(startPayload),
         })
         if (res.ok) {
@@ -191,10 +199,14 @@ export default function VoiceRegistration() {
       setEnrollmentSessionId(enrollmentId)
       enrollmentSessionIdRef.current = enrollmentId
 
+      const rtcAccessToken = localStorage.getItem('access_token')
       const startRtc = await fetch(`${backendBase}/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(rtcAccessToken ? { 'Authorization': `Bearer ${rtcAccessToken}` } : {})
+        },
+        body: JSON.stringify({ session_id: enrollmentId }),
       })
       if (!startRtc.ok) throw new Error(`/start failed: ${startRtc.status}`)
       const rtc = await startRtc.json()
@@ -215,9 +227,13 @@ export default function VoiceRegistration() {
 
       pc.onicecandidate = (ev) => {
         if (!ev.candidate || !pcIdRef.current || !rtcSessionIdRef.current) return
+        const accessToken = localStorage.getItem('access_token')
         fetch(`${backendBase}/sessions/${rtcSessionIdRef.current}/api/offer`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+          },
           body: JSON.stringify({
             pc_id: pcIdRef.current,
             candidates: [
@@ -397,9 +413,13 @@ export default function VoiceRegistration() {
     try {
       const backendBase = getRegistrationBackendBase()
       const sid = encodeURIComponent(enrollmentSessionIdRef.current)
+      const accessToken = localStorage.getItem('access_token')
       const res = await fetch(`${backendBase}/enrollment/${sid}/submit-step`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+        },
         body: JSON.stringify({ step_index: imageIndex + 1 }),
       })
       if (!res.ok) {

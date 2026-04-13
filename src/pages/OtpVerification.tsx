@@ -5,7 +5,7 @@ import { Logo } from '@/components/ui/logo'
 import { Button } from '@/components/ui/button'
 import { ArrowLeftIcon } from '@/components/ui/icons'
 import { useTranslation } from '@/i18n/LanguageHooks'
-import { setActiveCustomerByPhone } from '@/lib/demoCustomer'
+import { useAuth } from '@/context/AuthContext'
 
 export default function OtpVerification() {
   const [otp, setOtp] = useState(['', '', '', ''])
@@ -15,6 +15,7 @@ export default function OtpVerification() {
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useTranslation()
+  const { login, lastOtp, requestOtp } = useAuth()
   const phone = (location.state as { phone?: string } | null)?.phone ?? ''
 
   useEffect(() => {
@@ -56,21 +57,31 @@ export default function OtpVerification() {
     inputRefs.current[Math.min(pastedData.length, 3)]?.focus()
   }
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (otp.some((d) => d === '')) {
+    const otpString = otp.join('')
+    if (otpString.length < 4) {
       setError(t('otpEnterAllDigits'))
       return
     }
-    setActiveCustomerByPhone(phone)
     setError('')
-    navigate('/home')
+    try {
+      await login(phone, otpString)
+      navigate('/home')
+    } catch (err: any) {
+      setError(err.message || 'Invalid OTP')
+    }
   }
 
-  const handleResend = () => {
-    setTimer(27)
-    setOtp(['', '', '', ''])
-    inputRefs.current[0]?.focus()
+  const handleResend = async () => {
+    try {
+      await requestOtp(phone)
+      setTimer(27)
+      setOtp(['', '', '', ''])
+      inputRefs.current[0]?.focus()
+    } catch (err: any) {
+      setError(err.message || 'Failed to resend OTP')
+    }
   }
 
   return (
@@ -97,6 +108,11 @@ export default function OtpVerification() {
           <p className="text-base leading-6 text-white/90 md:text-[16px]">
             {t('enterOtpInstruction')}
           </p>
+          {lastOtp && (
+            <div className="mt-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-yellow-200 border border-yellow-200/20 animate-pulse">
+              DEV ONLY: Your OTP is <span className="text-lg font-bold underline">{lastOtp}</span>
+            </div>
+          )}
         </div>
 
         {/* Form Section */}

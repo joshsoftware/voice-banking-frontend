@@ -133,9 +133,13 @@ export function useWebRTC() {
       await pc.setLocalDescription(offer)
 
       const offerUrl = `${API_BASE}/sessions/${sid}/api/offer`
+      const accessToken = localStorage.getItem('access_token')
       const offerRes = await fetch(offerUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+        },
         body: JSON.stringify({
           sdp: pc.localDescription!.sdp,
           type: pc.localDescription!.type,
@@ -170,9 +174,13 @@ export function useWebRTC() {
     pushMsg('status', 'Connecting…')
 
     try {
+      const accessToken = localStorage.getItem('access_token')
       const startRes = await fetch(`${API_BASE}/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+        },
         body: JSON.stringify({}),
       })
       if (!startRes.ok) throw new Error(`/start failed: ${startRes.status}`)
@@ -213,9 +221,13 @@ export function useWebRTC() {
       pc.onicecandidate = (ev) => {
         if (!ev.candidate || !pcIdRef.current || !sessionIdRef.current) return
         const offerUrl = `${API_BASE}/sessions/${sessionIdRef.current}/api/offer`
+        const accessToken = localStorage.getItem('access_token')
         fetch(offerUrl, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+          },
           body: JSON.stringify({
             pc_id: pcIdRef.current,
             candidates: [{

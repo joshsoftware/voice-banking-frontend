@@ -1,8 +1,9 @@
-import { VOICEPRINT_API_BASE } from '@/lib/constants'
+import { httpClient } from './httpClient'
 
 /**
  * Voiceprint REST API — aligned with `voice-banking-frontend/src/lib/api.ts`.
- * Backend expects multipart `files` (min 3 clips) at POST .../enroll/{user_id}.
+ * Backend expects multipart `files` (min 3 clips) at POST .../enrollment/enroll/{user_id}.
+ * Note: Updated to usehttpClient for automatic auth headers and updated endpoint paths.
  */
 export const voiceprintApi = {
   async enroll(userId: string, audioFiles: (File | Blob)[]): Promise<unknown> {
@@ -15,18 +16,8 @@ export const voiceprintApi = {
       formData.append('files', f)
     })
 
-    const response = await fetch(`${VOICEPRINT_API_BASE}/enroll/${encodeURIComponent(userId)}`, {
-      method: 'POST',
-      body: formData,
-    })
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Enrollment failed' }))
-      const detail = (error as { detail?: string }).detail
-      throw new Error(detail || `Enrollment failed (${response.status})`)
-    }
-
-    return response.json()
+    // Documentation mentions /enrollment/* for enrollment endpoints
+    return httpClient.post(`/enrollment/enroll/${encodeURIComponent(userId)}`, formData)
   },
 
   async verify(
@@ -47,23 +38,16 @@ export const voiceprintApi = {
     formData.append('file', f)
     formData.append('is_voice_print', String(isVoicePrint))
 
-    const response = await fetch(`${VOICEPRINT_API_BASE}/verify/${encodeURIComponent(userId)}`, {
-      method: 'POST',
-      body: formData,
-    })
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Verification failed' }))
-      const detail = (error as { detail?: string }).detail
-      throw new Error(detail || `Verification failed (${response.status})`)
-    }
-
-    return response.json()
+    // Documentation mentions /voiceprint/* for verification endpoints
+    return httpClient.post<{
+      verified: boolean
+      score: number
+      threshold: number
+      cohort_stats: Record<string, unknown>
+    }>(`/voiceprint/verify/${encodeURIComponent(userId)}`, formData)
   },
 
   async healthCheck(): Promise<unknown> {
-    const response = await fetch(`${VOICEPRINT_API_BASE}/health`)
-    if (!response.ok) throw new Error('Health check failed')
-    return response.json()
+    return httpClient.get('/voiceprint/health')
   },
 }

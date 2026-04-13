@@ -175,8 +175,10 @@ export function useSmallWebRTC() {
       })
 
       // Start bot and connect
+      const accessToken = localStorage.getItem('access_token')
       await client.startBotAndConnect({
         endpoint: `${API_BASE}/start`,
+        headers: (accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}) as any,
         requestData: {
           createDailyRoom: false,
           enableDefaultIceServers: true,
