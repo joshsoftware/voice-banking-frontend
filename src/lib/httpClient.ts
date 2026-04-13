@@ -1,4 +1,4 @@
-import { API_BASE } from './constants'
+import { AUTH_API_BASE } from './constants'
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string>
@@ -126,4 +126,4 @@ class HttpClient {
   }
 }
 
-export const httpClient = new HttpClient(API_BASE)
+export const httpClient = new HttpClient(AUTH_API_BASE)

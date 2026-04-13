@@ -3,11 +3,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../../i18n/LanguageHooks'
 import { clearActiveCustomer } from '@/lib/demoCustomer'
-import { FeedbackModal } from './FeedbackModal'
 
 interface HeaderProps {
   name?: string
-  email?: string
   isMuted?: boolean
   onToggleMute?: () => void
   canUnregisterVoice?: boolean
@@ -16,7 +14,6 @@ interface HeaderProps {
 
 export function Header({
   name = 'Test User',
-  email = '',
   isMuted,
   onToggleMute,
   canUnregisterVoice = false,
@@ -25,7 +22,6 @@ export function Header({
   const navigate = useNavigate()
   const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [feedbackOpen, setFeedbackOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
 
   const showMuteButton = typeof isMuted === 'boolean' && Boolean(onToggleMute)
@@ -119,16 +115,6 @@ export function Header({
               </button>
               <button
                 type="button"
-                className="w-full px-4 py-2 text-left text-sm font-medium hover:bg-gray-100"
-                onClick={() => {
-                  setMenuOpen(false)
-                  setFeedbackOpen(true)
-                }}
-              >
-                Feedback
-              </button>
-              <button
-                type="button"
                 className="w-full px-4 py-2 text-left text-sm font-medium text-red-600 hover:bg-gray-100"
                 onClick={() => {
                   setMenuOpen(false)
@@ -144,13 +130,7 @@ export function Header({
       </div>
     </div>
 
-    {feedbackOpen && (
-      <FeedbackModal
-        username={name}
-        email={email}
-        onClose={() => setFeedbackOpen(false)}
-      />
-    )}
+
     </>
   )
 }

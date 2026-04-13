@@ -4,14 +4,15 @@ import { API_BASE } from '@/lib/constants'
 interface FeedbackModalProps {
   username: string
   email: string
+  sessionId: string | null
+  deviceId: string
   onClose: () => void
 }
 
-export function FeedbackModal({ username, email, onClose }: FeedbackModalProps) {
+export function FeedbackModal({ username, email, sessionId, deviceId, onClose }: FeedbackModalProps) {
   const [form, setForm] = useState({
     username,
     email,
-    turn_id: '',
     description: '',
   })
   const [image, setImage] = useState<File | null>(null)
@@ -43,7 +44,8 @@ export function FeedbackModal({ username, email, onClose }: FeedbackModalProps) 
       const fd = new FormData()
       fd.append('username', form.username)
       fd.append('email', form.email)
-      if (form.turn_id.trim()) fd.append('turn_id', form.turn_id.trim())
+      if (sessionId) fd.append('session_id', sessionId)
+      fd.append('device_id', deviceId)
       fd.append('description', form.description)
       if (image) fd.append('image', image)
 
@@ -147,21 +149,6 @@ export function FeedbackModal({ username, email, onClose }: FeedbackModalProps) 
                   value={form.email}
                   onChange={handleChange}
                   required
-                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none ring-0 focus:border-[var(--color-brand-900,#1a237e)] focus:ring-1 focus:ring-[var(--color-brand-900,#1a237e)]"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-600" htmlFor="fb-turn-id">
-                  Turn ID <span className="text-gray-400">(optional)</span>
-                </label>
-                <input
-                  id="fb-turn-id"
-                  name="turn_id"
-                  type="text"
-                  value={form.turn_id}
-                  onChange={handleChange}
-                  placeholder="e.g. turn-2"
                   className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none ring-0 focus:border-[var(--color-brand-900,#1a237e)] focus:ring-1 focus:ring-[var(--color-brand-900,#1a237e)]"
                 />
               </div>

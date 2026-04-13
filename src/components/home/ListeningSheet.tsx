@@ -51,6 +51,7 @@ interface ListeningSheetProps {
   messages: ChatMessage[]
   onToggleMute: () => void
   onStop: () => void
+  onFeedback?: () => void
   showMuteControl?: boolean
 }
 
@@ -60,6 +61,7 @@ export function ListeningSheet({
   messages,
   onToggleMute,
   onStop,
+  onFeedback,
   showMuteControl = true,
 }: ListeningSheetProps) {
   const chatBottomRef = useRef<HTMLDivElement>(null)
@@ -112,6 +114,20 @@ export function ListeningSheet({
                 ))}
                 <div ref={chatBottomRef} />
               </div>
+            )}
+
+            {/* Feedback button */}
+            {onFeedback && (
+              <button
+                type="button"
+                onClick={onFeedback}
+                className="flex items-center gap-1.5 self-end text-xs text-[var(--color-brand-600)]/60 transition-colors hover:text-[var(--color-brand-600)]"
+              >
+                <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25V18a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 18V8.25m-18 0V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v2.25m-18 0h18M9.75 12h.008v.008H9.75V12zm4.5 0h.008v.008h-.008V12zm4.5 0h.008v.008h-.008V12z" />
+                </svg>
+                Send Feedback
+              </button>
             )}
 
             {/* Stop button */}
