@@ -1,0 +1,13 @@
+services:
+  voice-banking-frontend:
+    container_name: voice-banking-frontend
+    image: voice-banking-frontend:1.0.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-https://voicebanking.joshsoftware.com}
+        VITE_VOICEPRINT_API_BASE: ${VITE_VOICEPRINT_API_BASE:-http://localhost:7860}
+    ports:
+      - "8085:80"
+    restart: unless-stopped
