@@ -206,18 +206,12 @@ export function useSmallWebRTC() {
         setState('disconnected')
       })
 
-      // Attach the JWT access token so that /start and the subsequent
-      // /sessions/{id}/api/offer requests reach the protected backend endpoints.
-      const accessToken = localStorage.getItem('access_token')
-      const authHeaders: Record<string, string> = accessToken
-        ? { Authorization: `Bearer ${accessToken}` }
-        : {}
-
-      // Call /start manually to capture sessionId directly from the response
-      const startRes = await fetch(`${API_BASE}/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders },
-        body: JSON.stringify({
+      // Start bot and connect
+      const accessToken = localStorage.getItem('voicebank.access_token')
+      await client.startBotAndConnect({
+        endpoint: `${API_BASE}/start`,
+        headers: (accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}) as any,
+        requestData: {
           createDailyRoom: false,
           enableDefaultIceServers: true,
           transport: 'webrtc',

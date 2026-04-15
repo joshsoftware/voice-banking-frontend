@@ -133,7 +133,7 @@ export function useWebRTC() {
       await pc.setLocalDescription(offer)
 
       const offerUrl = `${API_BASE}/sessions/${sid}/api/offer`
-      const accessToken = localStorage.getItem('access_token')
+      const accessToken = localStorage.getItem('voicebank.access_token')
       const offerRes = await fetch(offerUrl, {
         method: 'POST',
         headers: { 
@@ -174,7 +174,7 @@ export function useWebRTC() {
     pushMsg('status', 'Connecting…')
 
     try {
-      const accessToken = localStorage.getItem('access_token')
+      const accessToken = localStorage.getItem('voicebank.access_token')
       const startRes = await fetch(`${API_BASE}/start`, {
         method: 'POST',
         headers: { 
@@ -221,7 +221,7 @@ export function useWebRTC() {
       pc.onicecandidate = (ev) => {
         if (!ev.candidate || !pcIdRef.current || !sessionIdRef.current) return
         const offerUrl = `${API_BASE}/sessions/${sessionIdRef.current}/api/offer`
-        const accessToken = localStorage.getItem('access_token')
+        const accessToken = localStorage.getItem('voicebank.access_token')
         fetch(offerUrl, {
           method: 'PATCH',
           headers: { 
