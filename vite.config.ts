@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => {
         '/start': { target: webrtcBackend, changeOrigin: true, secure: false },
         '/sessions': { target: webrtcBackend, changeOrigin: true, secure: false },
         '/api/offer': { target: webrtcBackend, changeOrigin: true, secure: false },
+        '/api/feedback': { target: webrtcBackend, changeOrigin: true, secure: false },
       },
     },
   }

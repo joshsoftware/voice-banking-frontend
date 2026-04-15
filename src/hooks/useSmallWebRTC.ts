@@ -60,10 +60,13 @@ export function useSmallWebRTC() {
     pushMsg('status', 'Connecting…')
 
     try {
-      // Create transport with custom Josh backend negotiations
-      const transport = new CustomSmallWebRTCTransport({
-        waitForICEGathering: true,
-      })
+      // Create transport WITHOUT waitForICEGathering:true – that option adds an
+      // icegatheringstatechange listener in the library that calls
+      // attemptReconnection() whenever gathering finishes while the ICE
+      // connection is still "checking", which (after setRemoteDescription
+      // triggers a second gathering round) creates an endless offer loop.
+      // Our custom negotiate() already waits for gathering manually.
+      const transport = new CustomSmallWebRTCTransport()
 
       // Create Pipecat client
       const client = new PipecatClient({
@@ -203,28 +206,44 @@ export function useSmallWebRTC() {
         setState('disconnected')
       })
 
-      // Start bot and connect
-      await client.startBotAndConnect({
-        endpoint: `${API_BASE}/start`,
-        requestData: {
+      // Attach the JWT access token so that /start and the subsequent
+      // /sessions/{id}/api/offer requests reach the protected backend endpoints.
+      const accessToken = localStorage.getItem('access_token')
+      const authHeaders: Record<string, string> = accessToken
+        ? { Authorization: `Bearer ${accessToken}` }
+        : {}
+
+      // Call /start manually to capture sessionId directly from the response
+      const startRes = await fetch(`${API_BASE}/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({
           createDailyRoom: false,
           enableDefaultIceServers: true,
           transport: 'webrtc',
           customer_id: activeCustomerId,
           is_voice_print: shouldVerifyVoice,
-        },
-        timeout: 30000,
+        }),
       })
-
-      // Extract session_id from the transport endpoint URL (/sessions/{id}/api/offer)
-      try {
-        const transport = client.transport as any
-        const endpoint: string = transport?._webrtcRequest?.endpoint ?? ''
-        const m = endpoint.match(/\/sessions\/([^/]+)\//)
-        if (m) setSessionId(m[1])
-      } catch {
-        // session_id extraction is best-effort
+      if (!startRes.ok) {
+        throw new Error(`Failed to start session (${startRes.status})`)
       }
+      const startData = await startRes.json()
+      const sid: string = startData.sessionId ?? startData.session_id ?? null
+      if (sid) setSessionId(sid)
+
+      const offerEndpoint = sid
+        ? `${API_BASE}/sessions/${sid}/api/offer`
+        : `${API_BASE}/start`
+
+      // Connect using the pre-built offer endpoint (skips library's own /start call)
+      await client.connect({
+        webrtcRequestParams: {
+          endpoint: offerEndpoint,
+          headers: authHeaders,
+        },
+        ...(startData.iceConfig ? { iceConfig: startData.iceConfig } : {}),
+      } as any)
 
     } catch (err) {
       console.error('[SmallWebRTC] Connect error:', err)

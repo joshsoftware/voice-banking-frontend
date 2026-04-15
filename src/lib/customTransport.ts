@@ -1,111 +1,128 @@
 import { SmallWebRTCTransport } from '@pipecat-ai/small-webrtc-transport';
 
 /**
- * Custom transport to handle specific payload requirements of the joshsoftware backend.
+ * Helper to extract headers from a Headers object or plain record into a plain object.
+ * Needed because _webrtcRequest.headers may be a `Headers` instance whose entries
+ * cannot be spread with `{...headers}`.
+ */
+function extractHeaders(h: Headers | Record<string, string> | undefined): Record<string, string> {
+  if (!h) return {};
+  if (h instanceof Headers) {
+    const out: Record<string, string> = {};
+    h.forEach((v, k) => { out[k] = v; });
+    return out;
+  }
+  return h as Record<string, string>;
+}
+
+/**
+ * Custom transport that waits for full ICE gathering before sending the offer so
+ * that all candidates are embedded in the SDP (no trickle-ICE needed by the
+ * backend).  Critically, we do NOT pass `waitForICEGathering: true` to the
+ * parent constructor — that option adds an `icegatheringstatechange` listener
+ * that calls `attemptReconnection()` whenever gathering finishes while the
+ * connection is still in "checking" state (e.g. after a second gathering round
+ * triggered by setRemoteDescription).  That listener is the root cause of the
+ * repeated-offer loop.  Instead, we wait for gathering manually here and keep
+ * the library reconnection logic disabled.
  */
 export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
   private _isNegotiated = false;
   private _iceBuffer: RTCIceCandidate[] = [];
 
-  // Override negotiate to match the exact payload structure seen in the backend
-  // Note: We use any/ignore because we are accessing internal pipecat properties
   // @ts-ignore
   async negotiate(recreatePeerConnection = false) {
     try {
       this._isNegotiated = false;
-      // @ts-ignore - Access internal peer connection
-      const pc = this.pc || (this as any)._pc;
-      
+      // @ts-ignore
+      const pc: RTCPeerConnection = (this as any).pc;
+      if (!pc || pc.signalingState === 'closed') return;
+
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      // Wait for all ICE candidates to be gathered before sending the offer.
-      // This ensures we have a complete SDP with all viable connection paths.
-      // We also add a timeout to prevent infinite hanging if ICE gathering stalls.
+      // Wait for ICE gathering to finish so the SDP contains all candidates.
+      // IMPORTANT: use resolve-on-timeout (never reject) so that a slow gather
+      // still sends the offer with whatever candidates exist rather than aborting
+      // the entire connection attempt.
       if (pc.iceGatheringState !== 'complete') {
-        const timeoutPromise = new Promise<void>((_, reject) => 
-          setTimeout(() => reject(new Error('ICE gathering timed out')), 5000)
-        );
-        const gatheringPromise = new Promise<void>((resolve) => {
+        await new Promise<void>((resolve) => {
+          let tid: ReturnType<typeof setTimeout>;
+          const cleanup = () => {
+            clearTimeout(tid);
+            pc.removeEventListener('icegatheringstatechange', onStateChange);
+          };
           const onStateChange = () => {
             console.log('[CustomTransport] ICE Gathering:', pc.iceGatheringState);
             if (pc.iceGatheringState === 'complete') {
-              pc.removeEventListener('icegatheringstatechange', onStateChange)
-              resolve()
+              cleanup();
+              resolve();
             }
-          }
-          pc.addEventListener('icegatheringstatechange', onStateChange)
-          // Handle case where it's already complete between checks
-          if (pc.iceGatheringState === 'complete') {
-            pc.removeEventListener('icegatheringstatechange', onStateChange)
-            resolve()
-          }
+          };
+          pc.addEventListener('icegatheringstatechange', onStateChange);
+          // Resolve anyway after 8 s to avoid hanging forever on bad networks
+          tid = setTimeout(() => {
+            console.warn('[CustomTransport] ICE gathering timeout – sending offer with partial candidates');
+            cleanup();
+            resolve();
+          }, 8000);
+          // Double-check in case it completed between the initial check and addEventListener
+          if (pc.iceGatheringState === 'complete') { cleanup(); resolve(); }
         });
-        await Promise.race([gatheringPromise, timeoutPromise]);
       }
 
-      // @ts-ignore - Access internal request info
+      // @ts-ignore
       const webrtcRequest = (this as any)._webrtcRequest;
       // @ts-ignore
       const pcId = (this as any).pc_id || null;
 
-      // The backend seems to expect 'config' at the root OR inside 'requestData'
-      // Based on common Pipecat patterns for custom backends:
-      // Use localDescription.sdp (contains all gathered candidates) not offer.sdp
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         sdp: pc.localDescription?.sdp ?? offer.sdp,
         type: pc.localDescription?.type ?? offer.type,
         pc_id: pcId,
         restart_pc: recreatePeerConnection,
-        // Josh backend specific: it often wants config at the root level
-        config: { 
-          data_channel_enabled: true,
-          ...(webrtcRequest?.requestData?.config || {})
-        },
+        // Pass requestData through so the backend bot receives customer_id etc.
+        ...(webrtcRequest?.requestData ? { requestData: webrtcRequest.requestData } : {}),
       };
 
       console.log('[CustomTransport] Sending offer to:', webrtcRequest.endpoint);
 
+      const reqHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...extractHeaders(webrtcRequest?.headers),
+      };
+
       const response = await fetch(webrtcRequest.endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(webrtcRequest.headers || {})
-        },
+        headers: reqHeaders,
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(`Negotiation failed: ${text}`);
+        throw new Error(`Negotiation failed (${response.status}): ${text}`);
       }
 
       const answer = await response.json();
-      
-      // Some backends return { sdp: "..." } directly, others wrap it
+
       const remoteSdp = answer.sdp || answer.answer?.sdp || answer.data?.sdp;
       const remoteType = answer.type || answer.answer?.type || 'answer';
 
       if (!remoteSdp) {
-        console.error('[CustomTransport] Answer body:', answer);
-        throw new Error('No SDP found in answer from bot');
+        console.error('[CustomTransport] Unexpected answer body:', answer);
+        throw new Error('No SDP found in answer from server');
       }
 
-      // Update the internal pc_id for future ICE candidates
       const newPcId = answer.pc_id || answer.data?.pc_id || pcId;
       // @ts-ignore
-      this.pc_id = newPcId;
+      (this as any).pc_id = newPcId;
 
-      await pc.setRemoteDescription(new RTCSessionDescription({
-        type: remoteType,
-        sdp: remoteSdp
-      }));
+      await pc.setRemoteDescription(new RTCSessionDescription({ type: remoteType, sdp: remoteSdp }));
 
-      // Set negotiation flag only after setRemoteDescription succeeds
       this._isNegotiated = true;
       console.log('[CustomTransport] Negotiation successful, pc_id:', newPcId);
 
-      // Flush ICE buffer
+      // Flush buffered ICE candidates that arrived before negotiation completed
       if (this._iceBuffer.length > 0) {
         for (const cand of this._iceBuffer) {
           await this.sendIceCandidate(cand);
@@ -142,12 +159,14 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
         }]
       };
 
+      const reqHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...extractHeaders(webrtcRequest?.headers),
+      };
+
       await fetch(webrtcRequest.endpoint, {
         method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...(webrtcRequest.headers || {})
-        },
+        headers: reqHeaders,
         body: JSON.stringify(payload),
       });
     } catch (e) {

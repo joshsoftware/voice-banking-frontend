@@ -35,6 +35,14 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
       setError('Description is required.')
       return
     }
+    if (!sessionId) {
+      setError('No active session found. Please start a session and try again.')
+      return
+    }
+    if (!image) {
+      setError('A screenshot is required.')
+      return
+    }
 
     setSubmitting(true)
     setError(null)
@@ -44,10 +52,10 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
       const fd = new FormData()
       fd.append('username', form.username)
       fd.append('email', form.email)
-      if (sessionId) fd.append('session_id', sessionId)
+      fd.append('session_id', sessionId)
       fd.append('device_id', deviceId)
       fd.append('description', form.description)
-      if (image) fd.append('image', image)
+      fd.append('image', image)
 
       const res = await fetch(`${base}/api/feedback`, { method: 'POST', body: fd })
 
@@ -171,7 +179,7 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
 
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-600">
-                  Screenshot <span className="text-gray-400">(optional)</span>
+                  Screenshot <span className="text-red-500">*</span>
                 </label>
                 <button
                   type="button"
