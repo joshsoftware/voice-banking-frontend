@@ -3,8 +3,8 @@
  * In production: set VITE_API_BASE to the full backend URL. */
 export const API_BASE = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BASE ?? '')
 
-/** Auth / login API (OTP, verify, refresh, logout). Defaults to local backend. */
-export const AUTH_API_BASE = import.meta.env.VITE_AUTH_API_BASE ?? 'http://localhost:7860'
+/** Auth / login API (OTP, verify, refresh, logout). */
+export const AUTH_API_BASE = import.meta.env.VITE_AUTH_API_BASE ?? 'https://voicebanking.joshsoftware.com'
 
 /**
  * Voice embedding enrollment API
