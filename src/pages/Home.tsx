@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
 import { Header } from '@/components/home/Header'
 import { BalanceCard } from '@/components/home/BalanceCard'
 import { VoiceSheet } from '@/components/home/VoiceSheet'
@@ -21,20 +22,21 @@ interface HomeProps {
 
 export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) {
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
   const customer = getActiveCustomer()
   const primaryAccount = customer ? getPrimaryAccount(customer.customer_id) : null
   const voiceRegistered = customer ? isVoiceRegistered(customer.customer_id) : false
   const voiceSkipAllowed = customer ? isVoiceSkipAllowed(customer.customer_id) : false
 
   useEffect(() => {
-    if (!customer) {
+    if (!isAuthenticated || !customer) {
       navigate('/welcome', { replace: true })
       return
     }
     if (!voiceRegistered && !voiceSkipAllowed) {
       navigate('/voice-registration', { replace: true })
     }
-  }, [customer, voiceRegistered, voiceSkipAllowed, navigate])
+  }, [isAuthenticated, customer, voiceRegistered, voiceSkipAllowed, navigate])
 
   const handleUnregisterVoice = async () => {
     if (!customer) return

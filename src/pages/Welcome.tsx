@@ -5,14 +5,23 @@ import { Logo } from '@/components/ui/logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useTranslation } from '@/i18n/LanguageHooks'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/contexts/AuthContext'
+import { useEffect } from 'react'
 
 export default function Welcome() {
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
-  const { requestOtp } = useAuth()
+  const { requestOtp, sessionError, clearSessionError } = useAuth()
   const { t } = useTranslation()
+
+  useEffect(() => {
+    // Clear session error when user types or on mount if they want to try again
+    if (phone.length > 0) {
+      clearSessionError()
+    }
+  }, [phone, clearSessionError])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -21,11 +30,14 @@ export default function Welcome() {
       return
     }
     setError('')
+    setIsLoading(true)
     try {
-      await requestOtp(phone)
-      navigate('/verify-otp', { state: { phone } })
-    } catch (err: any) {
-      setError(err.message || 'Failed to send OTP')
+      await requestOtp(`91${phone}`)
+      navigate('/verify-otp', { state: { phone: `91${phone}` } })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send OTP')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -74,12 +86,17 @@ export default function Welcome() {
               />
             </div>
             {error && <p className="text-sm text-red-300">{error}</p>}
+            {sessionError && (
+              <div className="rounded-lg bg-red-500/20 p-3 text-center text-sm font-medium text-red-200 border border-red-500/30">
+                {sessionError}
+              </div>
+            )}
           </div>
 
           {/* Bottom Section */}
           <div className="mt-6 space-y-4">
-            <Button type="submit" variant="primary" className="w-full">
-              {t('sendOtp')}
+            <Button type="submit" variant="primary" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Sending...' : t('sendOtp')}
             </Button>
 
             <p className="px-2 text-center text-sm leading-5 text-white/90">

@@ -12,6 +12,7 @@ import { stopSpeech, speakText } from '@/lib/speech'
 import { VOICE_REGISTRATION_IMAGES } from '@/data/voiceRegistrationImages'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
 import { allowVoiceSkip, disallowVoiceSkip, getActiveCustomer, markVoiceRegistered } from '@/lib/demoCustomer'
+import { getDeviceId } from '@/lib/device'
 
 type Phase = 'consent' | 'imageChallenge' | 'success'
 const FALLBACK_ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -100,7 +101,7 @@ export default function VoiceRegistration() {
     if (!pc || !sid) return
     const offer = await pc.createOffer()
     await pc.setLocalDescription(offer)
-    const accessToken = localStorage.getItem('access_token')
+    const accessToken = localStorage.getItem('voicebank.access_token')
     const offerRes = await fetch(`${backendBase}/sessions/${sid}/api/offer`, {
       method: 'POST',
       headers: { 
@@ -137,7 +138,7 @@ export default function VoiceRegistration() {
       const backendBase = getRegistrationBackendBase()
       const startPayload = {
         customer_id: activeCustomer?.customer_id ?? 'test-user',
-        device_id: 'web',
+        device_id: getDeviceId(),
         total_steps: VOICE_REGISTRATION_IMAGES.length,
       }
       // Support both backend mounting styles:
@@ -146,7 +147,7 @@ export default function VoiceRegistration() {
       const startCandidates = [`${backendBase}/start`, `${backendBase}/enrollment/start`]
       let startEnrollmentPayload: { session_id?: string; status?: string; [k: string]: unknown } | null = null
       let startEnrollmentError: string | null = null
-      const registrationToken = localStorage.getItem('access_token')
+      const registrationToken = localStorage.getItem('voicebank.access_token')
       for (const url of startCandidates) {
         const res = await fetch(url, {
           method: 'POST',
@@ -199,7 +200,7 @@ export default function VoiceRegistration() {
       setEnrollmentSessionId(enrollmentId)
       enrollmentSessionIdRef.current = enrollmentId
 
-      const rtcAccessToken = localStorage.getItem('access_token')
+      const rtcAccessToken = localStorage.getItem('voicebank.access_token')
       const startRtc = await fetch(`${backendBase}/start`, {
         method: 'POST',
         headers: { 
@@ -227,7 +228,7 @@ export default function VoiceRegistration() {
 
       pc.onicecandidate = (ev) => {
         if (!ev.candidate || !pcIdRef.current || !rtcSessionIdRef.current) return
-        const accessToken = localStorage.getItem('access_token')
+        const accessToken = localStorage.getItem('voicebank.access_token')
         fetch(`${backendBase}/sessions/${rtcSessionIdRef.current}/api/offer`, {
           method: 'PATCH',
           headers: { 
@@ -413,7 +414,7 @@ export default function VoiceRegistration() {
     try {
       const backendBase = getRegistrationBackendBase()
       const sid = encodeURIComponent(enrollmentSessionIdRef.current)
-      const accessToken = localStorage.getItem('access_token')
+      const accessToken = localStorage.getItem('voicebank.access_token')
       const res = await fetch(`${backendBase}/enrollment/${sid}/submit-step`, {
         method: 'POST',
         headers: { 

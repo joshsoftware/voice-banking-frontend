@@ -5,12 +5,13 @@ import { Logo } from '@/components/ui/logo'
 import { Button } from '@/components/ui/button'
 import { ArrowLeftIcon } from '@/components/ui/icons'
 import { useTranslation } from '@/i18n/LanguageHooks'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function OtpVerification() {
   const [otp, setOtp] = useState(['', '', '', ''])
   const [error, setError] = useState('')
   const [timer, setTimer] = useState(27)
+  const [isLoading, setIsLoading] = useState(false)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   const navigate = useNavigate()
   const location = useLocation()
@@ -64,23 +65,31 @@ export default function OtpVerification() {
       setError(t('otpEnterAllDigits'))
       return
     }
+    
+    setIsLoading(true)
     setError('')
     try {
       await login(phone, otpString)
       navigate('/home')
-    } catch (err: any) {
-      setError(err.message || 'Invalid OTP')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid OTP')
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const handleResend = async () => {
     try {
+      setIsLoading(true)
       await requestOtp(phone)
       setTimer(27)
       setOtp(['', '', '', ''])
       inputRefs.current[0]?.focus()
-    } catch (err: any) {
-      setError(err.message || 'Failed to resend OTP')
+      setError('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to resend OTP')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -160,8 +169,8 @@ export default function OtpVerification() {
 
           {/* Bottom Section */}
           <div className="w-full space-y-3">
-            <Button type="submit" variant="primary" className="w-full">
-              {t('continue')}
+            <Button type="submit" variant="primary" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Verifying...' : t('continue')}
             </Button>
             <p className="px-2 text-center text-sm leading-5 text-white/90">
               {t('termsPrefix')}{' '}
