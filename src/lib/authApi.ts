@@ -1,4 +1,4 @@
-import { API_BASE } from './constants';
+import { AUTH_API_BASE} from './constants';
 import { computeDeviceId, getDeviceId } from './device';
 
 export interface AuthResponse {
@@ -14,7 +14,7 @@ export interface AuthResponse {
 
 export const authApi = {
   async sendOtp(mobile_number: string): Promise<{ status: string; message: string; otp?: string }> {
-    const response = await fetch(`${API_BASE}/auth/send-otp`, {
+    const response = await fetch(`${AUTH_API_BASE}/auth/send-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mobile_number }),
@@ -33,7 +33,7 @@ export const authApi = {
     // same number always produces the same ID on every browser.
     const device_id = await computeDeviceId(mobile_number);
 
-    const response = await fetch(`${API_BASE}/auth/verify-otp`, {
+    const response = await fetch(`${AUTH_API_BASE}/auth/verify-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mobile_number, otp, device_id }),
@@ -48,7 +48,7 @@ export const authApi = {
   },
 
   async refreshToken(refresh_token: string): Promise<AuthResponse> {
-    const response = await fetch(`${API_BASE}/auth/refresh`, {
+    const response = await fetch(`${AUTH_API_BASE}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -66,7 +66,7 @@ export const authApi = {
   },
 
   async logout(refresh_token: string): Promise<void> {
-    await fetch(`${API_BASE}/auth/logout`, {
+    await fetch(`${AUTH_API_BASE}/auth/logout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

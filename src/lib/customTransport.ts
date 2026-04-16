@@ -28,15 +28,36 @@ function extractHeaders(h: Headers | Record<string, string> | undefined): Record
  */
 export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
   private _isNegotiated = false;
-  private _iceBuffer: RTCIceCandidate[] = [];
+  private _isNegotiating = false;
+
+  // @ts-ignore
+  async _disconnect() {
+    console.log('[CustomTransport] _disconnect: cleaning up state');
+    this._isNegotiated = false;
+    this._isNegotiating = false;
+    // @ts-ignore
+    await super._disconnect();
+  }
 
   // @ts-ignore
   async negotiate(recreatePeerConnection = false) {
+    if (this._isNegotiated && !recreatePeerConnection) {
+      console.log('[CustomTransport] Already negotiated, skipping redundant offer');
+      return;
+    }
+    if (this._isNegotiating) {
+      console.log('[CustomTransport] Negotiation already in progress, skipping');
+      return;
+    }
+
     try {
-      this._isNegotiated = false;
+      this._isNegotiating = true;
       // @ts-ignore
       const pc: RTCPeerConnection = (this as any).pc;
-      if (!pc || pc.signalingState === 'closed') return;
+      if (!pc || pc.signalingState === 'closed') {
+        this._isNegotiating = false;
+        return;
+      }
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -99,6 +120,8 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
       });
 
       if (!response.ok) {
+        this._isNegotiated = false;
+        this._isNegotiating = false;
         const text = await response.text();
         throw new Error(`Negotiation failed (${response.status}): ${text}`);
       }
@@ -109,6 +132,8 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
       const remoteType = answer.type || answer.answer?.type || 'answer';
 
       if (!remoteSdp) {
+        this._isNegotiated = false;
+        this._isNegotiating = false;
         console.error('[CustomTransport] Unexpected answer body:', answer);
         throw new Error('No SDP found in answer from server');
       }
@@ -120,57 +145,21 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
       await pc.setRemoteDescription(new RTCSessionDescription({ type: remoteType, sdp: remoteSdp }));
 
       this._isNegotiated = true;
+      this._isNegotiating = false;
       console.log('[CustomTransport] Negotiation successful, pc_id:', newPcId);
-
-      // Flush buffered ICE candidates that arrived before negotiation completed
-      if (this._iceBuffer.length > 0) {
-        for (const cand of this._iceBuffer) {
-          await this.sendIceCandidate(cand);
-        }
-        this._iceBuffer = [];
-      }
     } catch (e) {
+      this._isNegotiating = false;
       console.error('[CustomTransport] Negotiation error:', e);
       throw e;
     }
   }
 
   // @ts-ignore
-  async sendIceCandidate(candidate: RTCIceCandidate) {
-    if (!this._isNegotiated) {
-      this._iceBuffer.push(candidate);
-      return;
-    }
-
-    try {
-      // @ts-ignore
-      const webrtcRequest = (this as any)._webrtcRequest;
-      // @ts-ignore
-      const pcId = (this as any).pc_id;
-
-      if (!webrtcRequest || !pcId) return;
-
-      const payload = {
-        pc_id: pcId,
-        candidates: [{
-          candidate: candidate.candidate,
-          sdp_mid: candidate.sdpMid,
-          sdp_mline_index: candidate.sdpMLineIndex
-        }]
-      };
-
-      const reqHeaders: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...extractHeaders(webrtcRequest?.headers),
-      };
-
-      await fetch(webrtcRequest.endpoint, {
-        method: 'PATCH',
-        headers: reqHeaders,
-        body: JSON.stringify(payload),
-      });
-    } catch (e) {
-      console.warn('[CustomTransport] ICE error:', e);
-    }
+  async sendIceCandidate(_candidate: RTCIceCandidate) {
+    // No-op: we wait for full ICE gathering before sending the SDP offer, so
+    // all host/srflx candidates are already embedded in the offer SDP.
+    // Sending trickle-ICE PATCH requests after negotiation is unnecessary and
+    // causes 502 errors when the backend doesn't support it, which in turn
+    // triggers ICE failure → reconnection loops.
   }
 }
