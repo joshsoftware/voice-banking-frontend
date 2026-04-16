@@ -208,7 +208,7 @@ export function useSmallWebRTC() {
 
       // Attach the JWT access token so that /start and the subsequent
       // /sessions/{id}/api/offer requests reach the protected backend endpoints.
-      const accessToken = localStorage.getItem('access_token')
+      const accessToken = localStorage.getItem('voicebank.access_token')
       const authHeaders: Record<string, string> = accessToken
         ? { Authorization: `Bearer ${accessToken}` }
         : {}
@@ -240,11 +240,6 @@ export function useSmallWebRTC() {
         webrtcRequestParams: {
           endpoint: offerEndpoint,
           headers: authHeaders,
-          requestData: {
-            customer_id: activeCustomerId,
-            is_voice_print: shouldVerifyVoice,
-            pc_id: sid, // Pass sid as pc_id for backend consistency
-          }
         },
         ...(startData.iceConfig ? { iceConfig: startData.iceConfig } : {}),
       } as any)

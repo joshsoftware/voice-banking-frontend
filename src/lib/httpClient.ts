@@ -1,7 +1,15 @@
-import { AUTH_API_BASE } from './constants'
+import { API_BASE, AUTH_API_BASE } from './constants'
+import { getDeviceId } from './device'
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string>
+}
+
+type SessionInvalidatedHandler = () => void;
+let onSessionInvalidated: SessionInvalidatedHandler | null = null;
+
+export function registerSessionInvalidatedHandler(handler: SessionInvalidatedHandler) {
+  onSessionInvalidated = handler;
 }
 
 class HttpClient {
@@ -13,17 +21,20 @@ class HttpClient {
 
   private getTokens() {
     return {
-      accessToken: localStorage.getItem('access_token'),
-      refreshToken: localStorage.getItem('refresh_token'),
+      // Use the primary AuthContext's storage keys
+      accessToken: localStorage.getItem('voicebank.access_token') || localStorage.getItem('access_token'),
+      refreshToken: localStorage.getItem('voicebank.refresh_token') || localStorage.getItem('refresh_token'),
     }
   }
 
   private setTokens(accessToken: string, refreshToken: string) {
-    localStorage.setItem('access_token', accessToken)
-    localStorage.setItem('refresh_token', refreshToken)
+    localStorage.setItem('voicebank.access_token', accessToken)
+    localStorage.setItem('voicebank.refresh_token', refreshToken)
   }
 
   private clearTokens() {
+    localStorage.removeItem('voicebank.access_token')
+    localStorage.removeItem('voicebank.refresh_token')
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
   }
@@ -56,35 +67,53 @@ class HttpClient {
 
     let response = await fetch(url, config)
 
-    // Handle Token Refresh on 401
-    if (response.status === 401 && !endpoint.includes('/auth/refresh')) {
-      const { refreshToken } = this.getTokens()
-      if (refreshToken) {
-        try {
-          const refreshRes = await fetch(`${this.baseUrl}/auth/refresh`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refresh_token: refreshToken }),
-          })
+    if (response.status === 401) {
+      const errorData = await response.json().catch(() => ({}))
+      
+      // Check for specific session invalidation message from backend
+      if (errorData.detail === 'Session expired or invalidated') {
+        if (onSessionInvalidated) {
+          onSessionInvalidated()
+        }
+        throw {
+          status: 401,
+          message: errorData.detail,
+          data: errorData,
+        }
+      }
 
-          if (refreshRes.ok) {
-            const data = await refreshRes.json()
-            this.setTokens(data.access_token, data.refresh_token)
+      if (!endpoint.includes('/auth/refresh')) {
+        const { refreshToken } = this.getTokens()
+        if (refreshToken) {
+          try {
+            const refreshRes = await fetch(`${this.baseUrl}/auth/refresh`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                refresh_token: refreshToken,
+                device_id: getDeviceId(), // Required by backend
+              }),
+            })
 
-            // Retry the original request with new token
-            const retryHeaders = {
-              ...config.headers,
-              Authorization: `Bearer ${data.access_token}`,
+            if (refreshRes.ok) {
+              const data = await refreshRes.json()
+              this.setTokens(data.access_token, data.refresh_token)
+
+              // Retry the original request with new token
+              const retryHeaders = {
+                ...config.headers,
+                Authorization: `Bearer ${data.access_token}`,
+              }
+              response = await fetch(url, { ...config, headers: retryHeaders })
+            } else {
+              // Refresh failed, logout
+              this.clearTokens()
+              window.location.href = '/welcome'
             }
-            response = await fetch(url, { ...config, headers: retryHeaders })
-          } else {
-            // Refresh failed, logout
+          } catch (error) {
             this.clearTokens()
             window.location.href = '/welcome'
           }
-        } catch (error) {
-          this.clearTokens()
-          window.location.href = '/welcome'
         }
       }
     }
