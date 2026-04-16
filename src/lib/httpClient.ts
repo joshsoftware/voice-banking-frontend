@@ -1,4 +1,4 @@
-import { API_BASE, AUTH_API_BASE } from './constants'
+import { AUTH_API_BASE } from './constants'
 import { getDeviceId } from './device'
 
 interface RequestOptions extends RequestInit {

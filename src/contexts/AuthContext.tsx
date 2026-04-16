@@ -30,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [lastOtp, setLastOtp] = useState<string | null>(null);
-  const [deviceId] = useState<string>(''); // Computed from mobile on login via SHA-256
+  // const [deviceId] = useState<string>(''); // Computed from mobile on login via SHA-256
 
   useEffect(() => {
     // Initial sync
