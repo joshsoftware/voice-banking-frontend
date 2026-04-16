@@ -218,11 +218,10 @@ export function useSmallWebRTC() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({
-          createDailyRoom: false,
-          enableDefaultIceServers: true,
-          transport: 'webrtc',
-          customer_id: activeCustomerId,
-          is_voice_print: shouldVerifyVoice,
+          body: {
+            customer_id: activeCustomerId,
+            is_voice_print: shouldVerifyVoice,
+          },
         }),
       })
       if (!startRes.ok) {
@@ -241,6 +240,11 @@ export function useSmallWebRTC() {
         webrtcRequestParams: {
           endpoint: offerEndpoint,
           headers: authHeaders,
+          requestData: {
+            customer_id: activeCustomerId,
+            is_voice_print: shouldVerifyVoice,
+            pc_id: sid, // Pass sid as pc_id for backend consistency
+          }
         },
         ...(startData.iceConfig ? { iceConfig: startData.iceConfig } : {}),
       } as any)
