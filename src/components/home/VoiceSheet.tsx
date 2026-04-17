@@ -18,7 +18,7 @@ export function VoiceSheet({ onStart }: VoiceSheetProps) {
             {/* Handle */}
             <div className="h-0.5 w-10 rounded-full bg-black/40" />
 
-            <div className="flex w-full flex-col items-center gap-12 md:gap-[60px]">
+            <div className="flex w-full flex-col items-center">
               {/* Voice button container */}
               <div className="w-52 rounded-[52px] bg-[var(--color-surface-card)] px-3 py-2 shadow-[var(--shadow-voice-btn)]">
                 <button
@@ -29,12 +29,6 @@ export function VoiceSheet({ onStart }: VoiceSheetProps) {
                 >
                   <MicIcon className="text-white" />
                 </button>
-              </div>
-
-              {/* Instructions */}
-              <div className="text-center text-lg font-semibold leading-7 text-[var(--color-brand-600)]">
-                <div>{t('voiceSheetSayHeyFin')}</div>
-                <div>{t('voiceSheetToStartConversation')}</div>
               </div>
             </div>
 

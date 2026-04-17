@@ -6,6 +6,11 @@ export const API_BASE = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BAS
 /** Auth / login API (OTP, verify, refresh, logout). */
 export const AUTH_API_BASE = import.meta.env.VITE_AUTH_API_BASE ?? 'https://voicebanking.joshsoftware.com'
 
+/** Java banking APIs (transactions, loans, transfers, etc). */
+export const JAVA_API_BASE = import.meta.env.DEV
+  ? '/api/v1'
+  : (import.meta.env.VITE_JAVA_API_BASE ?? 'http://localhost:9090/api/v1')
+
 /**
  * Voice embedding enrollment API
  * Default matches hosted voiceprint service.
