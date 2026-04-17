@@ -8,6 +8,7 @@ import path from 'path'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const webrtcBackend = env.VITE_API_BASE ?? 'http://localhost:7860'
+  const javaBackend = env.VITE_JAVA_BACKEND ?? 'http://localhost:9090'
 
   return {
     plugins: [react(), tailwindcss(), svgr()],
@@ -24,6 +25,7 @@ export default defineConfig(({ mode }) => {
         '/sessions': { target: webrtcBackend, changeOrigin: true, secure: false },
         '/api/offer': { target: webrtcBackend, changeOrigin: true, secure: false },
         '/api/feedback': { target: webrtcBackend, changeOrigin: true, secure: false },
+        '/api/v1': { target: javaBackend, changeOrigin: true, secure: false },
       },
     },
   }
