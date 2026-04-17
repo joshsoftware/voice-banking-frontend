@@ -70,7 +70,7 @@ export default function OtpVerification() {
     setError('')
     try {
       await login(phone, otpString)
-      navigate('/home')
+      navigate('/home', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid OTP')
     } finally {

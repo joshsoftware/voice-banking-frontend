@@ -34,9 +34,20 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
       return
     }
     if (!voiceRegistered && !voiceSkipAllowed) {
-      navigate('/voice-registration', { replace: true })
+      navigate('/voice-registration')
     }
   }, [isAuthenticated, customer, voiceRegistered, voiceSkipAllowed, navigate])
+
+  useEffect(() => {
+    if (!isAuthenticated || !customer) return
+    window.history.pushState(null, '', window.location.href)
+    const onPopState = () => {
+      window.history.pushState(null, '', window.location.href)
+      navigate('/home', { replace: true })
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [isAuthenticated, customer, navigate])
 
   const handleUnregisterVoice = async () => {
     if (!customer) return
