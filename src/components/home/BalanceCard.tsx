@@ -73,10 +73,7 @@ export function BalanceCard({ account }: BalanceCardProps) {
       return
     }
 
-    if (showTransactions) {
-      setShowTransactions(false)
-      return
-    }
+    if (showTransactions) return
 
     if (transactions.length > 0 && !transactionsError) {
       setShowTransactions(true)
@@ -163,8 +160,18 @@ export function BalanceCard({ account }: BalanceCardProps) {
 
         {showTransactions ? (
           <div className="mt-4 rounded-xl bg-[var(--color-surface-app)] p-3">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted-2)]">
-              Last 5 transactions
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted-2)]">
+                Recent Transactions
+              </div>
+              <button
+                type="button"
+                aria-label="Collapse recent transactions"
+                onClick={() => setShowTransactions(false)}
+                className="rounded-md px-1.5 py-0.5 text-sm font-semibold text-[var(--color-brand-300)] transition-colors hover:bg-white"
+              >
+                ^
+              </button>
             </div>
             {loadingTransactions ? (
               <div className="text-xs text-[var(--color-text-muted-2)]">Loading transactions...</div>
