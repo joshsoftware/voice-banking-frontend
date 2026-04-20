@@ -16,7 +16,7 @@ export default function OtpVerification() {
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useTranslation()
-  const { login, lastOtp, requestOtp } = useAuth()
+  const { login, lastOtp, requestOtp, isVoiceprintRegistered } = useAuth()
   const phone = (location.state as { phone?: string } | null)?.phone ?? ''
 
   useEffect(() => {
@@ -69,8 +69,12 @@ export default function OtpVerification() {
     setIsLoading(true)
     setError('')
     try {
-      await login(phone, otpString)
-      navigate('/home', { replace: true })
+      const response = await login(phone, otpString)
+      if (response.is_voiceprint_registered) {
+        navigate('/home', { replace: true })
+      } else {
+        navigate('/voice-registration', { replace: true })
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid OTP')
     } finally {

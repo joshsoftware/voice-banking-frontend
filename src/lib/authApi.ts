@@ -5,6 +5,9 @@ export interface AuthResponse {
   access_token: string;
   refresh_token: string;
   token_type: string;
+  expires_in: number;
+  customer_id: string;
+  is_voiceprint_registered: boolean;
   user?: {
     customer_id: string;
     name: string;
