@@ -25,6 +25,8 @@ export interface ChatMessage {
   ts: number
 }
 
+export type InputSoundStatus = 'voice_detected' | 'no_sound'
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useSmallWebRTC() {
@@ -32,11 +34,14 @@ export function useSmallWebRTC() {
   const [isMuted, setIsMuted] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [inputSoundStatus, setInputSoundStatus] = useState<InputSoundStatus | null>(null)
 
   const clientRef = useRef<PipecatClient | null>(null)
   const isConnectingRef = useRef(false)
   const audioElRef = useRef<HTMLAudioElement | null>(null)
   const llmTextBufferRef = useRef<string>('')
+  const hasDetectedUserVoiceRef = useRef(false)
+  const noSoundTimerRef = useRef<number | null>(null)
   const activeCustomer = getActiveCustomer()
   const activeCustomerId = activeCustomer?.customer_id ?? null
   const shouldVerifyVoice = activeCustomerId ? isVoiceRegistered(activeCustomerId) : false
@@ -47,6 +52,22 @@ export function useSmallWebRTC() {
     setMessages(prev => [...prev, { role, text, ts: Date.now() }])
   }, [])
 
+  const clearNoSoundTimer = useCallback(() => {
+    if (noSoundTimerRef.current !== null) {
+      window.clearTimeout(noSoundTimerRef.current)
+      noSoundTimerRef.current = null
+    }
+  }, [])
+
+  const startNoSoundTimer = useCallback(() => {
+    clearNoSoundTimer()
+    noSoundTimerRef.current = window.setTimeout(() => {
+      if (!hasDetectedUserVoiceRef.current) {
+        setInputSoundStatus('no_sound')
+      }
+    }, 7000)
+  }, [clearNoSoundTimer])
+
   // ── Connect ────────────────────────────────────────────────────────────────
 
   const connect = useCallback(async () => {
@@ -56,6 +77,9 @@ export function useSmallWebRTC() {
     setState('connecting')
     setMessages([])
     setSessionId(null)
+    setInputSoundStatus(null)
+    hasDetectedUserVoiceRef.current = false
+    clearNoSoundTimer()
     llmTextBufferRef.current = ''
     pushMsg('status', 'Connecting…')
 
@@ -89,10 +113,16 @@ export function useSmallWebRTC() {
         console.log('[SmallWebRTC] Bot ready')
         setState('listening')
         pushMsg('status', 'Listening…')
+        startNoSoundTimer()
       })
 
       client.on('userStartedSpeaking', () => {
         console.log('[SmallWebRTC] User started speaking')
+        if (!hasDetectedUserVoiceRef.current) {
+          hasDetectedUserVoiceRef.current = true
+          setInputSoundStatus('voice_detected')
+        }
+        clearNoSoundTimer()
         setState('processing')
       })
 
@@ -203,6 +233,7 @@ export function useSmallWebRTC() {
 
       client.on('disconnected', () => {
         console.log('[SmallWebRTC] Disconnected')
+        clearNoSoundTimer()
         setState('disconnected')
       })
 
@@ -246,6 +277,7 @@ export function useSmallWebRTC() {
 
     } catch (err) {
       console.error('[SmallWebRTC] Connect error:', err)
+      clearNoSoundTimer()
       pushMsg('status', `Error: ${err instanceof Error ? err.message : 'Unknown'}`)
       setState('error')
       clientRef.current = null
@@ -253,7 +285,7 @@ export function useSmallWebRTC() {
     } finally {
       isConnectingRef.current = false
     }
-  }, [activeCustomerId, pushMsg, shouldVerifyVoice])
+  }, [activeCustomerId, clearNoSoundTimer, pushMsg, shouldVerifyVoice, startNoSoundTimer])
 
   // ── Disconnect ─────────────────────────────────────────────────────────────
 
@@ -327,10 +359,11 @@ export function useSmallWebRTC() {
       console.error('[SmallWebRTC] Disconnect error:', err)
     }
 
+    clearNoSoundTimer()
     clientRef.current = null
     globalClientInstance = null
     setState('disconnected')
-  }, [])
+  }, [clearNoSoundTimer])
 
   // ── Toggle Mute ────────────────────────────────────────────────────────────
 
@@ -418,19 +451,21 @@ export function useSmallWebRTC() {
         clientRef.current = null
         globalClientInstance = null
       }
+      clearNoSoundTimer()
       if (audioElRef.current) {
         audioElRef.current.pause()
         audioElRef.current.srcObject = null
         audioElRef.current = null
       }
     }
-  }, [])
+  }, [clearNoSoundTimer])
 
   return {
     state,
     isMuted,
     messages,
     sessionId,
+    inputSoundStatus,
     connect,
     disconnect,
     toggleMute,
