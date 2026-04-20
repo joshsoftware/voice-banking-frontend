@@ -8,11 +8,12 @@ interface AuthContextType {
   accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
+  isVoiceprintRegistered: boolean;
   isLoading: boolean;
   lastOtp: string | null;
   sessionError: string | null;
   requestOtp: (phone: string) => Promise<void>;
-  login: (phone: string, otp: string) => Promise<void>;
+  login: (phone: string, otp: string) => Promise<AuthResponse>;
   logout: () => void;
   handleSessionInvalidated: () => void;
   clearSessionError: () => void;
@@ -109,10 +110,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem(REFRESH_TOKEN_KEY, response.refresh_token);
       
       // Update legacy mock customer state for compatibility with existing components
-      const customer = setActiveCustomerByPhone(phone);
+      const customer = setActiveCustomerByPhone(
+        phone, 
+        response.customer_id, 
+        response.is_voiceprint_registered
+      );
       setUser(customer);
       setLastOtp(null);
       setSessionError(null);
+      return response;
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -124,6 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     accessToken,
     refreshToken,
     isAuthenticated: !!accessToken,
+    isVoiceprintRegistered: user?.is_voice_registered ?? false,
     isLoading,
     lastOtp,
     sessionError,
