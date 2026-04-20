@@ -10,8 +10,20 @@ import { getActiveCustomer } from '@/lib/demoCustomer'
 export default function Listening() {
   const navigate = useNavigate()
   const navigationType = useNavigationType()
-  const { state, isMuted, messages, sessionId, connect, disconnect, toggleMute, stopAudioTracks, client } = useSmallWebRTC()
+  const {
+    state,
+    isMuted,
+    messages,
+    sessionId,
+    inputSoundStatus,
+    connect,
+    disconnect,
+    toggleMute,
+    stopAudioTracks,
+    client,
+  } = useSmallWebRTC()
   const [showFeedback, setShowFeedback] = useState(false)
+  const [soundPopup, setSoundPopup] = useState<string | null>(null)
   const customer = getActiveCustomer()
 
   // Auto-connect only on intentional navigation (not browser back/forward)
@@ -31,6 +43,17 @@ export default function Listening() {
     }
   }, [state, navigate])
 
+  useEffect(() => {
+    if (!inputSoundStatus) return
+    if (inputSoundStatus === 'voice_detected') {
+      setSoundPopup('Voice detected')
+    } else {
+      setSoundPopup('No sound detected. Please speak louder or check your mic.')
+    }
+    const timer = window.setTimeout(() => setSoundPopup(null), 2200)
+    return () => window.clearTimeout(timer)
+  }, [inputSoundStatus])
+
   const handleStop = async () => {
     stopAudioTracks()
     await disconnect()
@@ -40,6 +63,11 @@ export default function Listening() {
   return (
     <div onClick={() => client?.transport?.initDevices()}>
       <BotAudio client={client} />
+      {soundPopup ? (
+        <div className="pointer-events-none fixed left-1/2 top-[52%] z-[1200] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--color-brand-900)]/90 px-4 py-2 text-xs font-medium text-white shadow-lg">
+          {soundPopup}
+        </div>
+      ) : null}
       <Home
         bottomSheet={
           <ListeningSheet
