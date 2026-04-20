@@ -7,6 +7,8 @@ export interface DemoCustomer {
   mobile_number: string
   name: string
   status: string
+  voice_customer_id?: string // Stable backend identity for voiceprint
+  is_voice_registered?: boolean // Registration status flag from backend
 }
 
 export interface DemoAccount {
@@ -234,11 +236,25 @@ export function getPrimaryAccount(customerId: string): DemoAccount | null {
   return accounts.find((a) => a.account_type === 'SAVINGS') ?? accounts[0] ?? null
 }
 
-export function setActiveCustomerByPhone(phone: string): DemoCustomer | null {
+export function setActiveCustomerByPhone(
+  phone: string, 
+  voice_customer_id?: string, 
+  is_voice_registered?: boolean
+): DemoCustomer | null {
   const customer = findCustomerByPhone(phone)
   if (!customer) return null
+  
+  if (voice_customer_id) customer.voice_customer_id = voice_customer_id
+  if (is_voice_registered !== undefined) customer.is_voice_registered = is_voice_registered
+
   try {
     localStorage.setItem(ACTIVE_CUSTOMER_STORAGE_KEY, customer.customer_id)
+    if (voice_customer_id) {
+        localStorage.setItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.voice_customer_id`, voice_customer_id)
+    }
+    if (is_voice_registered !== undefined) {
+        localStorage.setItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`, String(is_voice_registered))
+    }
   } catch {
     // ignore storage issues
   }
@@ -249,7 +265,12 @@ export function getActiveCustomer(): DemoCustomer | null {
   try {
     const id = localStorage.getItem(ACTIVE_CUSTOMER_STORAGE_KEY)
     if (!id) return null
-    return CUSTOMERS.find((c) => c.customer_id === id) ?? null
+    const customer = CUSTOMERS.find((c) => c.customer_id === id) ?? null
+    if (customer) {
+        customer.voice_customer_id = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.voice_customer_id`) ?? undefined
+        customer.is_voice_registered = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`) === 'true'
+    }
+    return customer
   } catch {
     return null
   }
@@ -258,6 +279,8 @@ export function getActiveCustomer(): DemoCustomer | null {
 export function clearActiveCustomer(): void {
   try {
     localStorage.removeItem(ACTIVE_CUSTOMER_STORAGE_KEY)
+    localStorage.removeItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.voice_customer_id`)
+    localStorage.removeItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`)
   } catch {
     // ignore storage issues
   }

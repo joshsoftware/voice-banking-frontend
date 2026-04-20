@@ -137,7 +137,7 @@ export default function VoiceRegistration() {
     try {
       const backendBase = getRegistrationBackendBase()
       const startPayload = {
-        customer_id: activeCustomer?.customer_id ?? 'test-user',
+        customer_id: activeCustomer?.voice_customer_id ?? activeCustomer?.customer_id ?? 'test-user',
         device_id: getDeviceId(),
         total_steps: VOICE_REGISTRATION_IMAGES.length,
       }
