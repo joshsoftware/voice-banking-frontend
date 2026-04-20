@@ -1,0 +1,18 @@
+{
+  "name": "Voice Banking Application",
+  "short_name": "VoiceBank",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f4f88",
+  "description": "Voice-enabled banking assistant with multilingual support.",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "48x46",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
