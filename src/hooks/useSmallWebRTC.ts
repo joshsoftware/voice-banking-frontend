@@ -25,6 +25,13 @@ export interface ChatMessage {
   ts: number
 }
 
+export type MicDetectionSignalType = 'voice-detected' | 'no-sound-detected'
+
+export interface MicDetectionSignal {
+  type: MicDetectionSignalType
+  ts: number
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useSmallWebRTC() {
@@ -32,11 +39,14 @@ export function useSmallWebRTC() {
   const [isMuted, setIsMuted] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [micDetectionSignal, setMicDetectionSignal] = useState<MicDetectionSignal | null>(null)
 
   const clientRef = useRef<PipecatClient | null>(null)
   const isConnectingRef = useRef(false)
   const audioElRef = useRef<HTMLAudioElement | null>(null)
   const llmTextBufferRef = useRef<string>('')
+  const noSoundTimerRef = useRef<number | null>(null)
+  const hasDetectedVoiceRef = useRef(false)
   const activeCustomer = getActiveCustomer()
   const activeCustomerId = activeCustomer?.customer_id ?? null
   const shouldVerifyVoice = activeCustomerId ? isVoiceRegistered(activeCustomerId) : false
@@ -47,6 +57,22 @@ export function useSmallWebRTC() {
     setMessages(prev => [...prev, { role, text, ts: Date.now() }])
   }, [])
 
+  const clearNoSoundTimer = useCallback(() => {
+    if (noSoundTimerRef.current !== null) {
+      window.clearTimeout(noSoundTimerRef.current)
+      noSoundTimerRef.current = null
+    }
+  }, [])
+
+  const startNoSoundTimer = useCallback(() => {
+    clearNoSoundTimer()
+    noSoundTimerRef.current = window.setTimeout(() => {
+      if (!hasDetectedVoiceRef.current) {
+        setMicDetectionSignal({ type: 'no-sound-detected', ts: Date.now() })
+      }
+    }, 7000)
+  }, [clearNoSoundTimer])
+
   // ── Connect ────────────────────────────────────────────────────────────────
 
   const connect = useCallback(async () => {
@@ -56,6 +82,8 @@ export function useSmallWebRTC() {
     setState('connecting')
     setMessages([])
     setSessionId(null)
+    setMicDetectionSignal(null)
+    hasDetectedVoiceRef.current = false
     llmTextBufferRef.current = ''
     pushMsg('status', 'Connecting…')
 
@@ -89,10 +117,16 @@ export function useSmallWebRTC() {
         console.log('[SmallWebRTC] Bot ready')
         setState('listening')
         pushMsg('status', 'Listening…')
+        startNoSoundTimer()
       })
 
       client.on('userStartedSpeaking', () => {
         console.log('[SmallWebRTC] User started speaking')
+        clearNoSoundTimer()
+        if (!hasDetectedVoiceRef.current) {
+          setMicDetectionSignal({ type: 'voice-detected', ts: Date.now() })
+          hasDetectedVoiceRef.current = true
+        }
         setState('processing')
       })
 
@@ -197,12 +231,14 @@ export function useSmallWebRTC() {
       // Error handling
       client.on('error', (error: any) => {
         console.error('[SmallWebRTC] Error:', error)
+        clearNoSoundTimer()
         setState('error')
         pushMsg('status', `Error: ${error.message || 'Connection failed'}`)
       })
 
       client.on('disconnected', () => {
         console.log('[SmallWebRTC] Disconnected')
+        clearNoSoundTimer()
         setState('disconnected')
       })
 
@@ -246,6 +282,7 @@ export function useSmallWebRTC() {
 
     } catch (err) {
       console.error('[SmallWebRTC] Connect error:', err)
+      clearNoSoundTimer()
       pushMsg('status', `Error: ${err instanceof Error ? err.message : 'Unknown'}`)
       setState('error')
       clientRef.current = null
@@ -253,7 +290,7 @@ export function useSmallWebRTC() {
     } finally {
       isConnectingRef.current = false
     }
-  }, [activeCustomerId, pushMsg, shouldVerifyVoice])
+  }, [activeCustomerId, clearNoSoundTimer, pushMsg, shouldVerifyVoice, startNoSoundTimer])
 
   // ── Disconnect ─────────────────────────────────────────────────────────────
 
@@ -329,8 +366,9 @@ export function useSmallWebRTC() {
 
     clientRef.current = null
     globalClientInstance = null
+    clearNoSoundTimer()
     setState('disconnected')
-  }, [])
+  }, [clearNoSoundTimer])
 
   // ── Toggle Mute ────────────────────────────────────────────────────────────
 
@@ -418,13 +456,14 @@ export function useSmallWebRTC() {
         clientRef.current = null
         globalClientInstance = null
       }
+      clearNoSoundTimer()
       if (audioElRef.current) {
         audioElRef.current.pause()
         audioElRef.current.srcObject = null
         audioElRef.current = null
       }
     }
-  }, [])
+  }, [clearNoSoundTimer])
 
   return {
     state,
@@ -436,6 +475,7 @@ export function useSmallWebRTC() {
     toggleMute,
     stopAudioTracks,
     client: clientRef.current,
+    micDetectionSignal,
   }
 }
 

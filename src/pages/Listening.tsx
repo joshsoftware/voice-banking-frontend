@@ -10,8 +10,10 @@ import { getActiveCustomer } from '@/lib/demoCustomer'
 export default function Listening() {
   const navigate = useNavigate()
   const navigationType = useNavigationType()
-  const { state, isMuted, messages, sessionId, connect, disconnect, toggleMute, stopAudioTracks, client } = useSmallWebRTC()
+  const { state, isMuted, messages, sessionId, connect, disconnect, toggleMute, stopAudioTracks, client, micDetectionSignal } =
+    useSmallWebRTC()
   const [showFeedback, setShowFeedback] = useState(false)
+  const [micPopupMessage, setMicPopupMessage] = useState<string | null>(null)
   const customer = getActiveCustomer()
 
   // Auto-connect only on intentional navigation (not browser back/forward)
@@ -30,6 +32,15 @@ export default function Listening() {
       return () => clearTimeout(timer)
     }
   }, [state, navigate])
+
+  useEffect(() => {
+    if (!micDetectionSignal) return
+    const message =
+      micDetectionSignal.type === 'voice-detected' ? 'Voice detected' : 'No sound detected. Please speak.'
+    setMicPopupMessage(message)
+    const timer = window.setTimeout(() => setMicPopupMessage(null), 2500)
+    return () => window.clearTimeout(timer)
+  }, [micDetectionSignal])
 
   const handleStop = async () => {
     stopAudioTracks()
@@ -52,6 +63,11 @@ export default function Listening() {
           />
         }
       />
+      {micPopupMessage ? (
+        <div className="pointer-events-none fixed left-1/2 top-6 z-50 -translate-x-1/2 rounded-full bg-[var(--color-brand-900)] px-4 py-2 text-xs font-medium text-white shadow-lg">
+          {micPopupMessage}
+        </div>
+      ) : null}
       {showFeedback && (
         <FeedbackModal
           username={customer?.name ?? ''}
