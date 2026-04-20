@@ -40,6 +40,8 @@ export interface DemoLoanAccount {
 const ACTIVE_CUSTOMER_STORAGE_KEY = 'voicebank.activeCustomerId'
 const VOICE_REGISTERED_CUSTOMERS_STORAGE_KEY = 'voicebank.voiceRegisteredCustomers'
 const VOICE_SKIP_ALLOWED_CUSTOMERS_STORAGE_KEY = 'voicebank.voiceSkipAllowedCustomers'
+const DYNAMIC_PHONE_TO_CUSTOMER_ID_STORAGE_KEY = 'voicebank.dynamicPhoneToCustomerId'
+const DYNAMIC_PHONE_ASSIGNMENT_ORDER_STORAGE_KEY = 'voicebank.dynamicPhoneAssignmentOrder'
 
 const CUSTOMERS: DemoCustomer[] = [
   { customer_id: 'CIF202602260001', email: 'amit.sharma@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-02-26T07:15:16.424Z', date_of_birth: '1990-05-21', mobile_number: '9876543213', name: 'Amit Sharma', status: 'ACTIVE' },
@@ -125,24 +127,102 @@ function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, '').slice(-10)
 }
 
+function getDynamicPhoneToCustomerMap(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(DYNAMIC_PHONE_TO_CUSTOMER_ID_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    return Object.entries(parsed).reduce<Record<string, string>>((acc, [phone, customerId]) => {
+      if (typeof phone === 'string' && typeof customerId === 'string') acc[phone] = customerId
+      return acc
+    }, {})
+  } catch {
+    return {}
+  }
+}
+
+function setDynamicPhoneToCustomerMap(map: Record<string, string>): void {
+  try {
+    localStorage.setItem(DYNAMIC_PHONE_TO_CUSTOMER_ID_STORAGE_KEY, JSON.stringify(map))
+  } catch {
+    // ignore storage issues
+  }
+}
+
+function shuffleIds(ids: string[]): string[] {
+  const copy = [...ids]
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[copy[i], copy[j]] = [copy[j], copy[i]]
+  }
+  return copy
+}
+
+function getOrBuildDynamicAssignmentOrder(eligibleIds: string[]): string[] {
+  try {
+    const raw = localStorage.getItem(DYNAMIC_PHONE_ASSIGNMENT_ORDER_STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : null
+    const validParsed = Array.isArray(parsed)
+      ? parsed.filter((id): id is string => typeof id === 'string' && eligibleIds.includes(id))
+      : []
+    if (validParsed.length) return validParsed
+  } catch {
+    // ignore parse/storage issues and rebuild below
+  }
+
+  const shuffled = shuffleIds(eligibleIds)
+  try {
+    localStorage.setItem(DYNAMIC_PHONE_ASSIGNMENT_ORDER_STORAGE_KEY, JSON.stringify(shuffled))
+  } catch {
+    // ignore storage issues
+  }
+  return shuffled
+}
+
+function setDynamicAssignmentOrder(ids: string[]): void {
+  try {
+    localStorage.setItem(DYNAMIC_PHONE_ASSIGNMENT_ORDER_STORAGE_KEY, JSON.stringify(ids))
+  } catch {
+    // ignore storage issues
+  }
+}
+
+function getCustomerById(customerId: string): DemoCustomer | null {
+  return CUSTOMERS.find((c) => c.customer_id === customerId) ?? null
+}
+
 export function findCustomerByPhone(phone: string): DemoCustomer | null {
   const normalized = normalizePhone(phone)
   const mappedCustomerId = PHONE_TO_CUSTOMER_ID[normalized]
   if (mappedCustomerId) {
-    return CUSTOMERS.find((c) => c.customer_id === mappedCustomerId) ?? null
+    return getCustomerById(mappedCustomerId)
   }
 
-  // For any other phone number, pick a deterministic "random" customer
-  // excluding top-3 mapped customers.
+  // For any other phone number, dynamically assign customers in shuffled order
+  // (excluding the top-3 explicitly mapped customers).
   const eligibleCustomers = CUSTOMERS.filter((c) => !TOP_3_CUSTOMER_IDS.includes(c.customer_id))
   if (!eligibleCustomers.length) return CUSTOMERS[0] ?? null
 
-  let hash = 0
-  for (const ch of normalized) {
-    hash = (hash * 31 + ch.charCodeAt(0)) >>> 0
+  const dynamicMap = getDynamicPhoneToCustomerMap()
+  const existingDynamicCustomerId = dynamicMap[normalized]
+  if (existingDynamicCustomerId) {
+    return getCustomerById(existingDynamicCustomerId)
   }
-  const idx = hash % eligibleCustomers.length
-  return eligibleCustomers[idx] ?? null
+
+  const eligibleIds = eligibleCustomers.map((c) => c.customer_id)
+  const assignmentOrder = getOrBuildDynamicAssignmentOrder(eligibleIds)
+  if (!assignmentOrder.length) return eligibleCustomers[0] ?? null
+
+  const assignedCustomerId = assignmentOrder[0]
+  dynamicMap[normalized] = assignedCustomerId
+  setDynamicPhoneToCustomerMap(dynamicMap)
+
+  const remaining = assignmentOrder.slice(1)
+  const nextOrder = remaining.length ? [...remaining, assignedCustomerId] : [assignedCustomerId]
+  setDynamicAssignmentOrder(nextOrder)
+
+  return getCustomerById(assignedCustomerId)
 }
 
 export function getAccountsForCustomer(customerId: string): DemoAccount[] {
