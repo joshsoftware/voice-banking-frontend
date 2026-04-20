@@ -36,14 +36,10 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
 
   if (response.status === 401) {
     const errorData = await response.json().catch(() => ({}));
-    if (errorData.detail === 'Session has been invalidated (logged in from another device)') {
-      if (onSessionInvalidated) {
-        onSessionInvalidated();
-      }
-      throw new Error(errorData.detail);
+    if (onSessionInvalidated) {
+      onSessionInvalidated();
     }
-    
-    // Standard 401 handling could go here (e.g. token refresh)
+    throw new Error(errorData.detail || errorData.message || 'Session expired or invalid token');
   }
 
   if (!response.ok) {

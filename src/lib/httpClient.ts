@@ -1,5 +1,4 @@
 import { AUTH_API_BASE } from './constants'
-import { getDeviceId } from './device'
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string>
@@ -25,11 +24,6 @@ class HttpClient {
       accessToken: localStorage.getItem('voicebank.access_token') || localStorage.getItem('access_token'),
       refreshToken: localStorage.getItem('voicebank.refresh_token') || localStorage.getItem('refresh_token'),
     }
-  }
-
-  private setTokens(accessToken: string, refreshToken: string) {
-    localStorage.setItem('voicebank.access_token', accessToken)
-    localStorage.setItem('voicebank.refresh_token', refreshToken)
   }
 
   private clearTokens() {
@@ -69,52 +63,14 @@ class HttpClient {
 
     if (response.status === 401) {
       const errorData = await response.json().catch(() => ({}))
-      
-      // Check for specific session invalidation message from backend
-      if (errorData.detail === 'Session expired or invalidated') {
-        if (onSessionInvalidated) {
-          onSessionInvalidated()
-        }
-        throw {
-          status: 401,
-          message: errorData.detail,
-          data: errorData,
-        }
+      this.clearTokens()
+      if (onSessionInvalidated) {
+        onSessionInvalidated()
       }
-
-      if (!endpoint.includes('/auth/refresh')) {
-        const { refreshToken } = this.getTokens()
-        if (refreshToken) {
-          try {
-            const refreshRes = await fetch(`${this.baseUrl}/auth/refresh`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                refresh_token: refreshToken,
-                device_id: getDeviceId(), // Required by backend
-              }),
-            })
-
-            if (refreshRes.ok) {
-              const data = await refreshRes.json()
-              this.setTokens(data.access_token, data.refresh_token)
-
-              // Retry the original request with new token
-              const retryHeaders = {
-                ...config.headers,
-                Authorization: `Bearer ${data.access_token}`,
-              }
-              response = await fetch(url, { ...config, headers: retryHeaders })
-            } else {
-              // Refresh failed, logout
-              this.clearTokens()
-              window.location.href = '/welcome'
-            }
-          } catch (error) {
-            this.clearTokens()
-            window.location.href = '/welcome'
-          }
-        }
+      throw {
+        status: 401,
+        message: errorData.message || errorData.detail || 'Session expired or invalid token',
+        data: errorData,
       }
     }
 

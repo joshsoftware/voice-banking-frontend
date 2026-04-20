@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authApi, type AuthResponse } from '@/lib/authApi';
 import { setActiveCustomerByPhone, clearActiveCustomer, getActiveCustomer, type DemoCustomer } from '@/lib/demoCustomer';
-import { registerSessionInvalidatedHandler } from '@/lib/httpClient';
+import { registerSessionInvalidatedHandler as registerHttpSessionInvalidatedHandler } from '@/lib/httpClient';
+import { registerSessionInvalidatedHandler as registerApiSessionInvalidatedHandler } from '@/lib/apiClient';
 
 interface AuthContextType {
   user: DemoCustomer | null;
@@ -52,13 +53,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const handleSessionInvalidated = useCallback(() => {
     logout();
-    setSessionError('You have been logged out because a new login was detected on another device.');
-    // Explicitly redirect to welcome page to ensure all tabs are kicked out immediately
+    setSessionError('Your session has expired. Please log in again.');
+    // Explicitly redirect to welcome page so protected flows are exited immediately.
     window.location.href = '/welcome';
   }, [logout]);
 
   useEffect(() => {
-    registerSessionInvalidatedHandler(handleSessionInvalidated);
+    registerHttpSessionInvalidatedHandler(handleSessionInvalidated);
+    registerApiSessionInvalidatedHandler(handleSessionInvalidated);
   }, [handleSessionInvalidated]);
 
   // Cross-tab session sync and invalidation:

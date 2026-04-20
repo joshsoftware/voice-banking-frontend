@@ -13,6 +13,7 @@ import { VOICE_REGISTRATION_IMAGES } from '@/data/voiceRegistrationImages'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
 import { allowVoiceSkip, disallowVoiceSkip, getActiveCustomer, markVoiceRegistered } from '@/lib/demoCustomer'
 import { getDeviceId } from '@/lib/device'
+import { useAuth } from '@/contexts/AuthContext'
 
 type Phase = 'consent' | 'imageChallenge' | 'success'
 const FALLBACK_ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -27,6 +28,7 @@ function stopMediaStream(stream: MediaStream | null) {
 
 export default function VoiceRegistration() {
   const navigate = useNavigate()
+  const { logout } = useAuth()
   const { language } = useLanguage()
   const { t } = useTranslation()
   const activeCustomer = getActiveCustomer()
@@ -62,6 +64,16 @@ export default function VoiceRegistration() {
 
   const canStart = useMemo(() => consent && !loading, [consent, loading])
 
+  const handleUnauthorizedResponse = useCallback(
+    async (response: Response): Promise<boolean> => {
+      if (response.status !== 401) return false
+      logout()
+      navigate('/welcome', { replace: true })
+      return true
+    },
+    [logout, navigate]
+  )
+
   useEffect(() => {
     micStreamRef.current = micStream
   }, [micStream])
@@ -84,7 +96,7 @@ export default function VoiceRegistration() {
     }
     pcIdRef.current = null
     setIsRtcReady(false)
-  }, [])
+  }, [handleUnauthorizedResponse])
 
   useEffect(() => {
     return () => {
@@ -121,6 +133,9 @@ export default function VoiceRegistration() {
           : undefined,
       }),
     })
+    if (await handleUnauthorizedResponse(offerRes)) {
+      throw new Error('Session expired or invalid token')
+    }
     if (!offerRes.ok) throw new Error(`Offer failed: ${offerRes.status}`)
     const answer = await offerRes.json()
     if (answer.pc_id || answer.pcId) {
@@ -157,6 +172,9 @@ export default function VoiceRegistration() {
           },
           body: JSON.stringify(startPayload),
         })
+        if (await handleUnauthorizedResponse(res)) {
+          throw new Error('Session expired or invalid token')
+        }
         if (res.ok) {
           const payload = (await res.json().catch(() => ({}))) as {
             session_id?: string
@@ -209,6 +227,9 @@ export default function VoiceRegistration() {
         },
         body: JSON.stringify({ session_id: enrollmentId }),
       })
+      if (await handleUnauthorizedResponse(startRtc)) {
+        throw new Error('Session expired or invalid token')
+      }
       if (!startRtc.ok) throw new Error(`/start failed: ${startRtc.status}`)
       const rtc = await startRtc.json()
       const sid: string = rtc.sessionId
@@ -246,7 +267,14 @@ export default function VoiceRegistration() {
               },
             ],
           }),
-        }).catch(() => {})
+        })
+          .then((res) => {
+            if (res.status === 401) {
+              logout()
+              navigate('/welcome', { replace: true })
+            }
+          })
+          .catch(() => {})
       }
 
       pc.onconnectionstatechange = () => {
@@ -268,7 +296,7 @@ export default function VoiceRegistration() {
     } finally {
       connectingRtcRef.current = false
     }
-  }, [disconnectRtc, negotiate])
+  }, [disconnectRtc, handleUnauthorizedResponse, logout, navigate, negotiate])
 
   useEffect(() => {
     if (phase !== 'imageChallenge') return
@@ -423,6 +451,9 @@ export default function VoiceRegistration() {
         },
         body: JSON.stringify({ step_index: imageIndex + 1 }),
       })
+      if (await handleUnauthorizedResponse(res)) {
+        throw new Error('Session expired or invalid token')
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         const detail = (err as { detail?: string }).detail
