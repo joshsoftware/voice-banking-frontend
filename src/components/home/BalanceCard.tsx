@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { EyeIcon } from '@/components/ui/icons'
 import { useTranslation } from '@/i18n/LanguageHooks'
 import type { DemoAccount } from '@/lib/demoCustomer'
-import { JAVA_API_BASE } from '@/lib/constants'
+import { API_BASE } from '@/lib/constants'
+import ArrowIcon from '@/assets/arrow.svg?react'
 
 interface BalanceCardProps {
   account?: DemoAccount | null
@@ -91,17 +92,15 @@ export function BalanceCard({ account }: BalanceCardProps) {
     const payload = {
       accountId: account.account_id,
       fromDate: fromDate.toISOString().slice(0, 10),
-      toDate: toDate.toISOString().slice(0, 10),
       page: 0,
-      size: 10,
+      size: 5,
     }
 
     try {
-      const response = await fetch(`${JAVA_API_BASE}/transactions/list`, {
+      const response = await fetch(`${API_BASE}/api/transactions/recent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          deviceId: 'false',
         },
         body: JSON.stringify(payload),
       })
@@ -142,7 +141,7 @@ export function BalanceCard({ account }: BalanceCardProps) {
 
         <div className="mt-6 flex flex-col gap-1.5">
           <div className="text-[30px] font-bold leading-tight tracking-tight text-[var(--color-brand-900)]">
-            {showBalance ? formatCurrency(balanceValue) : '₹••••'}
+            {showBalance ? formatCurrency(balanceValue) : '₹••••••'}
           </div>
           <div className="text-sm font-medium leading-5 text-[var(--color-text-muted-2)]">{accountTypeLabel}</div>
         </div>
@@ -154,23 +153,20 @@ export function BalanceCard({ account }: BalanceCardProps) {
             onClick={() => void handleViewDetails()}
             className="rounded-xl px-4 py-2 text-sm font-semibold leading-5 text-[var(--color-brand-300)] transition-colors hover:bg-gray-50"
           >
-            {t('viewDetails')}
+            Recent Transactions
           </button>
         </div>
 
         {showTransactions ? (
           <div className="mt-4 rounded-xl bg-[var(--color-surface-app)] p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted-2)]">
-                Recent Transactions
-              </div>
+            <div className="mb-2 flex items-center justify-end">
               <button
                 type="button"
                 aria-label="Collapse recent transactions"
                 onClick={() => setShowTransactions(false)}
-                className="rounded-md px-1.5 py-0.5 text-sm font-semibold text-[var(--color-brand-300)] transition-colors hover:bg-white"
+                className="rounded-md p-1 text-[var(--color-brand-300)] transition-colors hover:bg-white"
               >
-                ^
+                <ArrowIcon className="size-4" />
               </button>
             </div>
             {loadingTransactions ? (
