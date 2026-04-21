@@ -27,6 +27,14 @@ export interface ChatMessage {
 
 export type InputSoundStatus = 'voice_detected' | 'no_sound'
 
+function forceLogoutOnUnauthorized() {
+  localStorage.removeItem('voicebank.access_token')
+  localStorage.removeItem('voicebank.refresh_token')
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('refresh_token')
+  window.location.href = '/welcome'
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useSmallWebRTC() {
@@ -255,6 +263,10 @@ export function useSmallWebRTC() {
           },
         }),
       })
+      if (startRes.status === 401) {
+        forceLogoutOnUnauthorized()
+        return
+      }
       if (!startRes.ok) {
         throw new Error(`Failed to start session (${startRes.status})`)
       }

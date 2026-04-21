@@ -56,6 +56,14 @@ function toTimestamp(tx: TransactionItem) {
   return Number.isNaN(parsed) ? 0 : parsed
 }
 
+function forceLogoutOnUnauthorized() {
+  localStorage.removeItem('voicebank.access_token')
+  localStorage.removeItem('voicebank.refresh_token')
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('refresh_token')
+  window.location.href = '/welcome'
+}
+
 export function BalanceCard({ account }: BalanceCardProps) {
   const [showBalance, setShowBalance] = useState(false)
   const [loadingTransactions, setLoadingTransactions] = useState(false)
@@ -97,13 +105,20 @@ export function BalanceCard({ account }: BalanceCardProps) {
     }
 
     try {
+      const accessToken = localStorage.getItem('voicebank.access_token')
       const response = await fetch(`${API_BASE}/api/transactions/recent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify(payload),
       })
+
+      if (response.status === 401) {
+        forceLogoutOnUnauthorized()
+        return
+      }
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}))
