@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { VolumeIcon, VolumeMutedIcon } from '@/components/ui/icons'
 import { Button } from '@/components/ui/button'
 import { Waveform } from '@/components/ui/waveform'
@@ -69,6 +69,32 @@ export function ListeningSheet({
   const isError = state === 'error'
   const { t } = useTranslation()
 
+  // ── Drag-to-resize ─────────────────────────────────────────────────────────
+  const MIN_VH = 28
+  const MAX_VH = 72
+  const DEFAULT_VH = 55
+  const [sheetVh, setSheetVh] = useState(DEFAULT_VH)
+  const dragStartY = useRef<number | null>(null)
+  const dragStartVh = useRef<number>(DEFAULT_VH)
+
+  const onHandlePointerDown = useCallback((e: React.PointerEvent) => {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragStartY.current = e.clientY
+    dragStartVh.current = sheetVh
+  }, [sheetVh])
+
+  const onHandlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (dragStartY.current === null) return
+    const deltaY = dragStartY.current - e.clientY          // drag up → positive
+    const deltaVh = (deltaY / window.innerHeight) * 100
+    const next = Math.min(MAX_VH, Math.max(MIN_VH, dragStartVh.current + deltaVh))
+    setSheetVh(next)
+  }, [])
+
+  const onHandlePointerUp = useCallback(() => {
+    dragStartY.current = null
+  }, [])
+
   const statusLabels: Record<WebRTCState, string> = {
     idle: '',
     connecting: t('statusConnecting'),
@@ -85,17 +111,29 @@ export function ListeningSheet({
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Show last 5 messages
-  const visibleMessages = messages.slice(-5)
+  // Show all messages
+  const visibleMessages = messages
 
   return (
-    <div className="absolute bottom-0 left-0 w-full">
-      <div className="rounded-t-3xl bg-[var(--color-surface-card)] px-5 py-2 shadow-[var(--shadow-sheet)]">
-        <div className="mx-auto w-full max-w-[356px] px-3">
-          <div className="flex flex-col items-center gap-4 pb-2">
-            {/* Handle */}
-            <div className="h-0.5 w-10 rounded-full bg-black/40" />
+    <div className="absolute bottom-0 left-0 w-full z-50" onClick={e => e.stopPropagation()}>
+      <div
+        className="rounded-t-3xl bg-[var(--color-surface-card)] px-5 py-2 shadow-[var(--shadow-sheet)] flex flex-col"
+        style={{ height: `${sheetVh}vh`, maxHeight: 'calc(100% - 220px)' }}
+      >
+        <div className="mx-auto w-full max-w-[356px] px-3 flex flex-col flex-1 min-h-0">
+          {/* Handle — drag to resize */}
+          <div className="flex justify-center py-2">
+            <div
+              className="h-1 w-10 rounded-full bg-black/30 cursor-ns-resize touch-none select-none hover:bg-black/50 transition-colors"
+              onPointerDown={onHandlePointerDown}
+              onPointerMove={onHandlePointerMove}
+              onPointerUp={onHandlePointerUp}
+              onPointerCancel={onHandlePointerUp}
+            />
+          </div>
 
+          {/* Scrollable top section */}
+          <div className="flex flex-col flex-1 min-h-0 items-center gap-4 overflow-hidden">
             {/* Status label */}
             <div
               className={`text-sm font-medium leading-5 transition-colors duration-300 ${STATUS_COLORS[state]}`}
@@ -108,34 +146,23 @@ export function ListeningSheet({
 
             {/* Chat area */}
             {visibleMessages.length > 0 && (
-              <div className="w-full flex flex-col gap-2 max-h-32 overflow-y-auto px-1">
+              <div className="w-full flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto px-1">
                 {visibleMessages.map((msg, i) => (
                   <ChatBubble key={i} msg={msg} />
                 ))}
                 <div ref={chatBottomRef} />
               </div>
             )}
+          </div>
 
-            {/* Feedback button */}
-            {onFeedback && (
-              <button
-                type="button"
-                onClick={onFeedback}
-                className="flex items-center gap-1.5 self-end text-xs text-[var(--color-brand-600)]/60 transition-colors hover:text-[var(--color-brand-600)]"
-              >
-                <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25V18a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 18V8.25m-18 0V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v2.25m-18 0h18M9.75 12h.008v.008H9.75V12zm4.5 0h.008v.008h-.008V12zm4.5 0h.008v.008h-.008V12z" />
-                </svg>
-                Send Feedback
-              </button>
-            )}
-
+          {/* Pinned bottom actions */}
+          <div className="flex flex-col items-center gap-2 pt-3 pb-3 border-t border-black/5 mt-2">
             {/* Stop button */}
             <Button
               type="button"
               onClick={onStop}
               variant={isError ? 'success' : 'primary'}
-              className={`mt-2 h-14 w-44 rounded-full font-semibold transition-all ${
+              className={`h-14 w-44 rounded-full font-semibold transition-all ${
                 isError ? 'bg-red-500 hover:bg-red-600' : ''
               }`}
             >
@@ -143,18 +170,31 @@ export function ListeningSheet({
             </Button>
 
             {showMuteControl && (
-              <div className="flex w-full items-center justify-end gap-2 pb-1">
-                <div className="text-center text-[10px] font-medium leading-normal text-[var(--color-brand-600)]/50">
-                  {isMuted ? t('tapToUnmute') : t('tapToMute')}
-                </div>
+              <div className="flex w-full items-center justify-end gap-2">
+                {onFeedback && (
+                  <button
+                    type="button"
+                    onClick={onFeedback}
+                    className="mr-auto flex items-center gap-1.5 text-xs text-[var(--color-brand-600)]/60 transition-colors hover:text-[var(--color-brand-600)]"
+                  >
+                    <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25V18a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 18V8.25m-18 0V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v2.25m-18 0h18M9.75 12h.008v.008H9.75V12zm4.5 0h.008v.008h-.008V12zm4.5 0h.008v.008h-.008V12z" />
+                    </svg>
+                    Send Feedback
+                  </button>
+                )}
                 <button
                   type="button"
                   aria-label={isMuted ? 'Unmute' : 'Mute'}
                   onClick={onToggleMute}
-                  className="grid size-10 place-items-center rounded-full bg-[var(--color-surface-app)] shadow-[var(--shadow-mute)] transition-colors hover:bg-gray-200"
+                  className={`grid size-10 place-items-center rounded-full shadow-[var(--shadow-mute)] transition-colors ${
+                    isMuted
+                      ? 'bg-red-100 hover:bg-red-200'
+                      : 'bg-[var(--color-surface-app)] hover:bg-gray-200'
+                  }`}
                 >
                   {isMuted ? (
-                    <VolumeMutedIcon className="text-[var(--color-brand-500)]" />
+                    <VolumeMutedIcon className="text-red-500" />
                   ) : (
                     <VolumeIcon className="text-[var(--color-brand-500)]" />
                   )}

@@ -56,7 +56,7 @@ function toTimestamp(tx: TransactionItem) {
 }
 
 export function BalanceCard({ account }: BalanceCardProps) {
-  const [showBalance, setShowBalance] = useState(true)
+  const [showBalance, setShowBalance] = useState(false)
   const [loadingTransactions, setLoadingTransactions] = useState(false)
   const [transactionsError, setTransactionsError] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<TransactionItem[]>([])

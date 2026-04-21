@@ -81,7 +81,6 @@ export function useSmallWebRTC() {
     hasDetectedUserVoiceRef.current = false
     clearNoSoundTimer()
     llmTextBufferRef.current = ''
-    pushMsg('status', 'Connecting…')
 
     try {
       // Create transport WITHOUT waitForICEGathering:true – that option adds an
@@ -112,7 +111,6 @@ export function useSmallWebRTC() {
       client.on('botReady', () => {
         console.log('[SmallWebRTC] Bot ready')
         setState('listening')
-        pushMsg('status', 'Listening…')
         startNoSoundTimer()
       })
 
@@ -367,16 +365,16 @@ export function useSmallWebRTC() {
 
   // ── Toggle Mute ────────────────────────────────────────────────────────────
 
-  const toggleMute = useCallback(async () => {
-    if (!clientRef.current) return
+  const toggleMute = useCallback(() => {
+    const newMutedState = !isMuted
 
-    try {
-      const newMutedState = !isMuted
-      await clientRef.current.enableMic(!newMutedState)
-      setIsMuted(newMutedState)
-    } catch (err) {
-      console.error('[SmallWebRTC] Toggle mute error:', err)
+    // Mute/unmute the bot's audio output element only.
+    // The mic and WebRTC connection stay active so the bot can still hear and process.
+    if (audioElRef.current) {
+      audioElRef.current.muted = newMutedState
     }
+
+    setIsMuted(newMutedState)
   }, [isMuted])
 
   // ── Stop Audio Track ───────────────────────────────────────────────────────────
