@@ -16,7 +16,7 @@ export default function OtpVerification() {
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useTranslation()
-  const { login, lastOtp, requestOtp, isVoiceprintRegistered } = useAuth()
+  const { login, lastOtp, requestOtp } = useAuth()
   const phone = (location.state as { phone?: string } | null)?.phone ?? ''
 
   useEffect(() => {
