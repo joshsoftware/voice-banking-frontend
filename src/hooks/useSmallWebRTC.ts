@@ -258,6 +258,19 @@ export function useSmallWebRTC() {
           const score = typeof data.score === 'number' ? data.score : 0
           console.log(`[SmallWebRTC] Voiceprint verification: verified=${verified}, score=${score}`)
           setVoiceprintStatus({ verified, score, ts: Date.now() })
+
+          if (!verified) {
+            // Voice verification failed — clear any LLM text that was already
+            // streamed/displayed for this turn.  The backend interceptor will
+            // send a replacement "Not authorised" message via the normal
+            // botLlmText channel, so we just need to wipe the stale data.
+            llmTextBufferRef.current = ''
+            setMessages(prev => {
+              // Remove assistant messages from the last ~3 seconds (same turn)
+              const cutoff = Date.now() - 3000
+              return prev.filter(m => !(m.role === 'assistant' && m.ts >= cutoff))
+            })
+          }
         }
       })
 
