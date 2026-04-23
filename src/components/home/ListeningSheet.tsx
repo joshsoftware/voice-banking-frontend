@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { VolumeIcon, VolumeMutedIcon } from '@/components/ui/icons'
 import { Button } from '@/components/ui/button'
 import { Waveform } from '@/components/ui/waveform'
-import type { WebRTCState, ChatMessage } from '@/hooks/useSmallWebRTC'
+import type { WebRTCState, ChatMessage, VoiceprintStatus } from '@/hooks/useSmallWebRTC'
 import { useTranslation } from '@/i18n/LanguageHooks'
 
 // ─── Status chip ──────────────────────────────────────────────────────────────
@@ -49,6 +49,7 @@ interface ListeningSheetProps {
   state: WebRTCState
   isMuted: boolean
   messages: ChatMessage[]
+  voiceprintStatus: VoiceprintStatus | null
   onToggleMute: () => void
   onStop: () => void
   onFeedback?: () => void
@@ -59,6 +60,7 @@ export function ListeningSheet({
   state,
   isMuted,
   messages,
+  voiceprintStatus,
   onToggleMute,
   onStop,
   onFeedback,
@@ -111,6 +113,19 @@ export function ListeningSheet({
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Voiceprint badge visibility with auto-fade
+  const [showVpBadge, setShowVpBadge] = useState(false)
+  const [vpFading, setVpFading] = useState(false)
+
+  useEffect(() => {
+    if (!voiceprintStatus) return
+    setShowVpBadge(true)
+    setVpFading(false)
+    const fadeTimer = setTimeout(() => setVpFading(true), 3000)
+    const hideTimer = setTimeout(() => setShowVpBadge(false), 3800)
+    return () => { clearTimeout(fadeTimer); clearTimeout(hideTimer) }
+  }, [voiceprintStatus])
+
   // Show all messages
   const visibleMessages = messages
 
@@ -140,6 +155,26 @@ export function ListeningSheet({
             >
               {statusLabels[state]}
             </div>
+
+            {/* Voiceprint verification badge */}
+            {showVpBadge && voiceprintStatus && (
+              <div
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium shadow-sm transition-opacity duration-700 ${
+                  vpFading ? 'opacity-0' : 'opacity-100'
+                } ${
+                  voiceprintStatus.verified
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-red-100 text-red-700'
+                }`}
+              >
+                <span className={`inline-block size-2 rounded-full ${
+                  voiceprintStatus.verified ? 'bg-emerald-500' : 'bg-red-500'
+                }`} />
+                {voiceprintStatus.verified
+                  ? `Voice Matched (${(voiceprintStatus.score * 100).toFixed(0)}%)`
+                  : `Voice Not Matched (${(voiceprintStatus.score * 100).toFixed(0)}%)`}
+              </div>
+            )}
 
             {/* Waveform */}
             <Waveform active={isActive} />

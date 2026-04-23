@@ -16,6 +16,7 @@ export default function Listening() {
     messages,
     sessionId,
     inputSoundStatus,
+    voiceprintStatus,
     connect,
     disconnect,
     toggleMute,
@@ -74,6 +75,7 @@ export default function Listening() {
             state={state}
             isMuted={isMuted}
             messages={messages}
+            voiceprintStatus={voiceprintStatus}
             onToggleMute={toggleMute}
             onStop={handleStop}
             onFeedback={() => setShowFeedback(true)}
