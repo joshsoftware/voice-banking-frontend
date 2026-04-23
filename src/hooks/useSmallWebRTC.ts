@@ -56,6 +56,7 @@ export function useSmallWebRTC() {
   const audioElRef = useRef<HTMLAudioElement | null>(null)
   const llmTextBufferRef = useRef<string>('')
   const hasDetectedUserVoiceRef = useRef(false)
+  const voiceprintBlockedRef = useRef(false)
   const noSoundTimerRef = useRef<number | null>(null)
   const activeCustomer = getActiveCustomer()
   const activeCustomerId = activeCustomer?.customer_id ?? null
@@ -136,6 +137,7 @@ export function useSmallWebRTC() {
           setInputSoundStatus('voice_detected')
         }
         clearNoSoundTimer()
+        voiceprintBlockedRef.current = false  // Reset block flag for new turn
         setState('processing')
       })
 
@@ -146,12 +148,20 @@ export function useSmallWebRTC() {
 
       client.on('botStartedSpeaking', () => {
         console.log('[SmallWebRTC] Bot started speaking')
-        llmTextBufferRef.current = ''
+        if (!voiceprintBlockedRef.current) {
+          llmTextBufferRef.current = ''
+        }
         setState('speaking')
       })
 
       client.on('botStoppedSpeaking', () => {
         console.log('[SmallWebRTC] Bot stopped speaking')
+        if (voiceprintBlockedRef.current) {
+          // Verification failed — discard any bot text for this turn
+          llmTextBufferRef.current = ''
+          setState('listening')
+          return
+        }
         // Flush any remaining buffer not yet flushed by botLlmStopped
         const accumulated = llmTextBufferRef.current.trim()
         if (accumulated) {
@@ -206,6 +216,7 @@ export function useSmallWebRTC() {
 
       // botLlmText fires per streaming token — accumulate into buffer
       client.on('botLlmText', (data: any) => {
+        if (voiceprintBlockedRef.current) return  // Suppress text when verification failed
         const token = typeof data === 'string' ? data : (data?.text ?? '')
         console.log('[SmallWebRTC] Bot LLM text token:', token)
         llmTextBufferRef.current += token
@@ -214,6 +225,10 @@ export function useSmallWebRTC() {
       // botLlmStopped fires when the LLM finishes streaming — flush buffer immediately
       client.on('botLlmStopped', () => {
         console.log('[SmallWebRTC] Bot LLM stopped, flushing buffer')
+        if (voiceprintBlockedRef.current) {
+          llmTextBufferRef.current = ''
+          return  // Don't flush — verification failed
+        }
         const accumulated = llmTextBufferRef.current.trim()
         if (accumulated) {
           pushMsg('assistant', accumulated)
@@ -224,6 +239,7 @@ export function useSmallWebRTC() {
       // botTtsText carries the full TTS sentence — use as fallback if no LLM tokens came in
       client.on('botTtsText', (data: any) => {
         console.log('[SmallWebRTC] Bot TTS text:', data)
+        if (voiceprintBlockedRef.current) return  // Suppress when verification failed
         if (llmTextBufferRef.current) return // already handled via botLlmText
         const text = typeof data === 'string' ? data : data?.text
         if (text) pushMsg('assistant', text)
@@ -232,6 +248,7 @@ export function useSmallWebRTC() {
       // botTranscript — final fallback for older backends
       client.on('botTranscript', (data: any) => {
         console.log('[SmallWebRTC] Bot transcript:', data)
+        if (voiceprintBlockedRef.current) return  // Suppress when verification failed
         if (llmTextBufferRef.current) return // already handled via botLlmText
         const text = typeof data === 'string' ? data : data?.text
         if (text) pushMsg('assistant', text)
@@ -260,16 +277,19 @@ export function useSmallWebRTC() {
           setVoiceprintStatus({ verified, score, ts: Date.now() })
 
           if (!verified) {
-            // Voice verification failed — clear any LLM text that was already
-            // streamed/displayed for this turn.  The backend interceptor will
-            // send a replacement "Not authorised" message via the normal
-            // botLlmText channel, so we just need to wipe the stale data.
+            // Voice verification failed — block ALL bot text for this turn.
+            // The flag suppresses botLlmText/botLlmStopped/botStoppedSpeaking
+            // so neither the originally-streamed balance text nor the backend's
+            // replacement text will appear.  We push our own error message.
+            voiceprintBlockedRef.current = true
             llmTextBufferRef.current = ''
+            // Remove any assistant messages already flushed during this turn
             setMessages(prev => {
-              // Remove assistant messages from the last ~3 seconds (same turn)
-              const cutoff = Date.now() - 3000
+              const cutoff = Date.now() - 5000
               return prev.filter(m => !(m.role === 'assistant' && m.ts >= cutoff))
             })
+            // Push a single authoritative error message
+            pushMsg('assistant', 'Not authorised or Voice print not matched')
           }
         }
       })
