@@ -27,6 +27,12 @@ export interface ChatMessage {
 
 export type InputSoundStatus = 'voice_detected' | 'no_sound'
 
+export interface VoiceprintStatus {
+  verified: boolean
+  score: number
+  ts: number
+}
+
 function forceLogoutOnUnauthorized() {
   localStorage.removeItem('voicebank.access_token')
   localStorage.removeItem('voicebank.refresh_token')
@@ -43,6 +49,7 @@ export function useSmallWebRTC() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [inputSoundStatus, setInputSoundStatus] = useState<InputSoundStatus | null>(null)
+  const [voiceprintStatus, setVoiceprintStatus] = useState<VoiceprintStatus | null>(null)
 
   const clientRef = useRef<PipecatClient | null>(null)
   const isConnectingRef = useRef(false)
@@ -243,6 +250,17 @@ export function useSmallWebRTC() {
         setState('disconnected')
       })
 
+      // Voiceprint verification status from backend
+      client.on('serverMessage', (data: any) => {
+        console.log('[SmallWebRTC] Server message:', data)
+        if (data?.type === 'voiceprint_verification') {
+          const verified = !!data.verified
+          const score = typeof data.score === 'number' ? data.score : 0
+          console.log(`[SmallWebRTC] Voiceprint verification: verified=${verified}, score=${score}`)
+          setVoiceprintStatus({ verified, score, ts: Date.now() })
+        }
+      })
+
       // Attach the JWT access token so that /start and the subsequent
       // /sessions/{id}/api/offer requests reach the protected backend endpoints.
       const accessToken = localStorage.getItem('voicebank.access_token')
@@ -257,6 +275,7 @@ export function useSmallWebRTC() {
         body: JSON.stringify({
           body: {
             customer_id: activeCustomerId,
+            voiceprint_id: activeCustomer?.voice_customer_id ?? activeCustomerId,
             is_voice_print: shouldVerifyVoice,
           },
         }),
@@ -476,6 +495,7 @@ export function useSmallWebRTC() {
     messages,
     sessionId,
     inputSoundStatus,
+    voiceprintStatus,
     connect,
     disconnect,
     toggleMute,
