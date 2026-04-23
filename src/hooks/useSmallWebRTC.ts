@@ -55,6 +55,7 @@ export function useSmallWebRTC() {
   const isConnectingRef = useRef(false)
   const audioElRef = useRef<HTMLAudioElement | null>(null)
   const llmTextBufferRef = useRef<string>('')
+  const skipFirstBotMsgRef = useRef(true)
   const hasDetectedUserVoiceRef = useRef(false)
   const voiceprintBlockedRef = useRef(false)
   const noSoundTimerRef = useRef<number | null>(null)
@@ -138,6 +139,7 @@ export function useSmallWebRTC() {
         }
         clearNoSoundTimer()
         voiceprintBlockedRef.current = false  // Reset block flag for new turn
+        skipFirstBotMsgRef.current = true     // Reset skip flag for new turn
         setState('processing')
       })
 
@@ -148,9 +150,7 @@ export function useSmallWebRTC() {
 
       client.on('botStartedSpeaking', () => {
         console.log('[SmallWebRTC] Bot started speaking')
-        if (!voiceprintBlockedRef.current) {
-          llmTextBufferRef.current = ''
-        }
+        llmTextBufferRef.current = ''
         setState('speaking')
       })
 
@@ -162,12 +162,7 @@ export function useSmallWebRTC() {
           setState('listening')
           return
         }
-        // Flush any remaining buffer not yet flushed by botLlmStopped
-        const accumulated = llmTextBufferRef.current.trim()
-        if (accumulated) {
-          pushMsg('assistant', accumulated)
-          llmTextBufferRef.current = ''
-        }
+        llmTextBufferRef.current = ''
         setState('listening')
       })
 
@@ -222,34 +217,25 @@ export function useSmallWebRTC() {
         llmTextBufferRef.current += token
       })
 
-      // botLlmStopped fires when the LLM finishes streaming — flush buffer immediately
+      // botLlmStopped fires when the LLM finishes streaming — clear buffer only
       client.on('botLlmStopped', () => {
-        console.log('[SmallWebRTC] Bot LLM stopped, flushing buffer')
-        if (voiceprintBlockedRef.current) {
-          llmTextBufferRef.current = ''
-          return  // Don't flush — verification failed
-        }
-        const accumulated = llmTextBufferRef.current.trim()
-        if (accumulated) {
-          pushMsg('assistant', accumulated)
-          llmTextBufferRef.current = ''
-        }
+        console.log('[SmallWebRTC] Bot LLM stopped, clearing buffer')
+        llmTextBufferRef.current = ''
       })
 
-      // botTtsText carries the full TTS sentence — use as fallback if no LLM tokens came in
+      // botTtsText — log only (this event does not fire on current backend)
       client.on('botTtsText', (data: any) => {
         console.log('[SmallWebRTC] Bot TTS text:', data)
-        if (voiceprintBlockedRef.current) return  // Suppress when verification failed
-        if (llmTextBufferRef.current) return // already handled via botLlmText
-        const text = typeof data === 'string' ? data : data?.text
-        if (text) pushMsg('assistant', text)
       })
 
-      // botTranscript — final fallback for older backends
+      // botTranscript — fires twice per turn; skip first (raw data), show second (spoken text)
       client.on('botTranscript', (data: any) => {
         console.log('[SmallWebRTC] Bot transcript:', data)
-        if (voiceprintBlockedRef.current) return  // Suppress when verification failed
-        if (llmTextBufferRef.current) return // already handled via botLlmText
+        if (voiceprintBlockedRef.current) return
+        if (skipFirstBotMsgRef.current) {
+          skipFirstBotMsgRef.current = false
+          return
+        }
         const text = typeof data === 'string' ? data : data?.text
         if (text) pushMsg('assistant', text)
       })
