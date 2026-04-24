@@ -33,11 +33,40 @@ export interface VoiceprintStatus {
   ts: number
 }
 
+const CHAT_HISTORY_KEY_PREFIX = 'voicebank.chatHistory'
+const AUTH_SESSION_ID_KEY = 'voicebank.auth_session_id'
+
+function getChatHistoryStorageKey(customerId: string | null, authSessionId: string | null) {
+  return `${CHAT_HISTORY_KEY_PREFIX}:${authSessionId ?? 'no-session'}:${customerId ?? 'anonymous'}`
+}
+
+function loadChatHistory(customerId: string | null, authSessionId: string | null): ChatMessage[] {
+  try {
+    const raw = localStorage.getItem(getChatHistoryStorageKey(customerId, authSessionId))
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (msg): msg is ChatMessage =>
+        !!msg &&
+        (msg.role === 'status' || msg.role === 'assistant' || msg.role === 'user') &&
+        typeof msg.text === 'string' &&
+        typeof msg.ts === 'number'
+    )
+  } catch {
+    return []
+  }
+}
+
 function forceLogoutOnUnauthorized() {
   localStorage.removeItem('voicebank.access_token')
   localStorage.removeItem('voicebank.refresh_token')
+  localStorage.removeItem('voicebank.auth_session_id')
   localStorage.removeItem('access_token')
   localStorage.removeItem('refresh_token')
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith(CHAT_HISTORY_KEY_PREFIX))
+    .forEach((key) => localStorage.removeItem(key))
   window.location.href = '/welcome'
 }
 
@@ -46,7 +75,6 @@ function forceLogoutOnUnauthorized() {
 export function useSmallWebRTC() {
   const [state, setState] = useState<WebRTCState>('idle')
   const [isMuted, setIsMuted] = useState(false)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [inputSoundStatus, setInputSoundStatus] = useState<InputSoundStatus | null>(null)
   const [voiceprintStatus, setVoiceprintStatus] = useState<VoiceprintStatus | null>(null)
@@ -60,7 +88,21 @@ export function useSmallWebRTC() {
   const noSoundTimerRef = useRef<number | null>(null)
   const activeCustomer = getActiveCustomer()
   const activeCustomerId = activeCustomer?.customer_id ?? null
+  const authSessionId = localStorage.getItem(AUTH_SESSION_ID_KEY)
   const shouldVerifyVoice = activeCustomerId ? isVoiceRegistered(activeCustomerId) : false
+  const [messages, setMessages] = useState<ChatMessage[]>(() => loadChatHistory(activeCustomerId, authSessionId))
+
+  useEffect(() => {
+    setMessages(loadChatHistory(activeCustomerId, authSessionId))
+  }, [activeCustomerId, authSessionId])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(getChatHistoryStorageKey(activeCustomerId, authSessionId), JSON.stringify(messages))
+    } catch {
+      // ignore storage write errors
+    }
+  }, [activeCustomerId, authSessionId, messages])
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -91,7 +133,6 @@ export function useSmallWebRTC() {
     isConnectingRef.current = true
 
     setState('connecting')
-    setMessages([])
     setSessionId(null)
     setInputSoundStatus(null)
     hasDetectedUserVoiceRef.current = false

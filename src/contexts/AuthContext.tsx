@@ -23,6 +23,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const ACCESS_TOKEN_KEY = 'voicebank.access_token';
 const REFRESH_TOKEN_KEY = 'voicebank.refresh_token';
+const CHAT_HISTORY_KEY_PREFIX = 'voicebank.chatHistory';
+const AUTH_SESSION_ID_KEY = 'voicebank.auth_session_id';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<DemoCustomer | null>(null);
@@ -48,6 +50,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_SESSION_ID_KEY);
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith(CHAT_HISTORY_KEY_PREFIX))
+      .forEach((key) => localStorage.removeItem(key));
     clearActiveCustomer();
   }, []);
 
@@ -108,6 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setRefreshToken(response.refresh_token);
       localStorage.setItem(ACCESS_TOKEN_KEY, response.access_token);
       localStorage.setItem(REFRESH_TOKEN_KEY, response.refresh_token);
+      localStorage.setItem(AUTH_SESSION_ID_KEY, `session-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
       
       // Update legacy mock customer state for compatibility with existing components
       const customer = setActiveCustomerByPhone(

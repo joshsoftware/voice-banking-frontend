@@ -59,8 +59,12 @@ function toTimestamp(tx: TransactionItem) {
 function forceLogoutOnUnauthorized() {
   localStorage.removeItem('voicebank.access_token')
   localStorage.removeItem('voicebank.refresh_token')
+  localStorage.removeItem('voicebank.auth_session_id')
   localStorage.removeItem('access_token')
   localStorage.removeItem('refresh_token')
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith('voicebank.chatHistory'))
+    .forEach((key) => localStorage.removeItem(key))
   window.location.href = '/welcome'
 }
 
