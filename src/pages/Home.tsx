@@ -61,7 +61,8 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
   const handleUnregisterVoice = async () => {
     if (!customer) return
     try {
-      await httpClient.delete(`/voiceprint/${encodeURIComponent(customer.customer_id)}`)
+      const voiceCustomerId = customer.voice_customer_id ?? customer.customer_id
+      await httpClient.delete(`/voiceprint/${encodeURIComponent(voiceCustomerId)}`)
       markVoiceUnregistered(customer.customer_id)
       disallowVoiceSkip(customer.customer_id)
       navigate('/voice-registration', { replace: true })
