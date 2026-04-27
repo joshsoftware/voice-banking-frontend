@@ -198,15 +198,15 @@ export function ListeningSheet({
         style={{ height: `${sheetVh}vh`, maxHeight: 'calc(100% - 220px)' }}
       >
         <div className="mx-auto w-full max-w-[356px] px-3 flex flex-col flex-1 min-h-0">
-          {/* Handle — drag to resize */}
-          <div className="flex justify-center py-2">
-            <div
-              className="h-1 w-10 rounded-full bg-black/30 cursor-ns-resize touch-none select-none hover:bg-black/50 transition-colors"
-              onPointerDown={onHandlePointerDown}
-              onPointerMove={onHandlePointerMove}
-              onPointerUp={onHandlePointerUp}
-              onPointerCancel={onHandlePointerUp}
-            />
+          {/* Drag handle area — entire top border is draggable */}
+          <div 
+            className="group flex justify-center py-3 cursor-ns-resize touch-none select-none -mx-3 px-3 hover:bg-black/5 active:bg-black/10 transition-colors rounded-t-3xl"
+            onPointerDown={onHandlePointerDown}
+            onPointerMove={onHandlePointerMove}
+            onPointerUp={onHandlePointerUp}
+            onPointerCancel={onHandlePointerUp}
+          >
+            <div className="h-1 w-10 rounded-full bg-black/30 transition-colors group-hover:bg-black/50 group-active:bg-black/60" />
           </div>
 
           {/* Scrollable top section */}
@@ -283,7 +283,7 @@ export function ListeningSheet({
 
             {/* Chat area */}
             {visibleMessages.length > 0 && (
-              <div className="w-full flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto px-1">
+              <div className="w-full flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto mobile-scroll px-1">
                 {visibleMessages.map((msg, i) => (
                   <ChatBubble key={i} msg={msg} />
                 ))}

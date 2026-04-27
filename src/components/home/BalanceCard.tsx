@@ -191,7 +191,7 @@ export function BalanceCard({ account }: BalanceCardProps) {
             ) : transactions.length === 0 ? (
               <div className="text-xs text-[var(--color-text-muted-2)]">No transactions found.</div>
             ) : (
-              <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+              <div className="max-h-52 space-y-2 overflow-y-auto mobile-scroll pr-1">
                 {transactions.map((tx, idx) => {
                   const amount = tx.amount ?? tx.transactionAmount ?? 0
                   const date = tx.date ?? tx.transactionDate ?? '-'
