@@ -12,7 +12,7 @@ export default function Profile() {
 
   return (
     <MobileContainer gradient={false}>
-      <div className="flex h-full min-h-screen flex-col overflow-y-auto bg-[var(--color-surface-app)] px-6 pb-10 pt-6 text-[var(--color-brand-900)] md:h-[var(--device-height)] md:min-h-[var(--device-height)]">
+      <div className="flex h-full min-h-screen flex-col overflow-y-auto mobile-scroll bg-[var(--color-surface-app)] px-6 pb-10 pt-6 text-[var(--color-brand-900)] md:h-[var(--device-height)] md:min-h-[var(--device-height)]">
         <button
           type="button"
           onClick={() => navigate('/home')}
