@@ -18,7 +18,54 @@ const STATUS_COLORS: Record<WebRTCState, string> = {
   disconnected: 'text-[var(--color-text-muted-1)]',
 }
 
+function formatTransactionDate(value?: string) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date)
+}
+
 // ─── Chat bubble ──────────────────────────────────────────────────────────────
+
+function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
+  const items = msg.transactions ?? []
+
+  if (items.length === 0) {
+    return (
+      <div className="max-w-[80%] whitespace-pre-line rounded-2xl bg-[var(--color-brand-500)] px-4 py-2 text-sm leading-snug text-white shadow-sm">
+        {msg.text}
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-w-[85%] rounded-2xl bg-[var(--color-brand-500)] p-3 text-white shadow-sm">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/85">Recent Transactions</div>
+      <div className="space-y-2">
+        {items.map((item, idx) => (
+          <div key={`${item.type}-${item.amount}-${idx}`} className="rounded-lg bg-white px-2 py-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-medium text-[var(--color-brand-900)]">{item.description}</div>
+                <div className="text-[10px] text-[var(--color-text-muted-2)]">
+                  {item.type} • {formatTransactionDate(item.transactionDate)}
+                </div>
+              </div>
+              <div className="shrink-0 text-xs font-semibold text-[var(--color-brand-900)]">₹{item.amount.toFixed(2)}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function ChatBubble({ msg }: { msg: ChatMessage }) {
   if (msg.role === 'status') {
@@ -30,15 +77,13 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
   }
   return (
     <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm leading-snug shadow-sm ${
-          msg.role === 'assistant'
-            ? 'bg-[var(--color-brand-500)] text-white'
-            : 'bg-[var(--color-surface-app)] text-[var(--color-brand-900)]'
-        }`}
-      >
-        {msg.text}
-      </div>
+      {msg.role === 'assistant' ? (
+        <RecentTransactionsBubble msg={msg} />
+      ) : (
+        <div className="max-w-[80%] whitespace-pre-line rounded-2xl bg-[var(--color-surface-app)] px-4 py-2 text-sm leading-snug text-[var(--color-brand-900)] shadow-sm">
+          {msg.text}
+        </div>
+      )}
     </div>
   )
 }
