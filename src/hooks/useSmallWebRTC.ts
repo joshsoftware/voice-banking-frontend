@@ -3,6 +3,7 @@ import { PipecatClient } from '@pipecat-ai/client-js'
 import { CustomSmallWebRTCTransport } from '@/lib/customTransport'
 import { API_BASE } from '@/lib/constants'
 import { getActiveCustomer, isVoiceRegistered } from '@/lib/demoCustomer'
+import { useLanguage } from '@/i18n/LanguageHooks'
 import { useTranslation } from '@/i18n/LanguageHooks'
 
 // Helper to get client instance (for audio component)
@@ -59,6 +60,7 @@ function forceLogoutOnUnauthorized() {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useSmallWebRTC() {
+  const { language } = useLanguage()
   const [state, setState] = useState<WebRTCState>('idle')
   const [isMuted, setIsMuted] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -347,6 +349,8 @@ export function useSmallWebRTC() {
             customer_id: activeCustomerId,
             voiceprint_id: activeCustomer?.voice_customer_id ?? activeCustomerId,
             is_voice_print: shouldVerifyVoice,
+            cust_name: activeCustomer?.name ?? '',
+            lang: language,
             user_name: activeCustomerName,
             timezone: userTimezone,
             language: preferredLanguage,
