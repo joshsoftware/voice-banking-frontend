@@ -2,9 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { PipecatClient } from '@pipecat-ai/client-js'
 import { CustomSmallWebRTCTransport } from '@/lib/customTransport'
 import { API_BASE } from '@/lib/constants'
-import { getActiveCustomer, isVoiceRegistered } from '@/lib/demoCustomer'
-import { useLanguage } from '@/i18n/LanguageHooks'
-import { useTranslation } from '@/i18n/LanguageHooks'
+import { getActiveCustomer, getPrimaryAccount, isVoiceRegistered } from '@/lib/demoCustomer'
+import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
 
 // Helper to get client instance (for audio component)
 let globalClientInstance: PipecatClient | null = null
@@ -25,6 +24,7 @@ export interface ChatMessage {
   role: 'status' | 'assistant' | 'user'
   text: string
   ts: number
+  transactions?: TransactionItem[]
 }
 
 export type InputSoundStatus = 'voice_detected' | 'no_sound'
@@ -49,6 +49,32 @@ interface TransferSuccessSignal {
   message?: string
 }
 
+export interface TransactionItem {
+  amount: number
+  category?: string
+  description: string
+  transactionDate: string
+  transactionId: string
+  type: 'DEBIT' | 'CREDIT' | string
+}
+
+const NUMBER_WORDS_TO_VALUE: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  fifteen: 15,
+  twenty: 20,
+}
+
 const CHAT_HISTORY_KEY_PREFIX = 'voicebank.chatHistory'
 const AUTH_SESSION_ID_KEY = 'voicebank.auth_session_id'
 
@@ -67,7 +93,8 @@ function loadChatHistory(customerId: string | null, authSessionId: string | null
         !!msg &&
         (msg.role === 'status' || msg.role === 'assistant' || msg.role === 'user') &&
         typeof msg.text === 'string' &&
-        typeof msg.ts === 'number'
+        typeof msg.ts === 'number' &&
+        (msg.transactions === undefined || Array.isArray(msg.transactions))
     )
   } catch {
     return []
@@ -86,6 +113,10 @@ function forceLogoutOnUnauthorized() {
   window.location.href = '/welcome'
 }
 
+function normalizeAssistantMessage(text: string) {
+  return text.replace(/\s+/g, ' ').trim()
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useSmallWebRTC() {
@@ -101,6 +132,7 @@ export function useSmallWebRTC() {
   const isConnectingRef = useRef(false)
   const audioElRef = useRef<HTMLAudioElement | null>(null)
   const llmTextBufferRef = useRef<string>('')
+  const lastUserTranscriptRef = useRef<string>('')
   const hasDetectedUserVoiceRef = useRef(false)
   const voiceprintBlockedRef = useRef(false)
   const noSoundTimerRef = useRef<number | null>(null)
@@ -109,6 +141,7 @@ export function useSmallWebRTC() {
   const activeCustomerId = activeCustomer?.customer_id ?? null
   const activeCustomerName = activeCustomer?.name ?? 'User'
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const primaryAccount = activeCustomerId ? getPrimaryAccount(activeCustomerId) : null
   const authSessionId = localStorage.getItem(AUTH_SESSION_ID_KEY)
   const shouldVerifyVoice = activeCustomerId ? isVoiceRegistered(activeCustomerId) : false
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadChatHistory(activeCustomerId, authSessionId))
@@ -127,9 +160,81 @@ export function useSmallWebRTC() {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  const pushMsg = useCallback((role: ChatMessage['role'], text: string) => {
-    setMessages(prev => [...prev, { role, text, ts: Date.now() }])
+  const pushMsg = useCallback((role: ChatMessage['role'], text: string, transactions?: TransactionItem[]) => {
+    const normalizedText = role === 'assistant' ? normalizeAssistantMessage(text) : text
+    setMessages(prev => [...prev, { role, text: normalizedText, ts: Date.now(), transactions }])
   }, [])
+
+  const getRequestedTransactionCount = useCallback(() => {
+    const text = lastUserTranscriptRef.current.toLowerCase()
+    const digitMatch = text.match(/(?:last|recent)?\s*(\d{1,2})\s+transactions?/)
+    if (digitMatch) {
+      const count = Number(digitMatch[1])
+      return Number.isNaN(count) ? 5 : Math.max(1, Math.min(count, 20))
+    }
+
+    for (const [word, value] of Object.entries(NUMBER_WORDS_TO_VALUE)) {
+      if (new RegExp(`\\b${word}\\b\\s+transactions?`).test(text)) {
+        return value
+      }
+    }
+
+    return 5
+  }, [])
+
+  const fetchRecentTransactions = useCallback(async (requestedSize: number): Promise<TransactionItem[]> => {
+    if (!primaryAccount?.account_id) return []
+    const accessToken = localStorage.getItem('voicebank.access_token')
+    const fromDate = new Date()
+    fromDate.setDate(fromDate.getDate() - 90)
+
+    const response = await fetch(`${API_BASE}/api/transactions/recent`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify({
+        accountId: primaryAccount.account_id,
+        fromDate: fromDate.toISOString().slice(0, 10),
+        page: 0,
+        size: requestedSize,
+      }),
+    })
+
+    if (response.status === 401) {
+      forceLogoutOnUnauthorized()
+      return []
+    }
+    if (!response.ok) return []
+
+    const data = (await response.json().catch(() => ({}))) as {
+      transactionList?: TransactionItem[]
+      data?: { transactionList?: TransactionItem[] }
+    }
+    const list = data.transactionList ?? data.data?.transactionList ?? []
+    return Array.isArray(list) ? list.slice(0, requestedSize) : []
+  }, [primaryAccount?.account_id])
+
+  const pushAssistantMessage = useCallback(
+    async (text: string) => {
+      const normalized = normalizeAssistantMessage(text)
+      const needsRecentTransactions = /recent\s+transactions?/i.test(normalized)
+      if (!needsRecentTransactions) {
+        pushMsg('assistant', normalized)
+        return
+      }
+
+      try {
+        const requestedSize = getRequestedTransactionCount()
+        const transactions = await fetchRecentTransactions(requestedSize)
+        pushMsg('assistant', normalized, transactions.length ? transactions : undefined)
+      } catch {
+        pushMsg('assistant', normalized)
+      }
+    },
+    [fetchRecentTransactions, getRequestedTransactionCount, pushMsg]
+  )
 
   const clearNoSoundTimer = useCallback(() => {
     if (noSoundTimerRef.current !== null) {
@@ -228,7 +333,7 @@ export function useSmallWebRTC() {
         // Flush any remaining buffer not yet flushed by botLlmStopped
         const accumulated = llmTextBufferRef.current.trim()
         if (accumulated) {
-          pushMsg('assistant', accumulated)
+          void pushAssistantMessage(accumulated)
           llmTextBufferRef.current = ''
         }
         setState('listening')
@@ -273,6 +378,7 @@ export function useSmallWebRTC() {
           text = text.replace(/^\[[a-z]{2}\]\s*/i, '');
         }
         if (text && data.final) {
+          lastUserTranscriptRef.current = text
           pushMsg('user', text)
         }
       })
@@ -294,7 +400,7 @@ export function useSmallWebRTC() {
         }
         const accumulated = llmTextBufferRef.current.trim()
         if (accumulated) {
-          pushMsg('assistant', accumulated)
+          void pushAssistantMessage(accumulated)
           llmTextBufferRef.current = ''
         }
       })
@@ -305,7 +411,7 @@ export function useSmallWebRTC() {
         if (voiceprintBlockedRef.current) return  // Suppress when verification failed
         if (llmTextBufferRef.current) return // already handled via botLlmText
         const text = typeof data === 'string' ? data : data?.text
-        if (text) pushMsg('assistant', text)
+        if (text) void pushAssistantMessage(text)
       })
 
       // botTranscript — final fallback for older backends
@@ -314,7 +420,7 @@ export function useSmallWebRTC() {
         if (voiceprintBlockedRef.current) return  // Suppress when verification failed
         if (llmTextBufferRef.current) return // already handled via botLlmText
         const text = typeof data === 'string' ? data : data?.text
-        if (text) pushMsg('assistant', text)
+        if (text) void pushAssistantMessage(text)
       })
 
       // Error handling
@@ -432,7 +538,7 @@ export function useSmallWebRTC() {
     } finally {
       isConnectingRef.current = false
     }
-  }, [activeCustomerId, clearNoSoundTimer, pushMsg, shouldVerifyVoice, startNoSoundTimer])
+  }, [activeCustomer?.voice_customer_id, activeCustomerId, clearNoSoundTimer, pushAssistantMessage, pushMsg, shouldVerifyVoice, startNoSoundTimer])
 
   // ── Disconnect ─────────────────────────────────────────────────────────────
 
