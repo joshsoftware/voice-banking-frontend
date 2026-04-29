@@ -140,10 +140,11 @@ export function useSmallWebRTC() {
   const activeCustomer = getActiveCustomer()
   const activeCustomerId = activeCustomer?.customer_id ?? null
   const activeCustomerName = activeCustomer?.name ?? 'User'
-  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+
   const primaryAccount = activeCustomerId ? getPrimaryAccount(activeCustomerId) : null
   const authSessionId = localStorage.getItem(AUTH_SESSION_ID_KEY)
   const shouldVerifyVoice = activeCustomerId ? isVoiceRegistered(activeCustomerId) : false
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadChatHistory(activeCustomerId, authSessionId))
 
   useEffect(() => {
