@@ -493,7 +493,7 @@ export function useSmallWebRTC() {
         headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({
           body: {
-            customer_id: activeCustomerId,
+            customer_id: activeCustomer?.voice_customer_id ?? activeCustomerId,
             voiceprint_id: activeCustomer?.voice_customer_id ?? activeCustomerId,
             is_voice_print: shouldVerifyVoice,
             cust_name: activeCustomer?.name ?? '',
