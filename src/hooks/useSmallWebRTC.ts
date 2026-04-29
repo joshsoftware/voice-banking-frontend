@@ -504,9 +504,6 @@ export function useSmallWebRTC() {
             language: preferredLanguage,
             cust_name: activeCustomer?.name ?? '',
             lang: language,
-            user_name: activeCustomerName,
-            timezone: userTimezone,
-            language: preferredLanguage,
           },
         }),
       })
