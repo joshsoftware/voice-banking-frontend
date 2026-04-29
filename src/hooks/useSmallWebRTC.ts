@@ -160,6 +160,7 @@ export function useSmallWebRTC() {
   }, [activeCustomerId, authSessionId, messages])
 
 
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   const pushMsg = useCallback((role: ChatMessage['role'], text: string, transactions?: TransactionItem[]) => {
