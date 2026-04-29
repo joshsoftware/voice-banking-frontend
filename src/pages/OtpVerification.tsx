@@ -108,17 +108,7 @@ export default function OtpVerification() {
           <p className="text-base leading-6 text-white/90 md:text-[16px]">
             {t('enterOtpInstruction')}
           </p>
-<<<<<<< Updated upstream
-          {/* TODO: Temporarily disabled OTP verification
-          {lastOtp && (
-            <div className="mt-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-yellow-200 border border-yellow-200/20 animate-pulse">
-              DEV ONLY: Your OTP is <span className="text-lg font-bold underline">{lastOtp}</span>
-            </div>
-          )}
-          */}
-=======
 
->>>>>>> Stashed changes
         </div>
 
         {/* Form Section */}
