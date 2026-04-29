@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { VolumeIcon, VolumeMutedIcon } from '@/components/ui/icons'
 import { Button } from '@/components/ui/button'
 import { Waveform } from '@/components/ui/waveform'
-import type { WebRTCState, ChatMessage, VoiceprintStatus } from '@/hooks/useSmallWebRTC'
+import type { WebRTCState, ChatMessage, VoiceprintStatus, OTPSignal } from '@/hooks/useSmallWebRTC'
 import { useTranslation } from '@/i18n/LanguageHooks'
 
 // ─── Status chip ──────────────────────────────────────────────────────────────
@@ -95,7 +95,9 @@ interface ListeningSheetProps {
   isMuted: boolean
   messages: ChatMessage[]
   voiceprintStatus: VoiceprintStatus | null
+  otpSignal: OTPSignal | null
   onToggleMute: () => void
+  onSubmitOtp?: (code: string) => Promise<any>
   onStop: () => void
   onFeedback?: () => void
   showMuteControl?: boolean
@@ -106,7 +108,9 @@ export function ListeningSheet({
   isMuted,
   messages,
   voiceprintStatus,
+  otpSignal,
   onToggleMute,
+  onSubmitOtp,
   onStop,
   onFeedback,
   showMuteControl = true,
@@ -171,6 +175,64 @@ export function ListeningSheet({
     return () => { clearTimeout(fadeTimer); clearTimeout(hideTimer) }
   }, [voiceprintStatus])
 
+  // ── OTP Input logic ────────────────────────────────────────────────────────
+  const [otpValue, setOtpValue] = useState(['', '', '', '', '', ''])
+  const [otpError, setOtpError] = useState('')
+  const [isVerifying, setIsVerifying] = useState(false)
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  const handleOtpChange = (index: number, value: string) => {
+    const cleaned = value.replace(/[^0-9]/g, '').slice(-1)
+    const newOtp = [...otpValue]
+    newOtp[index] = cleaned
+    setOtpValue(newOtp)
+    if (otpError) setOtpError('')
+
+    if (cleaned && index < 5) {
+      otpInputRefs.current[index + 1]?.focus()
+    }
+  }
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otpValue[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus()
+    }
+  }
+
+  const handleOtpSubmit = async () => {
+    const code = otpValue.join('')
+    if (code.length < 6) {
+      setOtpError('Please enter all 6 digits')
+      return
+    }
+
+    if (onSubmitOtp) {
+      setIsVerifying(true)
+      try {
+        const res = await onSubmitOtp(code)
+        const transferSucceeded = res?.status === 'success' || res?.transfer_ok === true
+        if (!transferSucceeded) {
+          setOtpError(res.message || 'Verification failed')
+        } else {
+          setOtpError('')
+          setOtpValue(['', '', '', '', '', ''])
+        }
+      } catch (err) {
+        setOtpError('An error occurred')
+      } finally {
+        setIsVerifying(false)
+      }
+    }
+  }
+
+  // Clear OTP when signal disappears or changes
+  useEffect(() => {
+    if (!otpSignal) {
+      setOtpValue(['', '', '', '', '', ''])
+      setOtpError('')
+    }
+  }, [otpSignal])
+
   // Show all messages
   const visibleMessages = messages
 
@@ -223,6 +285,46 @@ export function ListeningSheet({
 
             {/* Waveform */}
             <Waveform active={isActive} />
+
+            {/* OTP Section (Overlay-like within sheet) */}
+            {/* TODO: OTP verification is temporarily disabled. Actual verification must be restored before production rollout. */}
+            {otpSignal && false && (
+              <div className="w-full rounded-2xl bg-[var(--color-brand-900)]/5 p-4 border border-[var(--color-brand-900)]/10 shadow-lg transition-all duration-500 transform translate-y-0 opacity-100 mb-4">
+                <div className="text-center space-y-2 mb-4">
+                  <h3 className="text-sm font-bold text-[var(--color-brand-900)] uppercase tracking-wider">Transaction Verification</h3>
+                  <p className="text-xs text-[var(--color-brand-600)]">Your 6-digit OTP is:</p>
+                  <div className="inline-block bg-[var(--color-brand-500)] text-white px-4 py-1.5 rounded-lg text-xl font-mono font-bold tracking-[0.3em] shadow-md">
+                    {otpSignal?.otp_code}
+                  </div>
+                </div>
+
+                <div className="flex justify-between gap-1 mb-3">
+                  {otpValue.map((val, i) => (
+                    <input
+                      key={i}
+                      ref={el => { otpInputRefs.current[i] = el }}
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={val}
+                      onChange={e => handleOtpChange(i, e.target.value)}
+                      onKeyDown={e => handleOtpKeyDown(i, e)}
+                      className="w-10 h-12 bg-white border-2 border-[var(--color-brand-900)]/20 rounded-lg text-center text-xl font-bold text-[var(--color-brand-900)] outline-none focus:border-[var(--color-brand-500)] focus:ring-2 focus:ring-[var(--color-brand-500)]/20 transition-all shadow-sm"
+                    />
+                  ))}
+                </div>
+
+                {otpError && <p className="text-[10px] text-red-400 text-center mb-3 font-medium">{otpError}</p>}
+
+                <Button
+                  onClick={handleOtpSubmit}
+                  className="w-full h-12 rounded-xl text-md font-bold bg-[var(--color-brand-500)] text-white hover:bg-[var(--color-brand-600)] disabled:opacity-50 shadow-lg active:scale-[0.98] transition-all"
+                  disabled={isVerifying || otpValue.some(v => !v)}
+                >
+                  {isVerifying ? 'Verifying...' : 'Confirm Transfer'}
+                </Button>
+              </div>
+            )}
 
             {/* Chat area */}
             {visibleMessages.length > 0 && (

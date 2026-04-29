@@ -3,7 +3,7 @@ import { useNavigate, useNavigationType } from 'react-router-dom'
 import Home from './Home'
 import { ListeningSheet } from '@/components/home/ListeningSheet'
 import { FeedbackModal } from '@/components/home/FeedbackModal'
-import { useSmallWebRTC } from '@/hooks/useSmallWebRTC'
+import { useVoiceSession } from '@/contexts/VoiceSessionContext'
 import { BotAudio } from '@/components/BotAudio'
 import { getActiveCustomer } from '@/lib/demoCustomer'
 
@@ -17,12 +17,14 @@ export default function Listening() {
     sessionId,
     inputSoundStatus,
     voiceprintStatus,
+    otpSignal,
     connect,
     disconnect,
     toggleMute,
+    submitOtp,
     stopAudioTracks,
     client,
-  } = useSmallWebRTC()
+  } = useVoiceSession()
   const [showFeedback, setShowFeedback] = useState(false)
   const [soundPopup, setSoundPopup] = useState<string | null>(null)
   const customer = getActiveCustomer()
@@ -76,7 +78,9 @@ export default function Listening() {
             isMuted={isMuted}
             messages={messages}
             voiceprintStatus={voiceprintStatus}
+            otpSignal={otpSignal}
             onToggleMute={toggleMute}
+            onSubmitOtp={submitOtp}
             onStop={handleStop}
             onFeedback={() => setShowFeedback(true)}
           />

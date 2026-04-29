@@ -121,11 +121,13 @@ export default function OtpVerification() {
           <p className="text-base leading-6 text-white/90 md:text-[16px]">
             {t('enterOtpInstruction')}
           </p>
+          {/* TODO: Temporarily disabled OTP verification
           {lastOtp && (
             <div className="mt-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-yellow-200 border border-yellow-200/20 animate-pulse">
               DEV ONLY: Your OTP is <span className="text-lg font-bold underline">{lastOtp}</span>
             </div>
           )}
+          */}
         </div>
 
         {/* Form Section */}
@@ -154,6 +156,7 @@ export default function OtpVerification() {
               ))}
             </div>
             {error && <p className="text-center text-sm text-red-300">{error}</p>}
+            {/* TODO: Temporarily disabled Resend OTP logic
             <div className="mt-2 text-center text-sm leading-5 text-white/90">
               {timer > 0 ? (
                 <span>
@@ -169,6 +172,7 @@ export default function OtpVerification() {
                 </button>
               )}
             </div>
+            */}
           </div>
 
           {/* Bottom Section */}
