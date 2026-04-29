@@ -8,6 +8,7 @@ export interface DemoCustomer {
   name: string
   status: string
   voice_customer_id?: string // Stable backend identity for voiceprint
+  base_customer_id?: string // Base customer ID from backend
   is_voice_registered?: boolean // Registration status flag from backend
 }
 
@@ -239,13 +240,15 @@ export function getPrimaryAccount(customerId: string): DemoAccount | null {
 export function setActiveCustomerByPhone(
   phone: string, 
   voice_customer_id?: string, 
-  is_voice_registered?: boolean
+  is_voice_registered?: boolean,
+  base_customer_id?: string
 ): DemoCustomer | null {
   const customer = findCustomerByPhone(phone)
   if (!customer) return null
   
   if (voice_customer_id) customer.voice_customer_id = voice_customer_id
   if (is_voice_registered !== undefined) customer.is_voice_registered = is_voice_registered
+  if (base_customer_id) customer.base_customer_id = base_customer_id
 
   try {
     localStorage.setItem(ACTIVE_CUSTOMER_STORAGE_KEY, customer.customer_id)
@@ -254,6 +257,9 @@ export function setActiveCustomerByPhone(
     }
     if (is_voice_registered !== undefined) {
         localStorage.setItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`, String(is_voice_registered))
+    }
+    if (base_customer_id) {
+        localStorage.setItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.base_customer_id`, base_customer_id)
     }
   } catch {
     // ignore storage issues
@@ -268,6 +274,7 @@ export function getActiveCustomer(): DemoCustomer | null {
     const customer = CUSTOMERS.find((c) => c.customer_id === id) ?? null
     if (customer) {
         customer.voice_customer_id = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.voice_customer_id`) ?? undefined
+        customer.base_customer_id = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.base_customer_id`) ?? undefined
         customer.is_voice_registered = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`) === 'true'
     }
     return customer
