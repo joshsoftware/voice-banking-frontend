@@ -119,7 +119,7 @@ export function ListeningSheet({
   // ── Drag-to-resize ─────────────────────────────────────────────────────────
   const MIN_VH = 28
   const MAX_VH = 72
-  const DEFAULT_VH = 40
+  const DEFAULT_VH = 65
   const [sheetVh, setSheetVh] = useState(DEFAULT_VH)
   const dragStartY = useRef<number | null>(null)
   const dragStartVh = useRef<number>(DEFAULT_VH)
