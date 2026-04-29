@@ -8,6 +8,7 @@ import Listening from './pages/Listening'
 import LanguageSelect from './pages/LanguageSelect'
 import VoiceRegistration from './pages/VoiceRegistration'
 import Profile from './pages/Profile'
+import { VoiceSessionProvider } from './contexts/VoiceSessionContext'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth()
@@ -25,20 +26,22 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route path="/" element={<Navigate to="/welcome" replace />} />
-          <Route path="/welcome" element={<Welcome />} />
-          <Route path="/verify-otp" element={<OtpVerification />} />
-          
-          {/* Protected Routes */}
-          <Route path="/language" element={<ProtectedRoute><LanguageSelect /></ProtectedRoute>} />
-          <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-          <Route path="/listening" element={<ProtectedRoute><Listening /></ProtectedRoute>} />
-          <Route path="/voice-registration" element={<ProtectedRoute><VoiceRegistration /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          
-          <Route path="*" element={<Navigate to="/welcome" replace />} />
-        </Routes>
+        <VoiceSessionProvider>
+          <Routes>
+            <Route path="/" element={<Navigate to="/welcome" replace />} />
+            <Route path="/welcome" element={<Welcome />} />
+            <Route path="/verify-otp" element={<OtpVerification />} />
+            
+            {/* Protected Routes */}
+            <Route path="/language" element={<ProtectedRoute><LanguageSelect /></ProtectedRoute>} />
+            <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+            <Route path="/listening" element={<ProtectedRoute><Listening /></ProtectedRoute>} />
+            <Route path="/voice-registration" element={<ProtectedRoute><VoiceRegistration /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            
+            <Route path="*" element={<Navigate to="/welcome" replace />} />
+          </Routes>
+        </VoiceSessionProvider>
       </AuthProvider>
     </BrowserRouter>
   )

@@ -3,6 +3,7 @@ import { PipecatClient } from '@pipecat-ai/client-js'
 import { CustomSmallWebRTCTransport } from '@/lib/customTransport'
 import { API_BASE } from '@/lib/constants'
 import { getActiveCustomer, isVoiceRegistered } from '@/lib/demoCustomer'
+import { useTranslation } from '@/i18n/LanguageHooks'
 
 // Helper to get client instance (for audio component)
 let globalClientInstance: PipecatClient | null = null
@@ -33,6 +34,20 @@ export interface VoiceprintStatus {
   ts: number
 }
 
+export interface OTPSignal {
+  type: 'OTP_REQUIRED'
+  transaction_id: string
+  otp_code: string
+  expires_in: number
+  session_id: string
+}
+
+interface TransferSuccessSignal {
+  type: 'TRANSFER_SUCCESS'
+  transaction_id?: string
+  message?: string
+}
+
 function forceLogoutOnUnauthorized() {
   localStorage.removeItem('voicebank.access_token')
   localStorage.removeItem('voicebank.refresh_token')
@@ -50,6 +65,7 @@ export function useSmallWebRTC() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [inputSoundStatus, setInputSoundStatus] = useState<InputSoundStatus | null>(null)
   const [voiceprintStatus, setVoiceprintStatus] = useState<VoiceprintStatus | null>(null)
+  const [otpSignal, setOtpSignal] = useState<OTPSignal | null>(null)
 
   const clientRef = useRef<PipecatClient | null>(null)
   const isConnectingRef = useRef(false)
@@ -58,9 +74,12 @@ export function useSmallWebRTC() {
   const hasDetectedUserVoiceRef = useRef(false)
   const voiceprintBlockedRef = useRef(false)
   const noSoundTimerRef = useRef<number | null>(null)
+  const { language: preferredLanguage } = useTranslation()
   const activeCustomer = getActiveCustomer()
   const activeCustomerId = activeCustomer?.customer_id ?? null
+  const activeCustomerName = activeCustomer?.name ?? 'User'
   const shouldVerifyVoice = activeCustomerId ? isVoiceRegistered(activeCustomerId) : false
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -138,6 +157,7 @@ export function useSmallWebRTC() {
         }
         clearNoSoundTimer()
         voiceprintBlockedRef.current = false  // Reset block flag for new turn
+        setOtpSignal(null)  // Reset OTP state for new turn
         setState('processing')
       })
 
@@ -291,6 +311,23 @@ export function useSmallWebRTC() {
             // Push a single authoritative error message
             pushMsg('assistant', 'Not authorised or Voice print not matched')
           }
+        } else if (data?.type === 'OTP_REQUIRED') {
+          console.log('[SmallWebRTC] OTP Required:', data)
+          setOtpSignal({
+            type: 'OTP_REQUIRED',
+            transaction_id: data.transaction_id,
+            otp_code: data.otp_code,
+            expires_in: data.expires_in,
+            session_id: data.session_id
+          })
+        } else if (data?.type === 'TRANSFER_SUCCESS') {
+          const signal = data as TransferSuccessSignal
+          console.log('[SmallWebRTC] Transfer success:', signal)
+          // Transfer completed: close OTP panel and show outcome in chat stream.
+          setOtpSignal(null)
+          const successText = signal.message?.trim()
+            || 'Transfer successful. The amount has been debited from your account.'
+          pushMsg('assistant', successText)
         }
       })
 
@@ -310,6 +347,9 @@ export function useSmallWebRTC() {
             customer_id: activeCustomerId,
             voiceprint_id: activeCustomer?.voice_customer_id ?? activeCustomerId,
             is_voice_print: shouldVerifyVoice,
+            user_name: activeCustomerName,
+            timezone: userTimezone,
+            language: preferredLanguage,
           },
         }),
       })
@@ -441,6 +481,32 @@ export function useSmallWebRTC() {
     setIsMuted(newMutedState)
   }, [isMuted])
 
+  // ── Submit OTP ─────────────────────────────────────────────────────────────
+
+  const submitOtp = useCallback(async (code: string) => {
+    if (!sessionId) return { status: 'error', message: 'No active session' }
+
+    try {
+      const response = await fetch(`${API_BASE}/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          otp_code: code
+        })
+      })
+      const data = await response.json()
+      const transferSucceeded = data?.status === 'success' || data?.transfer_ok === true
+      if (transferSucceeded) {
+        setOtpSignal(null) // Close OTP box immediately after successful transfer
+      }
+      return data
+    } catch (err) {
+      console.error('[SmallWebRTC] OTP verification error:', err)
+      return { status: 'error', message: 'Verification failed' }
+    }
+  }, [sessionId])
+
   // ── Stop Audio Track ───────────────────────────────────────────────────────────
 
   const stopAudioTracks = useCallback(() => {
@@ -529,9 +595,11 @@ export function useSmallWebRTC() {
     sessionId,
     inputSoundStatus,
     voiceprintStatus,
+    otpSignal,
     connect,
     disconnect,
     toggleMute,
+    submitOtp,
     stopAudioTracks,
     client: clientRef.current,
   }
