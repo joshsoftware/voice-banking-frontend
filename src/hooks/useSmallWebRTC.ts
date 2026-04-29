@@ -452,30 +452,19 @@ export function useSmallWebRTC() {
         : {}
 
       // Call /start manually to capture sessionId directly from the response
-      console.log('[useSmallWebRTC] Active customer data:', {
-        customer_id: activeCustomer?.customer_id,
-        voice_customer_id: activeCustomer?.voice_customer_id,
-        base_customer_id: activeCustomer?.base_customer_id,
-        name: activeCustomer?.name
-      });
-      
-      const startPayload = {
-        body: {
-          customer_id: activeCustomer?.voice_customer_id ?? activeCustomerId,
-          base_customer_id: activeCustomer?.base_customer_id ?? activeCustomerId,
-          voiceprint_id: activeCustomer?.voice_customer_id ?? activeCustomerId,
-          is_voice_print: shouldVerifyVoice,
-          cust_name: activeCustomer?.name ?? '',
-          lang: language,
-        },
-      };
-      
-      console.log('[useSmallWebRTC] Sending to /start API:', startPayload);
-      
       const startRes = await fetch(`${API_BASE}/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
-        body: JSON.stringify(startPayload),
+        body: JSON.stringify({
+          body: {
+            customer_id: activeCustomer?.voice_customer_id ?? activeCustomerId,
+            base_customer_id: activeCustomer?.base_customer_id ?? activeCustomerId,
+            voiceprint_id: activeCustomer?.voice_customer_id ?? activeCustomerId,
+            is_voice_print: shouldVerifyVoice,
+            cust_name: activeCustomer?.name ?? '',
+            lang: language,
+          },
+        }),
       })
       if (startRes.status === 401) {
         forceLogoutOnUnauthorized()

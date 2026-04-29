@@ -110,12 +110,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response: AuthResponse = await authApi.verifyOtp(phone, otp);
 
-      console.log('[AuthContext] Login response:', {
-        customer_id: response.customer_id,
-        base_customer_id: response.base_customer_id,
-        is_voiceprint_registered: response.is_voiceprint_registered
-      });
-
       setAccessToken(response.access_token);
       setRefreshToken(response.refresh_token);
       localStorage.setItem(ACCESS_TOKEN_KEY, response.access_token);
@@ -129,11 +123,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         response.is_voiceprint_registered,
         response.base_customer_id
       );
-      console.log('[AuthContext] Set active customer result:', {
-        customer_id: customer?.customer_id,
-        voice_customer_id: customer?.voice_customer_id,
-        base_customer_id: customer?.base_customer_id
-      });
       setUser(customer);
       setLastOtp(null);
       setSessionError(null);
