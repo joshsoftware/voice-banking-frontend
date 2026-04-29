@@ -16,7 +16,7 @@ export default function OtpVerification() {
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useTranslation()
-  const { login, lastOtp, requestOtp } = useAuth()
+  const { login } = useAuth()
   const phone = (location.state as { phone?: string } | null)?.phone ?? ''
 
   useEffect(() => {
@@ -82,20 +82,7 @@ export default function OtpVerification() {
     }
   }
 
-  const handleResend = async () => {
-    try {
-      setIsLoading(true)
-      await requestOtp(phone)
-      setTimer(27)
-      setOtp(['', '', '', ''])
-      inputRefs.current[0]?.focus()
-      setError('')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to resend OTP')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+
 
   return (
     <MobileContainer>
@@ -121,13 +108,7 @@ export default function OtpVerification() {
           <p className="text-base leading-6 text-white/90 md:text-[16px]">
             {t('enterOtpInstruction')}
           </p>
-          {/* TODO: Temporarily disabled OTP verification
-          {lastOtp && (
-            <div className="mt-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-yellow-200 border border-yellow-200/20 animate-pulse">
-              DEV ONLY: Your OTP is <span className="text-lg font-bold underline">{lastOtp}</span>
-            </div>
-          )}
-          */}
+
         </div>
 
         {/* Form Section */}
@@ -158,18 +139,10 @@ export default function OtpVerification() {
             {error && <p className="text-center text-sm text-red-300">{error}</p>}
             {/* TODO: Temporarily disabled Resend OTP logic
             <div className="mt-2 text-center text-sm leading-5 text-white/90">
-              {timer > 0 ? (
+              {timer > 0 && (
                 <span>
                   {t('resendOtpIn', { seconds: timer })}
                 </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleResend}
-                  className="font-semibold underline transition-opacity hover:opacity-80"
-                >
-                  {t('resendOtp')}
-                </button>
               )}
             </div>
             */}
