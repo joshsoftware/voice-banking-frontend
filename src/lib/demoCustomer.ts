@@ -243,6 +243,13 @@ export function setActiveCustomerByPhone(
   is_voice_registered?: boolean,
   base_customer_id?: string
 ): DemoCustomer | null {
+  console.log('[demoCustomer] setActiveCustomerByPhone called with:', {
+    phone,
+    voice_customer_id,
+    is_voice_registered,
+    base_customer_id
+  });
+  
   const customer = findCustomerByPhone(phone)
   if (!customer) return null
   
@@ -261,6 +268,11 @@ export function setActiveCustomerByPhone(
     if (base_customer_id) {
         localStorage.setItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.base_customer_id`, base_customer_id)
     }
+    console.log('[demoCustomer] Stored in localStorage:', {
+      customer_id: customer.customer_id,
+      voice_customer_id: customer.voice_customer_id,
+      base_customer_id: customer.base_customer_id
+    });
   } catch {
     // ignore storage issues
   }
@@ -276,6 +288,12 @@ export function getActiveCustomer(): DemoCustomer | null {
         customer.voice_customer_id = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.voice_customer_id`) ?? undefined
         customer.base_customer_id = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.base_customer_id`) ?? undefined
         customer.is_voice_registered = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`) === 'true'
+        console.log('[demoCustomer] getActiveCustomer returning:', {
+          customer_id: customer.customer_id,
+          voice_customer_id: customer.voice_customer_id,
+          base_customer_id: customer.base_customer_id,
+          is_voice_registered: customer.is_voice_registered
+        });
     }
     return customer
   } catch {
