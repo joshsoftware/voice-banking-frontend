@@ -364,7 +364,7 @@ export function useSmallWebRTC() {
           console.warn('[SmallWebRTC] Bot audio autoplay blocked:', err.message)
           // Resume on next user interaction
           const resume = () => {
-            audioElRef.current?.play().catch(() => {})
+            audioElRef.current?.play().catch(() => { })
             document.removeEventListener('click', resume)
           }
           document.addEventListener('click', resume)
@@ -568,7 +568,7 @@ export function useSmallWebRTC() {
       try {
         const tracks = client.tracks()
         console.log('[SmallWebRTC] Current tracks:', tracks)
-        
+
         if (tracks?.local?.audio) {
           tracks.local.audio.stop()
           console.log('[SmallWebRTC] Stopped local audio track')
@@ -602,7 +602,7 @@ export function useSmallWebRTC() {
 
       // Disconnect the client
       await client.disconnect()
-      
+
       // EXPLICIT: Also search for any dangling media streams in the entire document
       // to handle cases where the SDK might have cloned the stream
       navigator.mediaDevices.enumerateDevices().then(() => {
@@ -685,8 +685,8 @@ export function useSmallWebRTC() {
       const transport = clientRef.current.transport as any
 
       const localStream = transport?.localStream ||
-                         transport?._localStream ||
-                         transport?.mediaManager?.localStream
+        transport?._localStream ||
+        transport?.mediaManager?.localStream
 
       if (localStream && typeof localStream.getAudioTracks === 'function') {
         localStream.getAudioTracks().forEach((track: MediaStreamTrack) => {
@@ -705,7 +705,7 @@ export function useSmallWebRTC() {
           }
         })
       }
-      
+
     } catch (err) {
       console.error('[SmallWebRTC] Error stopping audio tracks:', err)
     }
@@ -717,13 +717,13 @@ export function useSmallWebRTC() {
     return () => {
       if (clientRef.current) {
         console.log('[SmallWebRTC] Component unmounting, cleaning up...')
-        
+
         // Stop all tracks
         try {
           const tracks = clientRef.current.tracks()
           tracks?.local?.audio?.stop()
           tracks?.local?.video?.stop()
-          
+
           const transport = clientRef.current.transport as any
           transport?.localStream?.getTracks().forEach((track: MediaStreamTrack) => {
             track.stop()
