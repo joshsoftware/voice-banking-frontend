@@ -158,6 +158,8 @@ export function useSmallWebRTC() {
     }
   }, [activeCustomerId, authSessionId, messages])
 
+
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   const pushMsg = useCallback((role: ChatMessage['role'], text: string, transactions?: TransactionItem[]) => {
@@ -497,6 +499,9 @@ export function useSmallWebRTC() {
             base_customer_id: activeCustomerId,
             voiceprint_id: activeCustomer?.voice_customer_id ?? activeCustomerId,
             is_voice_print: shouldVerifyVoice,
+            user_name: activeCustomerName,
+            timezone: userTimezone,
+            language: preferredLanguage,
             cust_name: activeCustomer?.name ?? '',
             lang: language,
             user_name: activeCustomerName,
