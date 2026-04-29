@@ -120,7 +120,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const customer = setActiveCustomerByPhone(
         phone, 
         response.customer_id, 
-        response.is_voiceprint_registered
+        response.is_voiceprint_registered,
+        response.base_customer_id
       );
       setUser(customer);
       setLastOtp(null);

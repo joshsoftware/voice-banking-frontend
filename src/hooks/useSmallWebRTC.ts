@@ -495,7 +495,7 @@ export function useSmallWebRTC() {
         body: JSON.stringify({
           body: {
             customer_id: activeCustomer?.voice_customer_id ?? activeCustomerId,
-            base_customer_id: activeCustomerId,
+            base_customer_id: activeCustomer?.base_customer_id ?? activeCustomerId,
             voiceprint_id: activeCustomer?.voice_customer_id ?? activeCustomerId,
             is_voice_print: shouldVerifyVoice,
             user_name: activeCustomerName,
