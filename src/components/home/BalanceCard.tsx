@@ -38,6 +38,20 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
+function formatTransactionDate(value?: string) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date)
+}
+
 function getTransactionList(response: TransactionsResponse): TransactionItem[] {
   const nestedData = Array.isArray(response.data) ? undefined : response.data
   const candidate =
@@ -59,8 +73,12 @@ function toTimestamp(tx: TransactionItem) {
 function forceLogoutOnUnauthorized() {
   localStorage.removeItem('voicebank.access_token')
   localStorage.removeItem('voicebank.refresh_token')
+  localStorage.removeItem('voicebank.auth_session_id')
   localStorage.removeItem('access_token')
   localStorage.removeItem('refresh_token')
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith('voicebank.chatHistory'))
+    .forEach((key) => localStorage.removeItem(key))
   window.location.href = '/welcome'
 }
 
@@ -168,7 +186,7 @@ export function BalanceCard({ account }: BalanceCardProps) {
             onClick={() => void handleViewDetails()}
             className="rounded-xl px-4 py-2 text-sm font-semibold leading-5 text-[var(--color-brand-300)] transition-colors hover:bg-gray-50"
           >
-            Recent Transactions
+            {t('recentTransactions')}
           </button>
         </div>
 
@@ -194,7 +212,7 @@ export function BalanceCard({ account }: BalanceCardProps) {
               <div className="max-h-52 space-y-2 overflow-y-auto mobile-scroll pr-1">
                 {transactions.map((tx, idx) => {
                   const amount = tx.amount ?? tx.transactionAmount ?? 0
-                  const date = tx.date ?? tx.transactionDate ?? '-'
+                  const date = formatTransactionDate(tx.date ?? tx.transactionDate)
                   const type = tx.type ?? tx.transactionType ?? 'TXN'
                   const desc = tx.description ?? tx.narration ?? tx.transactionId ?? `Transaction ${idx + 1}`
                   return (
