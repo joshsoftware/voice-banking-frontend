@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { EyeIcon } from '@/components/ui/icons'
 import { useTranslation } from '@/i18n/LanguageHooks'
 import type { DemoAccount } from '@/lib/demoCustomer'
 import { API_BASE } from '@/lib/constants'
+import { balanceApi } from '@/lib/balanceApi'
 import ArrowIcon from '@/assets/arrow.svg?react'
 
 interface BalanceCardProps {
@@ -88,11 +89,45 @@ export function BalanceCard({ account }: BalanceCardProps) {
   const [transactionsError, setTransactionsError] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<TransactionItem[]>([])
   const [showTransactions, setShowTransactions] = useState(false)
+  const [balance, setBalance] = useState<number | null>(null)
+  const [balanceLoading, setBalanceLoading] = useState(false)
+  const [balanceError, setBalanceError] = useState<string | null>(null)
   const { t } = useTranslation()
-  const balanceValue = account?.balance ?? 45250.75
+  const balanceValue = balance ?? account?.balance ?? 45250.75
   const accountTypeLabel = account?.account_type === 'CURRENT' ? 'Current Account' : t('savingsAccount')
   const maskedAccount = account ? `****${account.account_id.slice(-4)}` : '****7890'
+  const fetchBalanceData = async () => {
+    if (!account?.account_id || !account?.customer_id) {
+      setBalanceError('Account information not available')
+      return
+    }
 
+    setBalanceLoading(true)
+    setBalanceError(null)
+
+    try {
+      const fetchedBalance = await balanceApi.fetchBalance(account.customer_id, account.account_id)
+      setBalance(fetchedBalance)
+    } catch (e: any) {
+      setBalanceError(e?.message || 'Failed to fetch balance')
+      // Keep using fallback balance from account prop
+    } finally {
+      setBalanceLoading(false)
+    }
+  }
+
+  // Fetch balance on component mount
+  useEffect(() => {
+    void fetchBalanceData()
+  }, [account?.account_id, account?.customer_id])
+
+  const handleToggleBalance = async () => {
+    // If showing balance, fetch fresh data
+    if (!showBalance) {
+      await fetchBalanceData()
+    }
+    setShowBalance(!showBalance)
+  }
   const handleViewDetails = async () => {
     if (!account?.account_id) {
       setTransactionsError('Account is not available.')
@@ -165,8 +200,9 @@ export function BalanceCard({ account }: BalanceCardProps) {
           <button
             type="button"
             aria-label={showBalance ? t('ariaHideBalance') : t('ariaShowBalance')}
-            onClick={() => setShowBalance(!showBalance)}
-            className="rounded-full p-1.5 transition-colors hover:bg-gray-50"
+            onClick={() => void handleToggleBalance()}
+            disabled={balanceLoading}
+            className="rounded-full p-1.5 transition-colors hover:bg-gray-50 disabled:opacity-50"
           >
             <EyeIcon className="size-5 text-[var(--color-brand-900)]/60" />
           </button>
@@ -174,9 +210,22 @@ export function BalanceCard({ account }: BalanceCardProps) {
 
         <div className="mt-6 flex flex-col gap-1.5">
           <div className="text-[30px] font-bold leading-tight tracking-tight text-[var(--color-brand-900)]">
-            {showBalance ? formatCurrency(balanceValue) : '₹••••••'}
+            {balanceLoading ? (
+              <span className="text-[var(--color-text-muted-2)]">Loading...</span>
+            ) : showBalance ? (
+              formatCurrency(balanceValue)
+            ) : (
+              '₹••••••'
+            )}
           </div>
-          <div className="text-sm font-medium leading-5 text-[var(--color-text-muted-2)]">{accountTypeLabel}</div>
+          <div className="text-sm font-medium leading-5 text-[var(--color-text-muted-2)]">
+            {accountTypeLabel}
+            {balanceError && showBalance && (
+              <span className="ml-2 text-xs text-red-600" title={balanceError}>
+                (using cached)
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="mt-10 flex items-center justify-between">
