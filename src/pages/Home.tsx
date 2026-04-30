@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Header } from '@/components/home/Header'
 import { BalanceCard } from '@/components/home/BalanceCard'
 import { VoiceSheet } from '@/components/home/VoiceSheet'
-import { useVoiceSession } from '@/contexts/VoiceSessionContext'
+
 import {
   disallowVoiceSkip,
   getActiveCustomer,
@@ -28,8 +28,6 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
   const primaryAccount = customer ? getPrimaryAccount(customer.customer_id) : null
   const voiceRegistered = customer ? isVoiceRegistered(customer.customer_id) : false
   const voiceSkipAllowed = customer ? isVoiceSkipAllowed(customer.customer_id) : false
-  const { connect } = useVoiceSession()
-
   useEffect(() => {
     if (!isAuthenticated || !customer) {
       navigate('/welcome', { replace: true })
@@ -39,13 +37,6 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
       navigate('/voice-registration')
     }
   }, [isAuthenticated, customer, voiceRegistered, voiceSkipAllowed, navigate])
-  
-  // Initialize voice session on home page mount (Pre-warming + Mic on load)
-  useEffect(() => {
-    if (isAuthenticated && customer) {
-      connect().catch(console.error)
-    }
-  }, [isAuthenticated, customer, connect])
 
   useEffect(() => {
     if (!isAuthenticated || !customer) return
