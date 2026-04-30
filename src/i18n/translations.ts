@@ -2,6 +2,9 @@ import type { LanguageId } from './languages'
 
 const EN = {
   headerGoodAfternoon: 'Good Afternoon',
+  headerGoodMorning: 'Good Morning',
+  headerGoodEvening: 'Good Evening',
+  headerGoodNight: 'Good Night',
 
   bankWithYourVoice: 'Bank with Your Voice',
   mobileNumber: 'Mobile Number',

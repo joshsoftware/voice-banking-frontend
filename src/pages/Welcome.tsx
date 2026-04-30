@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { MobileContainer } from '@/components/ui/mobile-container'
 import { Logo } from '@/components/ui/logo'
 import { Button } from '@/components/ui/button'
@@ -101,9 +101,12 @@ export default function Welcome() {
 
             <p className="px-2 text-center text-sm leading-5 text-white/90">
               {t('termsPrefix')}{' '}
-              <span className="font-semibold underline decoration-solid [text-decoration-skip-ink:none]">
+              <Link
+                to="/terms"
+                className="font-semibold underline decoration-solid [text-decoration-skip-ink:none]"
+              >
                 {t('termsLink')}
-              </span>
+              </Link>
             </p>
           </div>
         </form>

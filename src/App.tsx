@@ -8,6 +8,7 @@ import Listening from './pages/Listening'
 import LanguageSelect from './pages/LanguageSelect'
 import VoiceRegistration from './pages/VoiceRegistration'
 import Profile from './pages/Profile'
+import TermsAndConditions from './pages/TermsAndConditions'
 import { VoiceSessionProvider } from './contexts/VoiceSessionContext'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -31,6 +32,7 @@ function App() {
             <Route path="/" element={<Navigate to="/welcome" replace />} />
             <Route path="/welcome" element={<Welcome />} />
             <Route path="/verify-otp" element={<OtpVerification />} />
+            <Route path="/terms" element={<TermsAndConditions />} />
             
             {/* Protected Routes */}
             <Route path="/language" element={<ProtectedRoute><LanguageSelect /></ProtectedRoute>} />
