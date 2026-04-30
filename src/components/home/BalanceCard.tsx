@@ -208,7 +208,7 @@ export function BalanceCard({ account }: BalanceCardProps) {
           </button>
         </div>
 
-        <div className="mt-6 flex flex-col gap-1.5">
+        <div className="mt-1 flex flex-col gap-1">
           <div className="text-[30px] font-bold leading-tight tracking-tight text-[var(--color-brand-900)]">
             {balanceLoading ? (
               <span className="text-[var(--color-text-muted-2)]">Loading...</span>
