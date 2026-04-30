@@ -1,3 +1,5 @@
+import { getDeviceId } from './device'
+
 export interface DemoCustomer {
   customer_id: string
   email: string
@@ -45,6 +47,7 @@ const VOICE_REGISTERED_CUSTOMERS_STORAGE_KEY = 'voicebank.voiceRegisteredCustome
 const VOICE_SKIP_ALLOWED_CUSTOMERS_STORAGE_KEY = 'voicebank.voiceSkipAllowedCustomers'
 const DYNAMIC_PHONE_TO_CUSTOMER_ID_STORAGE_KEY = 'voicebank.dynamicPhoneToCustomerId'
 const DYNAMIC_PHONE_ASSIGNMENT_ORDER_STORAGE_KEY = 'voicebank.dynamicPhoneAssignmentOrder'
+const PHONE_TO_CUSTOMER_PERSISTENT_STORAGE_KEY = 'voicebank.phoneToCustomerPersistent'
 
 const CUSTOMERS: DemoCustomer[] = [
   { customer_id: 'CIF202602260001', email: 'amit.sharma@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-02-26T07:15:16.424Z', date_of_birth: '1990-05-21', mobile_number: '9876543213', name: 'Amit Sharma', status: 'ACTIVE' },
@@ -130,6 +133,50 @@ function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, '').slice(-10)
 }
 
+function getPersistentPhoneToCustomerMap(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(PHONE_TO_CUSTOMER_PERSISTENT_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    return Object.entries(parsed).reduce<Record<string, string>>((acc, [phone, customerId]) => {
+      if (typeof phone === 'string' && typeof customerId === 'string') acc[phone] = customerId
+      return acc
+    }, {})
+  } catch {
+    return {}
+  }
+}
+
+function setPersistentPhoneToCustomerMap(map: Record<string, string>): void {
+  try {
+    localStorage.setItem(PHONE_TO_CUSTOMER_PERSISTENT_STORAGE_KEY, JSON.stringify(map))
+  } catch {
+    // ignore storage issues
+  }
+}
+
+function buildDynamicMapKey(phone: string, deviceId?: string): string {
+  const normalizedPhone = normalizePhone(phone)
+  return `${normalizedPhone}:${deviceId ?? ''}`
+}
+
+function hashString(input: string): number {
+  let hash = 2166136261
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+function getDeterministicCustomerId(phone: string, deviceId: string | undefined, eligibleIds: string[]) {
+  if (!eligibleIds.length) return null
+  const key = buildDynamicMapKey(phone, deviceId)
+  const idx = hashString(key) % eligibleIds.length
+  return eligibleIds[idx] ?? null
+}
+
 function getDynamicPhoneToCustomerMap(): Record<string, string> {
   try {
     const raw = localStorage.getItem(DYNAMIC_PHONE_TO_CUSTOMER_ID_STORAGE_KEY)
@@ -195,11 +242,18 @@ function getCustomerById(customerId: string): DemoCustomer | null {
   return CUSTOMERS.find((c) => c.customer_id === customerId) ?? null
 }
 
-export function findCustomerByPhone(phone: string): DemoCustomer | null {
+export function findCustomerByPhone(phone: string, deviceId?: string): DemoCustomer | null {
   const normalized = normalizePhone(phone)
   const mappedCustomerId = PHONE_TO_CUSTOMER_ID[normalized]
   if (mappedCustomerId) {
     return getCustomerById(mappedCustomerId)
+  }
+
+  // Highest-priority persisted mapping: once a phone gets a customer, keep it.
+  const persistentMap = getPersistentPhoneToCustomerMap()
+  const persistentCustomerId = persistentMap[normalized]
+  if (persistentCustomerId) {
+    return getCustomerById(persistentCustomerId)
   }
 
   // For any other phone number, dynamically assign customers in shuffled order
@@ -208,22 +262,37 @@ export function findCustomerByPhone(phone: string): DemoCustomer | null {
   if (!eligibleCustomers.length) return CUSTOMERS[0] ?? null
 
   const dynamicMap = getDynamicPhoneToCustomerMap()
-  const existingDynamicCustomerId = dynamicMap[normalized]
+  const compositeKey = buildDynamicMapKey(phone, deviceId)
+  const existingDynamicCustomerId = dynamicMap[compositeKey] ?? dynamicMap[normalized]
   if (existingDynamicCustomerId) {
+    // Backfill composite key for older phone-only entries.
+    if (!dynamicMap[compositeKey]) {
+      dynamicMap[compositeKey] = existingDynamicCustomerId
+      setDynamicPhoneToCustomerMap(dynamicMap)
+    }
     return getCustomerById(existingDynamicCustomerId)
   }
 
   const eligibleIds = eligibleCustomers.map((c) => c.customer_id)
-  const assignmentOrder = getOrBuildDynamicAssignmentOrder(eligibleIds)
-  if (!assignmentOrder.length) return eligibleCustomers[0] ?? null
-
-  const assignedCustomerId = assignmentOrder[0]
+  const assignedCustomerId =
+    getDeterministicCustomerId(phone, deviceId, eligibleIds) ??
+    getOrBuildDynamicAssignmentOrder(eligibleIds)[0] ??
+    eligibleCustomers[0]?.customer_id
+  if (!assignedCustomerId) return eligibleCustomers[0] ?? null
+  dynamicMap[compositeKey] = assignedCustomerId
   dynamicMap[normalized] = assignedCustomerId
   setDynamicPhoneToCustomerMap(dynamicMap)
 
-  const remaining = assignmentOrder.slice(1)
-  const nextOrder = remaining.length ? [...remaining, assignedCustomerId] : [assignedCustomerId]
-  setDynamicAssignmentOrder(nextOrder)
+  const persistentUpdated = getPersistentPhoneToCustomerMap()
+  persistentUpdated[normalized] = assignedCustomerId
+  setPersistentPhoneToCustomerMap(persistentUpdated)
+
+  const assignmentOrder = getOrBuildDynamicAssignmentOrder(eligibleIds)
+  if (assignmentOrder.length) {
+    const remaining = assignmentOrder.filter((id) => id !== assignedCustomerId)
+    const nextOrder = [...remaining, assignedCustomerId]
+    setDynamicAssignmentOrder(nextOrder)
+  }
 
   return getCustomerById(assignedCustomerId)
 }
@@ -243,7 +312,31 @@ export function setActiveCustomerByPhone(
   is_voice_registered?: boolean,
   base_customer_id?: string
 ): DemoCustomer | null {
-  const customer = findCustomerByPhone(phone)
+  const deviceId = getDeviceId()
+  const normalized = normalizePhone(phone)
+  let customer: DemoCustomer | null = null
+
+  if (base_customer_id) {
+    // Respect existing persisted mapping for this phone.
+    const persistentMap = getPersistentPhoneToCustomerMap()
+    const persistedForPhone = persistentMap[normalized]
+    customer = getCustomerById(persistedForPhone || base_customer_id)
+    if (customer) {
+      // Persist strict mapping for this phone+device combination.
+      const dynamicMap = getDynamicPhoneToCustomerMap()
+      dynamicMap[buildDynamicMapKey(phone, deviceId)] = customer.customer_id
+      dynamicMap[normalized] = customer.customer_id
+      setDynamicPhoneToCustomerMap(dynamicMap)
+
+      const persistentUpdated = getPersistentPhoneToCustomerMap()
+      persistentUpdated[normalized] = customer.customer_id
+      setPersistentPhoneToCustomerMap(persistentUpdated)
+    }
+  }
+
+  if (!customer) {
+    customer = findCustomerByPhone(phone, deviceId)
+  }
   if (!customer) return null
   
   if (voice_customer_id) customer.voice_customer_id = voice_customer_id

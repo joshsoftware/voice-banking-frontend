@@ -36,11 +36,21 @@ export function Header({
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [menuOpen])
 
+  const hour = new Date().getHours()
+  const greetingKey =
+    hour < 12
+      ? 'headerGoodMorning'
+      : hour < 17
+        ? 'headerGoodAfternoon'
+        : hour < 21
+          ? 'headerGoodEvening'
+          : 'headerGoodNight'
+
   return (
     <>
     <div className="flex items-start justify-between">
       <div className="flex flex-col gap-0.5">
-        <div className="text-xs leading-4 text-white/70">{t('headerGoodAfternoon')}</div>
+        <div className="text-xs leading-4 text-white/70">{t(greetingKey)}</div>
         <div className="text-base font-semibold leading-6 text-white">{name}</div>
       </div>
       <div className="flex items-center gap-2">
