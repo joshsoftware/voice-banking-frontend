@@ -3,6 +3,7 @@ import { PipecatClient } from '@pipecat-ai/client-js'
 import { CustomSmallWebRTCTransport } from '@/lib/customTransport'
 import { API_BASE } from '@/lib/constants'
 import { getActiveCustomer, getPrimaryAccount, isVoiceRegistered } from '@/lib/demoCustomer'
+import { getDeviceId } from '@/lib/device'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
 
 // Helper to get client instance (for audio component)
@@ -505,6 +506,9 @@ export function useSmallWebRTC() {
             language: preferredLanguage,
             cust_name: activeCustomer?.name ?? '',
             lang: language,
+            mobile_number: activeCustomer?.mobile_number ?? '',
+            device_id: getDeviceId(),
+            auth_session_id: localStorage.getItem('voicebank.auth_session_id') ?? '',
           },
         }),
       })
