@@ -322,9 +322,8 @@ export function useSmallWebRTC() {
 
       client.on('botStartedSpeaking', () => {
         console.log('[SmallWebRTC] Bot started speaking')
-        if (!voiceprintBlockedRef.current) {
-          llmTextBufferRef.current = ''
-        }
+        // Never clear llmTextBufferRef here: English skips rewriter LLM so TTS can
+        // start before botLlmStopped; clearing would drop the buffered welcome text.
         setState('speaking')
       })
 
