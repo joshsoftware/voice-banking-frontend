@@ -4,7 +4,9 @@ import { CustomSmallWebRTCTransport } from '@/lib/customTransport'
 import { API_BASE } from '@/lib/constants'
 import { getActiveCustomer, getPrimaryAccount, isVoiceRegistered } from '@/lib/demoCustomer'
 import { getDeviceId } from '@/lib/device'
-import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
+import { useLanguage } from '@/i18n/LanguageHooks'
+import { LANGUAGE_IDS, type LanguageId } from '@/i18n/languages'
+import { useAuth } from '@/contexts/AuthContext'
 
 // Helper to get client instance (for audio component)
 let globalClientInstance: PipecatClient | null = null
@@ -122,6 +124,7 @@ function normalizeAssistantMessage(text: string) {
 
 export function useSmallWebRTC() {
   const { language } = useLanguage()
+  const { preferredLanguage: authPreferredLanguage } = useAuth()
   const [state, setState] = useState<WebRTCState>('idle')
   const [isMuted, setIsMuted] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -137,7 +140,6 @@ export function useSmallWebRTC() {
   const hasDetectedUserVoiceRef = useRef(false)
   const voiceprintBlockedRef = useRef(false)
   const noSoundTimerRef = useRef<number | null>(null)
-  const { language: preferredLanguage } = useTranslation()
   const activeCustomer = getActiveCustomer()
   const activeCustomerId = activeCustomer?.customer_id ?? null
   const activeCustomerName = activeCustomer?.name ?? 'User'
@@ -491,6 +493,13 @@ export function useSmallWebRTC() {
         ? { Authorization: `Bearer ${accessToken}` }
         : {}
 
+      // Prefer JWT/session-backed preferred_language so /start matches the DB even
+      // if LanguageProvider state is one frame behind right after login/navigation.
+      const langForVoiceBackend: LanguageId =
+        authPreferredLanguage && LANGUAGE_IDS.has(authPreferredLanguage as LanguageId)
+          ? (authPreferredLanguage as LanguageId)
+          : language
+
       // Call /start manually to capture sessionId directly from the response
       const startRes = await fetch(`${API_BASE}/start`, {
         method: 'POST',
@@ -503,9 +512,9 @@ export function useSmallWebRTC() {
             is_voice_print: shouldVerifyVoice,
             user_name: activeCustomerName,
             timezone: userTimezone,
-            language: preferredLanguage,
+            language: langForVoiceBackend,
             cust_name: activeCustomer?.name ?? '',
-            lang: language,
+            lang: langForVoiceBackend,
             mobile_number: activeCustomer?.mobile_number ?? '',
             device_id: getDeviceId(),
             auth_session_id: localStorage.getItem('voicebank.auth_session_id') ?? '',
@@ -546,7 +555,22 @@ export function useSmallWebRTC() {
     } finally {
       isConnectingRef.current = false
     }
-  }, [activeCustomer?.voice_customer_id, activeCustomerId, clearNoSoundTimer, pushAssistantMessage, pushMsg, shouldVerifyVoice, startNoSoundTimer])
+  }, [
+    activeCustomer?.base_customer_id,
+    activeCustomer?.mobile_number,
+    activeCustomer?.name,
+    activeCustomer?.voice_customer_id,
+    activeCustomerId,
+    activeCustomerName,
+    authPreferredLanguage,
+    clearNoSoundTimer,
+    language,
+    pushAssistantMessage,
+    pushMsg,
+    shouldVerifyVoice,
+    startNoSoundTimer,
+    userTimezone,
+  ])
 
   // ── Disconnect ─────────────────────────────────────────────────────────────
 
