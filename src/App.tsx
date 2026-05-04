@@ -1,6 +1,7 @@
 import './App.css'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { LanguageProvider } from '@/i18n/LanguageProvider'
 import Home from './pages/Home'
 import Welcome from './pages/Welcome'
 import OtpVerification from './pages/OtpVerification'
@@ -27,6 +28,7 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <LanguageProvider>
         <VoiceSessionProvider>
           <Routes>
             <Route path="/" element={<Navigate to="/welcome" replace />} />
@@ -44,6 +46,7 @@ function App() {
             <Route path="*" element={<Navigate to="/welcome" replace />} />
           </Routes>
         </VoiceSessionProvider>
+        </LanguageProvider>
       </AuthProvider>
     </BrowserRouter>
   )

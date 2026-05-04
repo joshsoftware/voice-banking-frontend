@@ -9,11 +9,19 @@ export interface AuthResponse {
   customer_id: string;
   base_customer_id?: string;
   is_voiceprint_registered: boolean;
+  is_new_user: boolean;
+  preferred_language: string | null;
   user?: {
     customer_id: string;
     name: string;
     mobile_number: string;
   };
+}
+
+export interface SetLanguageResponse {
+  status: string;
+  message: string;
+  preferred_language: string;
 }
 
 export const authApi = {
@@ -78,5 +86,20 @@ export const authApi = {
         device_id: getDeviceId(), // Read from localStorage cache set during login
       }),
     });
+  },
+
+  async setLanguage(mobile_number: string, language: string): Promise<SetLanguageResponse> {
+    const response = await fetch(`${AUTH_API_BASE}/auth/set-language`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile_number, language }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to set language' }));
+      throw new Error(error.detail || 'Failed to set language');
+    }
+
+    return response.json();
   },
 };

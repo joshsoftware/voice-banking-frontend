@@ -70,7 +70,11 @@ export default function OtpVerification() {
     setError('')
     try {
       const response = await login(phone, otpString)
-      if (response.is_voiceprint_registered) {
+
+      // New user or user who hasn't chosen a language yet → language selection
+      if (response.is_new_user || !response.preferred_language) {
+        navigate('/language', { replace: true })
+      } else if (response.is_voiceprint_registered) {
         navigate('/home', { replace: true })
       } else {
         navigate('/voice-registration', { replace: true })

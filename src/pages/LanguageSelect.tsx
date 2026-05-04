@@ -5,29 +5,69 @@ import { ArrowLeftIcon } from '@/components/ui/icons'
 import { Button } from '@/components/ui/button'
 import { LANGUAGES, type LanguageId } from '@/i18n/languages'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
+import { useAuth } from '@/contexts/AuthContext'
+import { authApi } from '@/lib/authApi'
 
 
 export default function LanguageSelect() {
   const navigate = useNavigate()
   const { setLanguage, language } = useLanguage()
   const { t } = useTranslation()
+  const { mobileNumber, isNewUser, isVoiceprintRegistered, setPreferredLanguage } = useAuth()
 
   const [selected, setSelected] = useState<LanguageId>(language)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState('')
   const selectedId = useMemo(() => selected, [selected])
+
+  const handleContinue = async () => {
+    // Persist language to backend (use the actual login phone with country code)
+    if (mobileNumber) {
+      setIsSaving(true)
+      setError('')
+      try {
+        await authApi.setLanguage(mobileNumber, selected)
+        // Update both i18n and auth contexts
+        setLanguage(selected)
+        setPreferredLanguage(selected)
+
+        // Route to next page based on user state
+        if (!isVoiceprintRegistered) {
+          navigate('/voice-registration', { replace: true })
+        } else {
+          navigate('/home', { replace: true })
+        }
+      } catch (err) {
+        console.error('Failed to save language preference:', err)
+        setError(err instanceof Error ? err.message : 'Failed to save language')
+      } finally {
+        setIsSaving(false)
+      }
+    } else {
+      // No mobile number available (shouldn't happen) — just navigate with local state
+      setLanguage(selected)
+      setPreferredLanguage(selected)
+      navigate('/home', { replace: true })
+    }
+  }
 
   return (
     <MobileContainer gradient={false}>
       <div className="flex h-full min-h-screen flex-col bg-[var(--color-surface-app)] px-6 pb-10 pt-6 text-[var(--color-brand-900)] md:min-h-[var(--device-height)]">
-        {/* Top bar */}
+        {/* Top bar — only show back button for returning users (not first-time) */}
         <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => navigate('/home')}
-            className="inline-flex items-center gap-2 text-base font-medium text-[var(--color-brand-900)] transition-opacity hover:opacity-80"
-          >
-            <ArrowLeftIcon className="text-[var(--color-brand-900)]" />
-            <span>{t('back')}</span>
-          </button>
+          {!isNewUser ? (
+            <button
+              type="button"
+              onClick={() => navigate('/home')}
+              className="inline-flex items-center gap-2 text-base font-medium text-[var(--color-brand-900)] transition-opacity hover:opacity-80"
+            >
+              <ArrowLeftIcon className="text-[var(--color-brand-900)]" />
+              <span>{t('back')}</span>
+            </button>
+          ) : (
+            <div />
+          )}
           <div />
         </div>
 
@@ -66,6 +106,9 @@ export default function LanguageSelect() {
               )
             })}
           </div>
+
+          {/* Error message */}
+          {error && <p className="mt-3 text-center text-sm text-red-500">{error}</p>}
         </div>
 
         {/* Bottom action */}
@@ -74,9 +117,10 @@ export default function LanguageSelect() {
             type="button"
             variant="primary"
             className="h-16 w-full rounded-full bg-[var(--color-brand-500)] text-white shadow-[var(--shadow-card)] hover:bg-[var(--color-brand-400)] relative z-10"
-            onClick={() => navigate('/home')}
+            onClick={handleContinue}
+            disabled={isSaving}
           >
-            {t('continue')}
+            {isSaving ? 'Saving...' : t('continue')}
           </Button>
         </div>
       </div>
