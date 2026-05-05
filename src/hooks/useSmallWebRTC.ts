@@ -649,6 +649,38 @@ export function useSmallWebRTC() {
     setState('disconnected')
   }, [clearNoSoundTimer])
 
+  useEffect(() => {
+    const terminateSessionOnBackground = () => {
+      if (!clientRef.current) return
+      console.log('[SmallWebRTC] App moved to background, terminating session')
+      void disconnect()
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        terminateSessionOnBackground()
+      }
+    }
+
+    const handleWindowBlur = () => {
+      terminateSessionOnBackground()
+    }
+
+    const handlePageHide = () => {
+      terminateSessionOnBackground()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('blur', handleWindowBlur)
+    window.addEventListener('pagehide', handlePageHide)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('blur', handleWindowBlur)
+      window.removeEventListener('pagehide', handlePageHide)
+    }
+  }, [disconnect])
+
   // ── Toggle Mute ────────────────────────────────────────────────────────────
 
   const toggleMute = useCallback(() => {
