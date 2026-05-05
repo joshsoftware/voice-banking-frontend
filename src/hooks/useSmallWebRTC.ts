@@ -573,6 +573,48 @@ export function useSmallWebRTC() {
 
   // ── Disconnect ─────────────────────────────────────────────────────────────
 
+  const forceTerminateLocalMedia = useCallback(() => {
+    const client = clientRef.current
+    if (!client) return
+
+    try {
+      void client.enableMic(false)
+    } catch (micErr) {
+      console.error('[SmallWebRTC] Error disabling mic during force terminate:', micErr)
+    }
+
+    try {
+      const tracks = client.tracks()
+      tracks?.local?.audio?.stop()
+      tracks?.local?.video?.stop()
+    } catch (trackErr) {
+      console.error('[SmallWebRTC] Error stopping local tracks during force terminate:', trackErr)
+    }
+
+    try {
+      const transport = client.transport as any
+      const localStream =
+        transport?.localStream ||
+        transport?._localStream ||
+        transport?.mediaManager?.localStream
+      if (localStream?.getTracks) {
+        localStream.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+      }
+
+      const pc = transport?.pc || transport?._pc
+      if (pc?.getSenders) {
+        pc.getSenders().forEach((sender: RTCRtpSender) => sender.track?.stop())
+      }
+    } catch (streamErr) {
+      console.error('[SmallWebRTC] Error stopping transport tracks during force terminate:', streamErr)
+    }
+
+    if (audioElRef.current) {
+      audioElRef.current.pause()
+      audioElRef.current.srcObject = null
+    }
+  }, [])
+
   const disconnect = useCallback(async () => {
     if (!clientRef.current) return
 
@@ -581,49 +623,7 @@ export function useSmallWebRTC() {
     try {
       const client = clientRef.current
 
-      // Disable microphone first
-      try {
-        await client.enableMic(false)
-        console.log('[SmallWebRTC] Disabled microphone')
-      } catch (micErr) {
-        console.error('[SmallWebRTC] Error disabling mic:', micErr)
-      }
-
-      // Stop all local tracks
-      try {
-        const tracks = client.tracks()
-        console.log('[SmallWebRTC] Current tracks:', tracks)
-
-        if (tracks?.local?.audio) {
-          tracks.local.audio.stop()
-          console.log('[SmallWebRTC] Stopped local audio track')
-        }
-        if (tracks?.local?.video) {
-          tracks.local.video.stop()
-          console.log('[SmallWebRTC] Stopped local video track')
-        }
-      } catch (trackErr) {
-        console.error('[SmallWebRTC] Error stopping tracks:', trackErr)
-      }
-
-      // Also try to get media stream directly from transport
-      try {
-        const transport = client.transport as any
-        if (transport?.localStream) {
-          transport.localStream.getTracks().forEach((track: MediaStreamTrack) => {
-            track.stop()
-            console.log('[SmallWebRTC] Stopped track from localStream:', track.kind)
-          })
-        }
-      } catch (streamErr) {
-        console.error('[SmallWebRTC] Error stopping stream tracks:', streamErr)
-      }
-
-      // Stop bot audio element
-      if (audioElRef.current) {
-        audioElRef.current.pause()
-        audioElRef.current.srcObject = null
-      }
+      forceTerminateLocalMedia()
 
       // Disconnect the client
       await client.disconnect()
@@ -647,7 +647,42 @@ export function useSmallWebRTC() {
     clientRef.current = null
     globalClientInstance = null
     setState('disconnected')
-  }, [clearNoSoundTimer])
+  }, [clearNoSoundTimer, forceTerminateLocalMedia])
+
+  useEffect(() => {
+    const terminateSessionOnBackground = () => {
+      if (!clientRef.current) return
+      console.log('[SmallWebRTC] App moved to background, terminating session')
+      // Stop local capture synchronously first; async tasks can be paused
+      // when mobile browsers background the app.
+      forceTerminateLocalMedia()
+      void disconnect()
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        terminateSessionOnBackground()
+      }
+    }
+
+    const handleWindowBlur = () => {
+      terminateSessionOnBackground()
+    }
+
+    const handlePageHide = () => {
+      terminateSessionOnBackground()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('blur', handleWindowBlur)
+    window.addEventListener('pagehide', handlePageHide)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('blur', handleWindowBlur)
+      window.removeEventListener('pagehide', handlePageHide)
+    }
+  }, [disconnect, forceTerminateLocalMedia])
 
   // ── Toggle Mute ────────────────────────────────────────────────────────────
 
