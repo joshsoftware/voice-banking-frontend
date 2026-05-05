@@ -368,7 +368,8 @@ export function getActiveCustomer(): DemoCustomer | null {
     if (customer) {
         customer.voice_customer_id = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.voice_customer_id`) ?? undefined
         customer.base_customer_id = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.base_customer_id`) ?? undefined
-        customer.is_voice_registered = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`) === 'true'
+        const storedVoiceStatus = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`)
+        customer.is_voice_registered = storedVoiceStatus === null ? undefined : storedVoiceStatus === 'true'
     }
     return customer
   } catch {
@@ -405,6 +406,23 @@ function setRegisteredVoiceCustomerIds(customerIds: string[]): void {
   }
 }
 
+function setActiveCustomerVoiceRegistrationStatus(isRegistered: boolean): void {
+  try {
+    const activeCustomerId = localStorage.getItem(ACTIVE_CUSTOMER_STORAGE_KEY)
+    if (!activeCustomerId) return
+    const activeCustomer = CUSTOMERS.find((c) => c.customer_id === activeCustomerId)
+    if (activeCustomer) {
+      activeCustomer.is_voice_registered = isRegistered
+    }
+    localStorage.setItem(
+      `${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`,
+      String(isRegistered)
+    )
+  } catch {
+    // ignore storage issues
+  }
+}
+
 function getVoiceSkipAllowedCustomerIds(): string[] {
   try {
     const raw = localStorage.getItem(VOICE_SKIP_ALLOWED_CUSTOMERS_STORAGE_KEY)
@@ -425,6 +443,14 @@ function setVoiceSkipAllowedCustomerIds(customerIds: string[]): void {
 }
 
 export function isVoiceRegistered(customerId: string): boolean {
+  const activeCustomer = getActiveCustomer()
+  if (
+    activeCustomer &&
+    activeCustomer.customer_id === customerId &&
+    typeof activeCustomer.is_voice_registered === 'boolean'
+  ) {
+    return activeCustomer.is_voice_registered
+  }
   return getRegisteredVoiceCustomerIds().includes(customerId)
 }
 
@@ -432,12 +458,14 @@ export function markVoiceRegistered(customerId: string): void {
   const ids = new Set(getRegisteredVoiceCustomerIds())
   ids.add(customerId)
   setRegisteredVoiceCustomerIds([...ids])
+  setActiveCustomerVoiceRegistrationStatus(true)
   disallowVoiceSkip(customerId)
 }
 
 export function markVoiceUnregistered(customerId: string): void {
   const ids = getRegisteredVoiceCustomerIds().filter((id) => id !== customerId)
   setRegisteredVoiceCustomerIds(ids)
+  setActiveCustomerVoiceRegistrationStatus(false)
   disallowVoiceSkip(customerId)
 }
 
