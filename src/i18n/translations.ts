@@ -30,9 +30,11 @@ const EN = {
   statusSpeaking: 'Speaking…',
   statusConnectionError: 'Connection error',
   statusDisconnected: 'Disconnected',
+  statusSessionEnded: 'Session Ended',
 
   stop: 'Stop',
   dismiss: 'Dismiss',
+  close: 'Close',
   tapToMute: 'Tap to mute',
   tapToUnmute: 'Tap to unmute',
 
@@ -139,9 +141,11 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     statusSpeaking: 'बोल रहा है…',
     statusConnectionError: 'कनेक्शन त्रुटि',
     statusDisconnected: 'डिस्कनेक्टेड',
+    statusSessionEnded: 'सत्र समाप्त',
 
     stop: 'रोकें',
     dismiss: 'हटाएं',
+    close: 'बंद करें',
     tapToMute: 'म्यूट करने के लिए टैप करें',
     tapToUnmute: 'अनम्यूट करने के लिए टैप करें',
 

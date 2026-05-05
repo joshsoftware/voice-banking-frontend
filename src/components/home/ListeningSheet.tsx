@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { VolumeIcon, VolumeMutedIcon } from '@/components/ui/icons'
+import { VolumeIcon, VolumeMutedIcon, MicIcon, CloseIcon } from '@/components/ui/icons'
 import { Button } from '@/components/ui/button'
 import { Waveform } from '@/components/ui/waveform'
 import type { WebRTCState, ChatMessage, VoiceprintStatus, OTPSignal } from '@/hooks/useSmallWebRTC'
@@ -99,6 +99,8 @@ interface ListeningSheetProps {
   onToggleMute: () => void
   onSubmitOtp?: (code: string) => Promise<any>
   onStop: () => void
+  onReconnect?: () => void
+  onClose?: () => void
   onFeedback?: () => void
   showMuteControl?: boolean
 }
@@ -112,12 +114,15 @@ export function ListeningSheet({
   onToggleMute,
   onSubmitOtp,
   onStop,
+  onReconnect,
+  onClose,
   onFeedback,
   showMuteControl = true,
 }: ListeningSheetProps) {
   const chatBottomRef = useRef<HTMLDivElement>(null)
   const isActive = state === 'listening' || state === 'speaking'
   const isError = state === 'error'
+  const isDisconnected = state === 'disconnected'
   const { t } = useTranslation()
 
   // ── Drag-to-resize ─────────────────────────────────────────────────────────
@@ -154,7 +159,7 @@ export function ListeningSheet({
     processing: t('statusProcessing'),
     speaking: t('statusSpeaking'),
     error: t('statusConnectionError'),
-    disconnected: t('statusDisconnected'),
+    disconnected: t('statusSessionEnded'),
   }
 
   // Auto-scroll chat to bottom
@@ -239,9 +244,20 @@ export function ListeningSheet({
   return (
     <div className="absolute bottom-0 left-0 w-full z-50" onClick={e => e.stopPropagation()}>
       <div
-        className="rounded-t-3xl bg-[var(--color-surface-card)] px-5 py-2 shadow-[var(--shadow-sheet)] flex flex-col"
+        className="rounded-t-3xl bg-[var(--color-surface-card)] px-5 py-2 shadow-[var(--shadow-sheet)] flex flex-col relative"
         style={{ height: `${sheetVh}vh`, maxHeight: 'calc(100% - 220px)' }}
       >
+        {/* Close button - top right corner */}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-4 right-4 z-10 grid size-8 place-items-center rounded-full bg-black/5 hover:bg-black/10 active:bg-black/15 transition-colors"
+            aria-label="Close chat"
+          >
+            <CloseIcon className="text-[var(--color-text-muted-2)]" />
+          </button>
+        )}
         <div className="mx-auto w-full max-w-[356px] px-3 flex flex-col flex-1 min-h-0">
           {/* Drag handle area — entire top border is draggable */}
           <div 
@@ -339,17 +355,35 @@ export function ListeningSheet({
 
           {/* Pinned bottom actions */}
           <div className="flex flex-col items-center gap-2 pt-3 pb-3 border-t border-black/5 mt-2">
-            {/* Stop button */}
-            <Button
-              type="button"
-              onClick={onStop}
-              variant={isError ? 'success' : 'primary'}
-              className={`h-14 w-44 rounded-full font-semibold transition-all ${
-                isError ? 'bg-red-500 hover:bg-red-600' : ''
-              }`}
-            >
-              {isError ? t('dismiss') : t('stop')}
-            </Button>
+            {/* Stop/Reconnect button */}
+            {isDisconnected ? (
+              onReconnect && (
+                <div className="flex flex-col items-center gap-3">
+                  {/* Mic button for reconnection */}
+                  <div className="w-64 rounded-[52px] bg-[var(--color-surface-card)] px-4 py-3 shadow-[var(--shadow-voice-btn)]">
+                    <button
+                      type="button"
+                      aria-label={t('ariaStartVoiceConversation')}
+                      onClick={onReconnect}
+                      className="flex h-16 w-full items-center justify-center rounded-full [background:var(--gradient-mic)] shadow-[var(--shadow-mic)] transition-transform hover:scale-105 active:scale-95"
+                    >
+                      <MicIcon className="text-white" />
+                    </button>
+                  </div>
+                </div>
+              )
+            ) : (
+              <Button
+                type="button"
+                onClick={onStop}
+                variant={isError ? 'success' : 'primary'}
+                className={`h-14 w-44 rounded-full font-semibold transition-all ${
+                  isError ? 'bg-red-500 hover:bg-red-600' : ''
+                }`}
+              >
+                {isError ? t('dismiss') : t('stop')}
+              </Button>
+            )}
 
             {showMuteControl && (
               <div className="flex w-full items-center justify-end gap-2">

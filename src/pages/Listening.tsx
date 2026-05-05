@@ -38,10 +38,10 @@ export default function Listening() {
     }
   }, [connect, navigationType, navigate])
 
-  // Navigate back when session ends or errors
+  // Navigate back only on errors (not on normal disconnect)
   useEffect(() => {
-    if (state === 'disconnected' || state === 'error') {
-      const timer = setTimeout(() => navigate('/home'), state === 'error' ? 2500 : 800)
+    if (state === 'error') {
+      const timer = setTimeout(() => navigate('/home'), 2500)
       return () => clearTimeout(timer)
     }
   }, [state, navigate])
@@ -60,6 +60,15 @@ export default function Listening() {
   const handleStop = async () => {
     stopAudioTracks()
     await disconnect()
+    // Don't navigate - keep chat window open
+  }
+
+  const handleReconnect = async () => {
+    // Reconnect to start a new session while keeping chat history
+    await connect()
+  }
+
+  const handleClose = () => {
     navigate('/home')
   }
 
@@ -82,6 +91,8 @@ export default function Listening() {
             onToggleMute={toggleMute}
             onSubmitOtp={submitOtp}
             onStop={handleStop}
+            onReconnect={handleReconnect}
+            onClose={handleClose}
             onFeedback={() => setShowFeedback(true)}
           />
         }
