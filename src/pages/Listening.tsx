@@ -68,7 +68,9 @@ export default function Listening() {
     await connect()
   }
 
-  const handleClose = () => {
+  const handleClose = async () => {
+    stopAudioTracks()
+    await disconnect()
     navigate('/home')
   }
 
