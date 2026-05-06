@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'voicebank-static-v1'
-const RUNTIME_CACHE = 'voicebank-runtime-v1'
+const STATIC_CACHE = 'voicebank-static-v2'
+const RUNTIME_CACHE = 'voicebank-runtime-v2'
 const OFFLINE_URL = '/offline.html'
 
 const PRECACHE_URLS = ['/', '/index.html', OFFLINE_URL, '/manifest.webmanifest', '/favicon.svg']
@@ -18,7 +18,35 @@ const NETWORK_ONLY_PATTERNS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE_URLS)).then(() => self.skipWaiting())
+    caches.open(STATIC_CACHE)
+      .then(async (cache) => {
+        // Precache the basic URLs first
+        await cache.addAll(PRECACHE_URLS)
+        
+        // Fetch and cache all JS and CSS bundles from /assets/
+        try {
+          const assetManifest = await fetch('/index.html')
+          const html = await assetManifest.text()
+          
+          // Extract all /assets/*.js and /assets/*.css URLs from the HTML
+          const jsMatches = html.matchAll(/\/assets\/[^"']+\.js/g)
+          const cssMatches = html.matchAll(/\/assets\/[^"']+\.css/g)
+          
+          const assetUrls = [
+            ...Array.from(jsMatches, match => match[0]),
+            ...Array.from(cssMatches, match => match[0])
+          ]
+          
+          // Cache all found assets
+          if (assetUrls.length > 0) {
+            await cache.addAll(assetUrls)
+            console.log(`[SW] Precached ${assetUrls.length} assets`)
+          }
+        } catch (error) {
+          console.warn('[SW] Failed to precache assets:', error)
+        }
+      })
+      .then(() => self.skipWaiting())
   )
 })
 
@@ -66,7 +94,28 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Static assets: stale-while-revalidate
+  // Immutable assets (JS/CSS with content hashes): CACHE-FIRST for instant loads
+  if (url.pathname.startsWith('/assets/') && (url.pathname.endsWith('.js') || url.pathname.endsWith('.css'))) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) {
+          return cached  // Return from cache immediately
+        }
+        
+        // Not in cache, fetch and cache it
+        return fetch(request).then((response) => {
+          if (response && response.status === 200) {
+            const clone = response.clone()
+            caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone))
+          }
+          return response
+        })
+      })
+    )
+    return
+  }
+
+  // Other static assets: stale-while-revalidate
   event.respondWith(
     caches.match(request).then((cached) => {
       const networkFetch = fetch(request)
