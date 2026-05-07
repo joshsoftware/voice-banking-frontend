@@ -36,6 +36,30 @@ function formatTransactionDate(value?: string) {
 
 function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
   const items = msg.transactions ?? []
+  const loanItems = msg.loanTransactions ?? []
+
+  if (loanItems.length > 0) {
+    return (
+      <div className="max-w-[85%] rounded-2xl bg-[var(--color-brand-500)] p-3 text-white shadow-sm">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/85">Loan Statement</div>
+        <div className="space-y-2">
+          {loanItems.map((item, idx) => (
+            <div key={`${item.description}-${item.amount}-${idx}`} className="rounded-lg bg-white px-2 py-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-xs font-medium text-[var(--color-brand-900)]">{item.description}</div>
+                  <div className="text-[10px] text-[var(--color-text-muted-2)]">
+                    EMI • {formatTransactionDate(item.date)}
+                  </div>
+                </div>
+                <div className="shrink-0 text-xs font-semibold text-[var(--color-brand-900)]">₹{item.amount.toFixed(2)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   if (items.length === 0) {
     return (
