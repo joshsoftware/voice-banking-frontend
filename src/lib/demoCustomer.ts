@@ -306,6 +306,15 @@ export function getPrimaryAccount(customerId: string): DemoAccount | null {
   return accounts.find((a) => a.account_type === 'SAVINGS') ?? accounts[0] ?? null
 }
 
+export function getLoanAccountsForCustomer(customerId: string): DemoLoanAccount[] {
+  return LOANS.filter((loan) => loan.customer_id === customerId)
+}
+
+export function getPrimaryLoanAccount(customerId: string): DemoLoanAccount | null {
+  const loans = getLoanAccountsForCustomer(customerId)
+  return loans.find((loan) => loan.account_status === 'ACTIVE') ?? loans[0] ?? null
+}
+
 export function setActiveCustomerByPhone(
   phone: string, 
   voice_customer_id?: string, 

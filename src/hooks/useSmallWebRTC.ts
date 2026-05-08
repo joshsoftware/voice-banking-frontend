@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { PipecatClient } from '@pipecat-ai/client-js'
 import { CustomSmallWebRTCTransport } from '@/lib/customTransport'
 import { API_BASE } from '@/lib/constants'
-import { getActiveCustomer, getPrimaryAccount, isVoiceRegistered } from '@/lib/demoCustomer'
+import { getActiveCustomer, getPrimaryAccount, getPrimaryLoanAccount, isVoiceRegistered } from '@/lib/demoCustomer'
 import { getDeviceId } from '@/lib/device'
 import { useLanguage } from '@/i18n/LanguageHooks'
 import { LANGUAGE_IDS, type LanguageId } from '@/i18n/languages'
@@ -28,6 +28,7 @@ export interface ChatMessage {
   text: string
   ts: number
   transactions?: TransactionItem[]
+  tableTitle?: string
 }
 
 export type InputSoundStatus = 'voice_detected' | 'no_sound'
@@ -97,7 +98,8 @@ function loadChatHistory(customerId: string | null, authSessionId: string | null
         (msg.role === 'status' || msg.role === 'assistant' || msg.role === 'user') &&
         typeof msg.text === 'string' &&
         typeof msg.ts === 'number' &&
-        (msg.transactions === undefined || Array.isArray(msg.transactions))
+        (msg.transactions === undefined || Array.isArray(msg.transactions)) &&
+        (msg.tableTitle === undefined || typeof msg.tableTitle === 'string')
     )
   } catch {
     return []
@@ -118,6 +120,14 @@ function forceLogoutOnUnauthorized() {
 
 function normalizeAssistantMessage(text: string) {
   return text.replace(/\s+/g, ' ').trim()
+}
+
+function isLoanStatementQuery(text: string) {
+  const normalized = text.toLowerCase()
+  return (
+    /\bloan\b/.test(normalized) &&
+    (/\bstatement\b/.test(normalized) || /\bemi\b/.test(normalized) || /\bpayments?\b/.test(normalized))
+  )
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -145,6 +155,7 @@ export function useSmallWebRTC() {
   const activeCustomerName = activeCustomer?.name ?? 'User'
 
   const primaryAccount = activeCustomerId ? getPrimaryAccount(activeCustomerId) : null
+  const primaryLoanAccount = activeCustomerId ? getPrimaryLoanAccount(activeCustomerId) : null
   const authSessionId = localStorage.getItem(AUTH_SESSION_ID_KEY)
   const shouldVerifyVoice = activeCustomerId ? isVoiceRegistered(activeCustomerId) : false
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -166,9 +177,14 @@ export function useSmallWebRTC() {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  const pushMsg = useCallback((role: ChatMessage['role'], text: string, transactions?: TransactionItem[]) => {
+  const pushMsg = useCallback((
+    role: ChatMessage['role'],
+    text: string,
+    transactions?: TransactionItem[],
+    tableTitle?: string
+  ) => {
     const normalizedText = role === 'assistant' ? normalizeAssistantMessage(text) : text
-    setMessages(prev => [...prev, { role, text: normalizedText, ts: Date.now(), transactions }])
+    setMessages(prev => [...prev, { role, text: normalizedText, ts: Date.now(), transactions, tableTitle }])
   }, [])
 
   const getRequestedTransactionCount = useCallback(() => {
@@ -222,24 +238,82 @@ export function useSmallWebRTC() {
     return Array.isArray(list) ? list.slice(0, requestedSize) : []
   }, [primaryAccount?.account_id])
 
+  const fetchLoanTransactions = useCallback(async (): Promise<TransactionItem[]> => {
+    if (!primaryLoanAccount?.account_id) return []
+    const accessToken = localStorage.getItem('voicebank.access_token')
+    const toDate = new Date().toISOString().slice(0, 10)
+
+    const response = await fetch(`${API_BASE}/api/loan_transaction`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify({
+        accountId: primaryLoanAccount.account_id,
+        fromDate: '2022-01-01',
+        toDate,
+        page: 0,
+        size: 5,
+      }),
+    })
+
+    if (response.status === 401) {
+      forceLogoutOnUnauthorized()
+      return []
+    }
+    if (!response.ok) return []
+
+    const data = (await response.json().catch(() => ({}))) as {
+      data?: { loanTransactionList?: Array<{ amount?: number; date?: string; description?: string }> }
+      loanTransactionList?: Array<{ amount?: number; date?: string; description?: string }>
+    }
+
+    const list = data.data?.loanTransactionList ?? data.loanTransactionList ?? []
+    if (!Array.isArray(list)) return []
+
+    return list
+      .map((item, index) => ({
+        amount: Number(item.amount ?? 0),
+        category: 'EMI',
+        description: item.description ?? 'EMI Payment',
+        transactionDate: item.date ?? '',
+        transactionId: `loan-${index}-${item.date ?? 'na'}`,
+        type: 'DEBIT',
+      }))
+      .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
+      .slice(0, 5)
+  }, [primaryLoanAccount?.account_id])
+
   const pushAssistantMessage = useCallback(
     async (text: string) => {
       const normalized = normalizeAssistantMessage(text)
-      const needsRecentTransactions = /recent\s+transactions?/i.test(normalized)
-      if (!needsRecentTransactions) {
+      const userIntentText = lastUserTranscriptRef.current || ''
+      const needsRecentTransactions =
+        /recent\s+transactions?/i.test(normalized) || /recent\s+transactions?/i.test(userIntentText)
+      const needsLoanStatement =
+        isLoanStatementQuery(normalized) || isLoanStatementQuery(userIntentText)
+
+      if (!needsRecentTransactions && !needsLoanStatement) {
         pushMsg('assistant', normalized)
         return
       }
 
       try {
+        if (needsLoanStatement) {
+          const loanTransactions = await fetchLoanTransactions()
+          pushMsg('assistant', normalized, loanTransactions.length ? loanTransactions : undefined, 'Loan Statement')
+          return
+        }
+
         const requestedSize = getRequestedTransactionCount()
         const transactions = await fetchRecentTransactions(requestedSize)
-        pushMsg('assistant', normalized, transactions.length ? transactions : undefined)
+        pushMsg('assistant', normalized, transactions.length ? transactions : undefined, 'Recent Transactions')
       } catch {
         pushMsg('assistant', normalized)
       }
     },
-    [fetchRecentTransactions, getRequestedTransactionCount, pushMsg]
+    [fetchLoanTransactions, fetchRecentTransactions, getRequestedTransactionCount, pushMsg]
   )
 
   const clearNoSoundTimer = useCallback(() => {

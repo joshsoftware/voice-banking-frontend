@@ -36,6 +36,7 @@ function formatTransactionDate(value?: string) {
 
 function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
   const items = msg.transactions ?? []
+  const heading = msg.tableTitle ?? 'Recent Transactions'
 
   if (items.length === 0) {
     return (
@@ -47,7 +48,7 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
 
   return (
     <div className="max-w-[85%] rounded-2xl bg-[var(--color-brand-500)] p-3 text-white shadow-sm">
-      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/85">Recent Transactions</div>
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/85">{heading}</div>
       <div className="space-y-2">
         {items.map((item, idx) => (
           <div key={`${item.type}-${item.amount}-${idx}`} className="rounded-lg bg-white px-2 py-1.5">
