@@ -11,6 +11,7 @@ import VoiceRegistration from './pages/VoiceRegistration'
 import Profile from './pages/Profile'
 import TermsAndConditions from './pages/TermsAndConditions'
 import { VoiceSessionProvider } from './contexts/VoiceSessionContext'
+import { PwaInstallPrompt } from './components/pwa/PwaInstallPrompt'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth()
@@ -30,6 +31,7 @@ function App() {
       <AuthProvider>
         <LanguageProvider>
         <VoiceSessionProvider>
+          <PwaInstallPrompt />
           <Routes>
             <Route path="/" element={<Navigate to="/welcome" replace />} />
             <Route path="/welcome" element={<Welcome />} />
