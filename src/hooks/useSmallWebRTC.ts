@@ -305,11 +305,9 @@ export function useSmallWebRTC() {
   const pushAssistantMessage = useCallback(
     async (text: string) => {
       const normalized = normalizeAssistantMessage(text)
-      const userIntentText = lastUserTranscriptRef.current || ''
-      const needsRecentTransactions =
-        /recent\s+transactions?/i.test(normalized) || /recent\s+transactions?/i.test(userIntentText)
-      const needsLoanStatement =
-        isLoanStatementQuery(normalized) || isLoanStatementQuery(userIntentText)
+      const userIntentText = (lastUserTranscriptRef.current || '').trim()
+      const needsRecentTransactions = /\btransactions?\b/i.test(userIntentText)
+      const needsLoanStatement = isLoanStatementQuery(userIntentText)
 
       if (!needsRecentTransactions && !needsLoanStatement) {
         pushMsg('assistant', normalized)
@@ -320,12 +318,14 @@ export function useSmallWebRTC() {
         if (needsLoanStatement) {
           const loanTransactions = await fetchLoanTransactions()
           pushMsg('assistant', normalized, loanTransactions.length ? loanTransactions : undefined, 'Loan Statement')
+          lastUserTranscriptRef.current = ''
           return
         }
 
         const requestedSize = getRequestedTransactionCount()
         const transactions = await fetchRecentTransactions(requestedSize)
         pushMsg('assistant', normalized, transactions.length ? transactions : undefined, 'Recent Transactions')
+        lastUserTranscriptRef.current = ''
       } catch {
         pushMsg('assistant', normalized)
       }
@@ -358,6 +358,7 @@ export function useSmallWebRTC() {
     setState('connecting')
     setSessionId(null)
     setInputSoundStatus(null)
+    lastUserTranscriptRef.current = ''
     hasDetectedUserVoiceRef.current = false
     clearNoSoundTimer()
     llmTextBufferRef.current = ''
