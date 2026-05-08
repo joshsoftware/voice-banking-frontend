@@ -48,6 +48,11 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
 
   return (
     <div className="max-w-[85%] rounded-2xl bg-[var(--color-brand-500)] p-3 text-white shadow-sm">
+      {msg.text ? (
+        <div className="mb-2 whitespace-pre-line text-sm leading-snug text-white">
+          {msg.text}
+        </div>
+      ) : null}
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/85">{heading}</div>
       <div className="space-y-2">
         {items.map((item, idx) => (

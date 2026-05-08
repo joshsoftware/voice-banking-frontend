@@ -124,9 +124,24 @@ function normalizeAssistantMessage(text: string) {
 
 function isLoanStatementQuery(text: string) {
   const normalized = text.toLowerCase()
+  const hasLoanContext = /\bloan\b/.test(normalized)
+  if (!hasLoanContext) return false
+
+  const asksForStatementLikeData =
+    /\bstatement\b/.test(normalized) ||
+    /\btransactions?\b/.test(normalized) ||
+    /\bhistory\b/.test(normalized) ||
+    /\brecent\b/.test(normalized) ||
+    /\blast\b/.test(normalized)
+
+  // "EMI" alone is ambiguous (e.g. "next EMI due date"), so only treat it as
+  // a statement request when paired with payment/list verbs.
+  const asksForEmiPaymentList =
+    /\bemi\b/.test(normalized) &&
+    (/\bpayments?\b/.test(normalized) || /\bpaid\b/.test(normalized) || /\btransactions?\b/.test(normalized))
+
   return (
-    /\bloan\b/.test(normalized) &&
-    (/\bstatement\b/.test(normalized) || /\bemi\b/.test(normalized) || /\bpayments?\b/.test(normalized))
+    asksForStatementLikeData || asksForEmiPaymentList
   )
 }
 
