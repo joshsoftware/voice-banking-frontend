@@ -150,6 +150,8 @@ export function useSmallWebRTC() {
   const hasDetectedUserVoiceRef = useRef(false)
   const voiceprintBlockedRef = useRef(false)
   const noSoundTimerRef = useRef<number | null>(null)
+  const isBackgroundPausedRef = useRef(false)
+  const wasMutedBeforeBackgroundRef = useRef(false)
   const activeCustomer = getActiveCustomer()
   const activeCustomerId = activeCustomer?.customer_id ?? null
   const activeCustomerName = activeCustomer?.name ?? 'User'
@@ -724,39 +726,70 @@ export function useSmallWebRTC() {
   }, [clearNoSoundTimer, forceTerminateLocalMedia])
 
   useEffect(() => {
-    const terminateSessionOnBackground = () => {
+    const pauseSessionForBackground = () => {
       if (!clientRef.current) return
-      console.log('[SmallWebRTC] App moved to background, terminating session')
-      // Stop local capture synchronously first; async tasks can be paused
-      // when mobile browsers background the app.
-      forceTerminateLocalMedia()
-      void disconnect()
+      if (isBackgroundPausedRef.current) return
+
+      console.log('[SmallWebRTC] App moved to background, pausing mic and bot audio')
+      isBackgroundPausedRef.current = true
+      clearNoSoundTimer()
+
+      try {
+        void clientRef.current.enableMic(false)
+      } catch (err) {
+        console.error('[SmallWebRTC] Failed to pause mic on background:', err)
+      }
+
+      if (audioElRef.current) {
+        wasMutedBeforeBackgroundRef.current = audioElRef.current.muted
+        audioElRef.current.pause()
+        // Keep stream attached, only mute playback while in background.
+        audioElRef.current.muted = true
+      }
+
+      setState('connected')
+    }
+
+    const resumeSessionFromBackground = () => {
+      if (!clientRef.current) return
+      if (!isBackgroundPausedRef.current) return
+
+      console.log('[SmallWebRTC] App returned to foreground, resuming mic and bot audio')
+      isBackgroundPausedRef.current = false
+
+      try {
+        void clientRef.current.enableMic(true)
+      } catch (err) {
+        console.error('[SmallWebRTC] Failed to resume mic on foreground:', err)
+      }
+
+      if (audioElRef.current) {
+        audioElRef.current.muted = wasMutedBeforeBackgroundRef.current
+        if (audioElRef.current.srcObject && !audioElRef.current.muted) {
+          audioElRef.current.play().catch((err) => {
+            console.warn('[SmallWebRTC] Failed to resume bot audio playback:', err?.message ?? err)
+          })
+        }
+      }
+
+      setState('listening')
+      startNoSoundTimer()
     }
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        terminateSessionOnBackground()
+        pauseSessionForBackground()
+      } else if (document.visibilityState === 'visible') {
+        resumeSessionFromBackground()
       }
     }
 
-    const handleWindowBlur = () => {
-      terminateSessionOnBackground()
-    }
-
-    const handlePageHide = () => {
-      terminateSessionOnBackground()
-    }
-
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('blur', handleWindowBlur)
-    window.addEventListener('pagehide', handlePageHide)
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('blur', handleWindowBlur)
-      window.removeEventListener('pagehide', handlePageHide)
     }
-  }, [disconnect, forceTerminateLocalMedia])
+  }, [clearNoSoundTimer, startNoSoundTimer])
 
   // ── Toggle Mute ────────────────────────────────────────────────────────────
 
