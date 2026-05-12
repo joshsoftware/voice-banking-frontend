@@ -206,7 +206,12 @@ export function useSmallWebRTC() {
 
   const getRequestedTransactionCount = useCallback(() => {
     const text = lastUserTranscriptRef.current.toLowerCase()
-    const digitMatch = text.match(/(?:last|recent)?\s*(\d{1,2})\s+transactions?/)
+
+    if (/\b(?:latest|last|most recent)\s+transaction\b/.test(text)) {
+      return 1
+    }
+
+    const digitMatch = text.match(/(?:last|recent|latest|most recent)?\s*(\d{1,2})\s+transactions?/)
     if (digitMatch) {
       const count = Number(digitMatch[1])
       return Number.isNaN(count) ? 5 : Math.max(1, Math.min(count, 20))
@@ -305,9 +310,11 @@ export function useSmallWebRTC() {
   const pushAssistantMessage = useCallback(
     async (text: string) => {
       const normalized = normalizeAssistantMessage(text)
-      const userIntentText = (lastUserTranscriptRef.current || '').trim()
-      const needsRecentTransactions = /\btransactions?\b/i.test(userIntentText)
-      const needsLoanStatement = isLoanStatementQuery(userIntentText)
+      const userIntentText = lastUserTranscriptRef.current || ''
+      const needsRecentTransactions =
+        /(?:recent|latest|last)\s+transactions?/i.test(normalized) || /(?:recent|latest|last)\s+transactions?/i.test(userIntentText)
+      const needsLoanStatement =
+        isLoanStatementQuery(normalized) || isLoanStatementQuery(userIntentText)
 
       if (!needsRecentTransactions && !needsLoanStatement) {
         pushMsg('assistant', normalized)
