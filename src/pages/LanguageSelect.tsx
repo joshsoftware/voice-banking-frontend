@@ -7,13 +7,14 @@ import { LANGUAGES, type LanguageId } from '@/i18n/languages'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
 import { useAuth } from '@/contexts/AuthContext'
 import { authApi } from '@/lib/authApi'
+import { getActiveCustomer, isVoiceRegistered, isVoiceSkipAllowed } from '@/lib/demoCustomer'
 
 
 export default function LanguageSelect() {
   const navigate = useNavigate()
   const { setLanguage, language } = useLanguage()
   const { t } = useTranslation()
-  const { mobileNumber, isNewUser, isVoiceprintRegistered, setPreferredLanguage } = useAuth()
+  const { mobileNumber, isNewUser, setPreferredLanguage } = useAuth()
 
   const [selected, setSelected] = useState<LanguageId>(language)
   const [isSaving, setIsSaving] = useState(false)
@@ -31,8 +32,13 @@ export default function LanguageSelect() {
         setLanguage(selected)
         setPreferredLanguage(selected)
 
-        // Route to next page based on user state
-        if (!isVoiceprintRegistered) {
+        const customer = getActiveCustomer()
+        const voiceOk =
+          customer &&
+          (isVoiceRegistered(customer.customer_id) || isVoiceSkipAllowed(customer.customer_id))
+
+        // First-time onboarding: new user who has not registered or skipped voice yet → voice registration.
+        if (isNewUser && !voiceOk) {
           navigate('/voice-registration', { replace: true })
         } else {
           navigate('/home', { replace: true })

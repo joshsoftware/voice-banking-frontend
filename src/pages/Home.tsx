@@ -1,6 +1,7 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTranslation } from '@/i18n/LanguageHooks'
 import { Header } from '@/components/home/Header'
 import { BalanceCard } from '@/components/home/BalanceCard'
 import { VoiceSheet } from '@/components/home/VoiceSheet'
@@ -10,7 +11,6 @@ import {
   getActiveCustomer,
   getPrimaryAccount,
   isVoiceRegistered,
-  isVoiceSkipAllowed,
   markVoiceUnregistered,
 } from '@/lib/demoCustomer'
 import { httpClient } from '@/lib/httpClient'
@@ -23,20 +23,19 @@ interface HomeProps {
 
 export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) {
   const navigate = useNavigate()
-  const { isAuthenticated } = useAuth()
+  const { t } = useTranslation()
+  const { isAuthenticated, refreshActiveCustomer } = useAuth()
+  const [showVoiceUnregisteredToast, setShowVoiceUnregisteredToast] = useState(false)
   const customer = getActiveCustomer()
   const primaryAccount = customer ? getPrimaryAccount(customer.customer_id) : null
   const voiceRegistered = customer ? isVoiceRegistered(customer.customer_id) : false
-  const voiceSkipAllowed = customer ? isVoiceSkipAllowed(customer.customer_id) : false
   useEffect(() => {
     if (!isAuthenticated || !customer) {
       navigate('/welcome', { replace: true })
       return
     }
-    if (!voiceRegistered && !voiceSkipAllowed) {
-      navigate('/voice-registration')
-    }
-  }, [isAuthenticated, customer, voiceRegistered, voiceSkipAllowed, navigate])
+    // Voice registration is enforced from OTP → /voice-registration on first login, not by bouncing users away from Home after unregister or settings changes.
+  }, [isAuthenticated, customer, navigate])
 
   useEffect(() => {
     if (!isAuthenticated || !customer) return
@@ -49,6 +48,12 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
     return () => window.removeEventListener('popstate', onPopState)
   }, [isAuthenticated, customer, navigate])
 
+  useEffect(() => {
+    if (!showVoiceUnregisteredToast) return
+    const id = window.setTimeout(() => setShowVoiceUnregisteredToast(false), 3200)
+    return () => window.clearTimeout(id)
+  }, [showVoiceUnregisteredToast])
+
   const handleUnregisterVoice = async () => {
     if (!customer) return
     try {
@@ -56,7 +61,9 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
       await httpClient.delete(`/voiceprint/${encodeURIComponent(voiceCustomerId)}`)
       markVoiceUnregistered(customer.customer_id)
       disallowVoiceSkip(customer.customer_id)
-      navigate('/voice-registration', { replace: true })
+      refreshActiveCustomer()
+      setShowVoiceUnregisteredToast(true)
+      navigate('/home', { replace: true })
     } catch (e: any) {
       const msg = e.message || 'Failed to unregister voice.'
       window.alert(msg)
@@ -86,6 +93,18 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
 
           {/* Bottom Sheet */}
           {bottomSheet ?? <VoiceSheet onStart={() => navigate('/listening')} />}
+
+          {showVoiceUnregisteredToast && (
+            <div
+              className="pointer-events-none fixed inset-0 z-[70] flex items-start justify-center px-6 pt-[28%] md:pt-32"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="pointer-events-auto max-w-sm rounded-2xl bg-[var(--color-brand-900)] px-5 py-3.5 text-center text-sm font-medium leading-snug text-white shadow-[0_12px_40px_rgba(0,0,0,0.25)]">
+                {t('voiceUnregisteredSuccess')}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

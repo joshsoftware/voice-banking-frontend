@@ -12,6 +12,7 @@ import { stopSpeech, speakText } from '@/lib/speech'
 import { VOICE_REGISTRATION_IMAGES } from '@/data/voiceRegistrationImages'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
 import { allowVoiceSkip, disallowVoiceSkip, getActiveCustomer, markVoiceRegistered } from '@/lib/demoCustomer'
+import { useAuth } from '@/contexts/AuthContext'
 import { getDeviceId } from '@/lib/device'
 
 type Phase = 'consent' | 'imageChallenge' | 'success'
@@ -27,6 +28,7 @@ function stopMediaStream(stream: MediaStream | null) {
 
 export default function VoiceRegistration() {
   const navigate = useNavigate()
+  const { refreshActiveCustomer } = useAuth()
   const { language } = useLanguage()
   const { t } = useTranslation()
   const activeCustomer = getActiveCustomer()
@@ -343,6 +345,7 @@ export default function VoiceRegistration() {
     }
     disconnectRtc()
     stopSpeech()
+    refreshActiveCustomer()
     navigate('/home')
   }
 
@@ -448,6 +451,7 @@ export default function VoiceRegistration() {
     }
     disconnectRtc()
     stopSpeech()
+    refreshActiveCustomer()
     navigate('/home')
   }
 
