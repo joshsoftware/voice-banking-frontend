@@ -65,6 +65,8 @@ const EN = {
   menuViewProfile: 'View profile',
   menuLogOut: 'Log out',
 
+  voiceUnregisteredSuccess: 'Your voice has been unregistered successfully.',
+
   voiceRegistrationEnableTitle: 'Enable Voice Banking',
   voiceRegistrationEnableSubtitle: 'Secure your account with voice biometrics',
   voiceRegistrationBenefitSecurityTitle: 'Enhanced Security',

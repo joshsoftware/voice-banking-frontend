@@ -21,6 +21,7 @@ interface AuthContextType {
   setPreferredLanguage: (lang: string) => void;
   handleSessionInvalidated: () => void;
   clearSessionError: () => void;
+  refreshActiveCustomer: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -111,6 +112,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearSessionError = () => setSessionError(null);
 
+  const refreshActiveCustomer = useCallback(() => {
+    if (!localStorage.getItem(ACCESS_TOKEN_KEY)) return;
+    setUser(getActiveCustomer());
+  }, []);
+
   const requestOtp = async (phone: string) => {
     try {
       const response = await authApi.sendOtp(phone);
@@ -186,7 +192,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     setPreferredLanguage,
     handleSessionInvalidated,
-    clearSessionError
+    clearSessionError,
+    refreshActiveCustomer,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
