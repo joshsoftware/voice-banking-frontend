@@ -35,10 +35,10 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   if (isAuthenticated) {
     if (isNewUser || !preferredLanguage) {
       return <Navigate to="/language" replace />
+    } else if (!isVoiceprintRegistered) {
+      return <Navigate to="/voice-registration" replace />
     } else if (isVoiceprintRegistered || (user?.customer_id && isVoiceSkipAllowed(user.customer_id))) {
       return <Navigate to="/home" replace />
-    } else {
-      return <Navigate to="/voice-registration" replace />
     }
   }
 
