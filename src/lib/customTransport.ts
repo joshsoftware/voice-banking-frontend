@@ -145,6 +145,9 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
       // Guard: if the PC was closed during the network round-trip (e.g. user
       // tapped close while the offer was in-flight), bail out gracefully
       // instead of throwing "signalingState is 'closed'" errors.
+      // Note: TS types exclude 'closed' from RTCSignalingState, but browsers
+      // do return it at runtime when the PC is closed.
+      // @ts-ignore – 'closed' is a valid runtime value despite TS excluding it
       if (pc.signalingState === 'closed') {
         console.warn('[CustomTransport] PC closed during negotiation, aborting');
         this._isNegotiated = false;
