@@ -356,6 +356,50 @@ export function useSmallWebRTC() {
     }, 7000)
   }, [clearNoSoundTimer])
 
+  // ── Force Terminate Local Media ────────────────────────────────────────────
+
+  const forceTerminateLocalMedia = useCallback(() => {
+    const client = clientRef.current
+    if (!client) return
+
+    try {
+      void client.enableMic(false)
+    } catch (micErr) {
+      console.error('[SmallWebRTC] Error disabling mic during force terminate:', micErr)
+    }
+
+    try {
+      const tracks = client.tracks()
+      tracks?.local?.audio?.stop()
+      tracks?.local?.video?.stop()
+    } catch (trackErr) {
+      console.error('[SmallWebRTC] Error stopping local tracks during force terminate:', trackErr)
+    }
+
+    try {
+      const transport = client.transport as any
+      const localStream =
+        transport?.localStream ||
+        transport?._localStream ||
+        transport?.mediaManager?.localStream
+      if (localStream?.getTracks) {
+        localStream.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+      }
+
+      const pc = transport?.pc || transport?._pc
+      if (pc?.getSenders) {
+        pc.getSenders().forEach((sender: RTCRtpSender) => sender.track?.stop())
+      }
+    } catch (streamErr) {
+      console.error('[SmallWebRTC] Error stopping transport tracks during force terminate:', streamErr)
+    }
+
+    if (audioElRef.current) {
+      audioElRef.current.pause()
+      audioElRef.current.srcObject = null
+    }
+  }, [])
+
   // ── Connect ────────────────────────────────────────────────────────────────
 
   const connect = useCallback(async () => {
@@ -687,48 +731,6 @@ export function useSmallWebRTC() {
   ])
 
   // ── Disconnect ─────────────────────────────────────────────────────────────
-
-  const forceTerminateLocalMedia = useCallback(() => {
-    const client = clientRef.current
-    if (!client) return
-
-    try {
-      void client.enableMic(false)
-    } catch (micErr) {
-      console.error('[SmallWebRTC] Error disabling mic during force terminate:', micErr)
-    }
-
-    try {
-      const tracks = client.tracks()
-      tracks?.local?.audio?.stop()
-      tracks?.local?.video?.stop()
-    } catch (trackErr) {
-      console.error('[SmallWebRTC] Error stopping local tracks during force terminate:', trackErr)
-    }
-
-    try {
-      const transport = client.transport as any
-      const localStream =
-        transport?.localStream ||
-        transport?._localStream ||
-        transport?.mediaManager?.localStream
-      if (localStream?.getTracks) {
-        localStream.getTracks().forEach((track: MediaStreamTrack) => track.stop())
-      }
-
-      const pc = transport?.pc || transport?._pc
-      if (pc?.getSenders) {
-        pc.getSenders().forEach((sender: RTCRtpSender) => sender.track?.stop())
-      }
-    } catch (streamErr) {
-      console.error('[SmallWebRTC] Error stopping transport tracks during force terminate:', streamErr)
-    }
-
-    if (audioElRef.current) {
-      audioElRef.current.pause()
-      audioElRef.current.srcObject = null
-    }
-  }, [])
 
   const disconnect = useCallback(async () => {
     const client = clientRef.current
