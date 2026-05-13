@@ -25,6 +25,24 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>
 }
 
+const PublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, isNewUser, preferredLanguage, isVoiceprintRegistered, isLoading } = useAuth()
+  
+  if (isLoading) return <div className="flex h-screen items-center justify-center text-white">Loading...</div>
+  
+  if (isAuthenticated) {
+    if (isNewUser || !preferredLanguage) {
+      return <Navigate to="/language" replace />
+    } else if (isVoiceprintRegistered) {
+      return <Navigate to="/home" replace />
+    } else {
+      return <Navigate to="/voice-registration" replace />
+    }
+  }
+
+  return <>{children}</>
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -33,9 +51,9 @@ function App() {
         <VoiceSessionProvider>
           <PwaInstallPrompt />
           <Routes>
-            <Route path="/" element={<Navigate to="/welcome" replace />} />
-            <Route path="/welcome" element={<Welcome />} />
-            <Route path="/verify-otp" element={<OtpVerification />} />
+            <Route path="/" element={<PublicRoute><Navigate to="/welcome" replace /></PublicRoute>} />
+            <Route path="/welcome" element={<PublicRoute><Welcome /></PublicRoute>} />
+            <Route path="/verify-otp" element={<PublicRoute><OtpVerification /></PublicRoute>} />
             <Route path="/terms" element={<TermsAndConditions />} />
             
             {/* Protected Routes */}
