@@ -359,7 +359,22 @@ export function useSmallWebRTC() {
   // ── Connect ────────────────────────────────────────────────────────────────
 
   const connect = useCallback(async () => {
-    if (clientRef.current || isConnectingRef.current) return
+    if (isConnectingRef.current) return
+
+    // If a previous client exists, tear it down completely before reconnecting.
+    // This handles the case where disconnect() failed or the peer connection
+    // was closed externally (e.g. by the OS during app backgrounding).
+    if (clientRef.current) {
+      console.log('[SmallWebRTC] Cleaning up stale client before reconnect')
+      try {
+        forceTerminateLocalMedia()
+        await clientRef.current.disconnect()
+      } catch (err) {
+        console.warn('[SmallWebRTC] Error cleaning stale client:', err)
+      }
+      clientRef.current = null
+      globalClientInstance = null
+    }
     isConnectingRef.current = true
 
     setState('connecting')
@@ -662,6 +677,7 @@ export function useSmallWebRTC() {
     activeCustomerName,
     authPreferredLanguage,
     clearNoSoundTimer,
+    forceTerminateLocalMedia,
     language,
     pushAssistantMessage,
     pushMsg,
@@ -715,36 +731,30 @@ export function useSmallWebRTC() {
   }, [])
 
   const disconnect = useCallback(async () => {
-    if (!clientRef.current) return
+    const client = clientRef.current
+    if (!client) {
+      // Even with no client, reset state flags that may be stale
+      isBackgroundPausedRef.current = false
+      setState('idle')
+      return
+    }
 
     console.log('[SmallWebRTC] Disconnecting...')
 
+    // Null out refs immediately to prevent concurrent disconnect/connect races
+    clientRef.current = null
+    globalClientInstance = null
+
     try {
-      const client = clientRef.current
-
       forceTerminateLocalMedia()
-
-      // Disconnect the client
       await client.disconnect()
-
-      // EXPLICIT: Also search for any dangling media streams in the entire document
-      // to handle cases where the SDK might have cloned the stream
-      navigator.mediaDevices.enumerateDevices().then(() => {
-        // This is a hint to the browser to check media states
-        // But the real fix is stopping all tracks we can find
-        if ((window as any).localStream) {
-          (window as any).localStream.getTracks().forEach((t: any) => t.stop())
-        }
-      })
-
       console.log('[SmallWebRTC] Client disconnected')
     } catch (err) {
       console.error('[SmallWebRTC] Disconnect error:', err)
     }
 
     clearNoSoundTimer()
-    clientRef.current = null
-    globalClientInstance = null
+    isBackgroundPausedRef.current = false
     setState('disconnected')
   }, [clearNoSoundTimer, forceTerminateLocalMedia])
 
@@ -776,6 +786,22 @@ export function useSmallWebRTC() {
     const resumeSessionFromBackground = () => {
       if (!clientRef.current) return
       if (!isBackgroundPausedRef.current) return
+
+      // Check if the underlying peer connection is still alive.
+      // Mobile browsers frequently close WebRTC connections while backgrounded.
+      try {
+        const transport = clientRef.current.transport as any
+        const pc = transport?.pc || transport?._pc
+        if (pc && (pc.connectionState === 'closed' || pc.connectionState === 'failed'
+            || pc.signalingState === 'closed')) {
+          console.warn('[SmallWebRTC] PeerConnection died while backgrounded, forcing disconnect')
+          isBackgroundPausedRef.current = false
+          void disconnect()
+          return
+        }
+      } catch (pcCheckErr) {
+        console.warn('[SmallWebRTC] Error checking PC state on resume:', pcCheckErr)
+      }
 
       console.log('[SmallWebRTC] App returned to foreground, resuming mic and bot audio')
       isBackgroundPausedRef.current = false
@@ -812,7 +838,7 @@ export function useSmallWebRTC() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [clearNoSoundTimer, startNoSoundTimer])
+  }, [clearNoSoundTimer, disconnect, startNoSoundTimer])
 
   // ── Toggle Mute ────────────────────────────────────────────────────────────
 
@@ -907,21 +933,7 @@ export function useSmallWebRTC() {
     return () => {
       if (clientRef.current) {
         console.log('[SmallWebRTC] Component unmounting, cleaning up...')
-
-        // Stop all tracks
-        try {
-          const tracks = clientRef.current.tracks()
-          tracks?.local?.audio?.stop()
-          tracks?.local?.video?.stop()
-
-          const transport = clientRef.current.transport as any
-          transport?.localStream?.getTracks().forEach((track: MediaStreamTrack) => {
-            track.stop()
-          })
-        } catch (err) {
-          console.error('[SmallWebRTC] Cleanup track error:', err)
-        }
-
+        forceTerminateLocalMedia()
         clientRef.current.disconnect().catch(console.error)
         clientRef.current = null
         globalClientInstance = null
@@ -933,7 +945,7 @@ export function useSmallWebRTC() {
         audioElRef.current = null
       }
     }
-  }, [clearNoSoundTimer])
+  }, [clearNoSoundTimer, forceTerminateLocalMedia])
 
   return {
     state,
