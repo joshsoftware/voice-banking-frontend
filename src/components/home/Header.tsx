@@ -2,7 +2,7 @@ import { LanguageIcon, UserIcon, VolumeIcon, VolumeMutedIcon } from '@/component
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../../i18n/LanguageHooks'
-import { clearActiveCustomer } from '@/lib/demoCustomer'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface HeaderProps {
   name?: string
@@ -20,6 +20,7 @@ export function Header({
   onUnregisterVoice,
 }: HeaderProps) {
   const navigate = useNavigate()
+  const { logout } = useAuth()
   const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
@@ -128,8 +129,8 @@ export function Header({
                 className="w-full px-4 py-2 text-left text-sm font-medium text-red-600 hover:bg-gray-100"
                 onClick={() => {
                   setMenuOpen(false)
-                  clearActiveCustomer()
-                  navigate('/welcome')
+                  logout()
+                  navigate('/welcome', { replace: true })
                 }}
               >
                 {t('menuLogOut')}
