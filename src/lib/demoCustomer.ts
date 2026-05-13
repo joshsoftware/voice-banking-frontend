@@ -391,6 +391,8 @@ export function clearActiveCustomer(): void {
     localStorage.removeItem(ACTIVE_CUSTOMER_STORAGE_KEY)
     localStorage.removeItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.voice_customer_id`)
     localStorage.removeItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`)
+    localStorage.removeItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.base_customer_id`)
+    localStorage.removeItem(VOICE_SKIP_ALLOWED_CUSTOMERS_STORAGE_KEY)
   } catch {
     // ignore storage issues
   }
