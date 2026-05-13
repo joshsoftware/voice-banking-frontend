@@ -142,6 +142,15 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
       // @ts-ignore
       (this as any).pc_id = newPcId;
 
+      // Guard: if the PC was closed during the network round-trip (e.g. user
+      // tapped close while the offer was in-flight), bail out gracefully
+      // instead of throwing "signalingState is 'closed'" errors.
+      if (pc.signalingState === 'closed') {
+        console.warn('[CustomTransport] PC closed during negotiation, aborting');
+        this._isNegotiated = false;
+        this._isNegotiating = false;
+        return;
+      }
       await pc.setRemoteDescription(new RTCSessionDescription({ type: remoteType, sdp: remoteSdp }));
 
       this._isNegotiated = true;
