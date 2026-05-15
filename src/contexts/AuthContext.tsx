@@ -2,6 +2,13 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { authApi, type AuthResponse } from '@/lib/authApi';
 import { setActiveCustomerByPhone, clearActiveCustomer, getActiveCustomer, type DemoCustomer } from '@/lib/demoCustomer';
 import { registerSessionInvalidatedHandler } from '@/lib/httpClient';
+import {
+  AUTH_PREFERRED_LANGUAGE_KEY,
+  clearLanguageSessionStorage,
+  getStoredLanguageForPhone,
+  parseLanguageId,
+  setStoredLanguageForPhone,
+} from '@/i18n/languageStorage';
 
 interface AuthContextType {
   user: DemoCustomer | null;
@@ -30,7 +37,7 @@ const ACCESS_TOKEN_KEY = 'voicebank.access_token';
 const REFRESH_TOKEN_KEY = 'voicebank.refresh_token';
 const CHAT_HISTORY_KEY_PREFIX = 'voicebank.chatHistory';
 const AUTH_SESSION_ID_KEY = 'voicebank.auth_session_id';
-const PREFERRED_LANGUAGE_KEY = 'voicebank.preferred_language';
+const PREFERRED_LANGUAGE_KEY = AUTH_PREFERRED_LANGUAGE_KEY;
 const IS_NEW_USER_KEY = 'voicebank.is_new_user';
 const MOBILE_NUMBER_KEY = 'voicebank.mobile_number';
 
@@ -69,6 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem(PREFERRED_LANGUAGE_KEY);
     localStorage.removeItem(IS_NEW_USER_KEY);
     localStorage.removeItem(MOBILE_NUMBER_KEY);
+    clearLanguageSessionStorage();
     Object.keys(localStorage)
       .filter((key) => key.startsWith(CHAT_HISTORY_KEY_PREFIX))
       .forEach((key) => localStorage.removeItem(key));
@@ -94,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAccessToken(null);
         setRefreshToken(null);
         setUser(null);
+        setPreferredLanguageState(null);
         clearActiveCustomer();
         return;
       }
@@ -130,9 +139,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const setPreferredLanguage = useCallback((lang: string) => {
-    setPreferredLanguageState(lang);
+    const parsed = parseLanguageId(lang);
+    if (!parsed) return;
+    setPreferredLanguageState(parsed);
     try {
-      localStorage.setItem(PREFERRED_LANGUAGE_KEY, lang);
+      localStorage.setItem(PREFERRED_LANGUAGE_KEY, parsed);
+      const phone = localStorage.getItem(MOBILE_NUMBER_KEY);
+      if (phone) {
+        setStoredLanguageForPhone(phone, parsed);
+      }
     } catch {
       // ignore storage errors
     }
@@ -156,6 +171,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (response.preferred_language) {
         setPreferredLanguage(response.preferred_language);
+      } else {
+        const cached = getStoredLanguageForPhone(phone);
+        if (cached) {
+          setPreferredLanguage(cached);
+        }
       }
 
       // Update legacy mock customer state for compatibility with existing components

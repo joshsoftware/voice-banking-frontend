@@ -1,8 +1,13 @@
 import type { PropsWithChildren } from 'react'
 import { useLayoutEffect, useMemo, useState } from 'react'
-import { DEFAULT_LANGUAGE, LANGUAGE_IDS, type LanguageId } from './languages'
+import { DEFAULT_LANGUAGE, type LanguageId } from './languages'
 import { useAuth } from '@/contexts/AuthContext'
 import { LanguageContext } from './LanguageContextValue'
+import {
+  AUTH_PREFERRED_LANGUAGE_KEY,
+  resolveLanguageForSession,
+  setStoredLanguageForPhone,
+} from './languageStorage'
 import {
   TRANSLATIONS,
   type InterpolationValues,
@@ -11,44 +16,44 @@ import {
   interpolate,
 } from './translations'
 
-const STORAGE_KEY = 'voicebank.language'
-const AUTH_PREFERRED_LANGUAGE_KEY = 'voicebank.preferred_language'
+const ACCESS_TOKEN_KEY = 'voicebank.access_token'
+const MOBILE_NUMBER_KEY = 'voicebank.mobile_number'
 
 export function LanguageProvider({ children }: PropsWithChildren) {
-  const { preferredLanguage: authPreferredLanguage } = useAuth()
+  const {
+    preferredLanguage: authPreferredLanguage,
+    mobileNumber,
+    isAuthenticated,
+    setPreferredLanguage,
+  } = useAuth()
 
   const [language, setLanguageState] = useState<LanguageId>(() => {
     try {
-      // First check the auth-stored language (persisted from backend on login)
-      const authLang = localStorage.getItem(AUTH_PREFERRED_LANGUAGE_KEY)
-      if (authLang && LANGUAGE_IDS.has(authLang as LanguageId)) return authLang as LanguageId
-      // Fallback to the i18n local storage
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved && LANGUAGE_IDS.has(saved as LanguageId)) return saved as LanguageId
+      const hasSession = Boolean(localStorage.getItem(ACCESS_TOKEN_KEY))
+      if (!hasSession) return DEFAULT_LANGUAGE
+      const phone = localStorage.getItem(MOBILE_NUMBER_KEY)
+      const preferred = localStorage.getItem(AUTH_PREFERRED_LANGUAGE_KEY)
+      return resolveLanguageForSession(phone, preferred)
     } catch {
-      // ignore storage errors
+      return DEFAULT_LANGUAGE
     }
-    return DEFAULT_LANGUAGE
   })
 
-  // After login, AuthContext writes `voicebank.preferred_language` but same-tab
-  // storage events do not fire — keep UI + WebRTC `lang` in sync with the server.
-  // useLayoutEffect: run before paint so the first frame after OTP/navigation is not
-  // still `en` while auth already has `hi` (otherwise /start can race with English).
+  // Logged out → English. Logged in → sync with this user's saved preference.
   useLayoutEffect(() => {
-    if (!authPreferredLanguage) return
-    if (!LANGUAGE_IDS.has(authPreferredLanguage as LanguageId)) return
-    const next = authPreferredLanguage as LanguageId
+    if (!isAuthenticated) {
+      setLanguageState((prev) => (prev === DEFAULT_LANGUAGE ? prev : DEFAULT_LANGUAGE))
+      return
+    }
+    const next = resolveLanguageForSession(mobileNumber, authPreferredLanguage)
     setLanguageState((prev) => (prev === next ? prev : next))
-  }, [authPreferredLanguage])
+  }, [isAuthenticated, authPreferredLanguage, mobileNumber])
 
   const setLanguage = (lang: LanguageId) => {
     setLanguageState(lang)
-    try {
-      localStorage.setItem(STORAGE_KEY, lang)
-    } catch {
-      // ignore storage errors
-    }
+    if (!isAuthenticated || !mobileNumber) return
+    setStoredLanguageForPhone(mobileNumber, lang)
+    setPreferredLanguage(lang)
   }
 
   const t: <K extends TranslationKey>(key: K, values?: InterpolationValues) => string = useMemo(() => {
