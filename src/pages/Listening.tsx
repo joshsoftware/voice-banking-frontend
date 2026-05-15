@@ -75,7 +75,7 @@ export default function Listening() {
   }
 
   return (
-    <div onClick={() => client?.transport?.initDevices()}>
+    <div onClick={() => client?.initDevices()}>
       <BotAudio client={client} />
       {soundPopup ? (
         <div className="pointer-events-none fixed left-1/2 top-[52%] z-[1200] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--color-brand-900)]/90 px-4 py-2 text-xs font-medium text-white shadow-lg">

@@ -167,6 +167,8 @@ export function useSmallWebRTC() {
   const noSoundTimerRef = useRef<number | null>(null)
   const isBackgroundPausedRef = useRef(false)
   const wasMutedBeforeBackgroundRef = useRef(false)
+  const pendingBotMessageRef = useRef<{ text: string; transactions?: TransactionItem[]; tableTitle?: string } | null>(null)
+  const hasAudioStartedRef = useRef(false)
   const activeCustomer = getActiveCustomer()
   const activeCustomerId = activeCustomer?.customer_id ?? null
   const activeCustomerName = activeCustomer?.name ?? 'User'
@@ -307,7 +309,7 @@ export function useSmallWebRTC() {
       .slice(0, 5)
   }, [primaryLoanAccount?.account_id])
 
-  const pushAssistantMessage = useCallback(
+  const bufferAssistantMessage = useCallback(
     async (text: string) => {
       const normalized = normalizeAssistantMessage(text)
       const userIntentText = lastUserTranscriptRef.current || ''
@@ -316,25 +318,60 @@ export function useSmallWebRTC() {
       const needsLoanStatement =
         isLoanStatementQuery(normalized) || isLoanStatementQuery(userIntentText)
 
+      // Check if audio/speaking has already started - if so, push immediately
+      const shouldPushImmediately = hasAudioStartedRef.current
+      console.log('[SmallWebRTC] bufferAssistantMessage - shouldPushImmediately:', shouldPushImmediately)
+
       if (!needsRecentTransactions && !needsLoanStatement) {
-        pushMsg('assistant', normalized)
+        // Buffer the message instead of pushing immediately
+        if (shouldPushImmediately) {
+          // Audio already started, push immediately
+          console.log('[SmallWebRTC] Pushing message immediately (audio started):', normalized.substring(0, 50))
+          pushMsg('assistant', normalized)
+        } else {
+          // Buffer until audio starts
+          console.log('[SmallWebRTC] Buffering message (audio not started yet):', normalized.substring(0, 50))
+          pendingBotMessageRef.current = { text: normalized }
+        }
         return
       }
 
       try {
         if (needsLoanStatement) {
           const loanTransactions = await fetchLoanTransactions()
-          pushMsg('assistant', normalized, loanTransactions.length ? loanTransactions : undefined, 'Loan Statement')
+          const messageData = {
+            text: normalized,
+            transactions: loanTransactions.length ? loanTransactions : undefined,
+            tableTitle: 'Loan Statement' as const
+          }
+          if (shouldPushImmediately) {
+            pushMsg('assistant', normalized, messageData.transactions, messageData.tableTitle)
+          } else {
+            pendingBotMessageRef.current = messageData
+          }
           lastUserTranscriptRef.current = ''
           return
         }
 
         const requestedSize = getRequestedTransactionCount()
         const transactions = await fetchRecentTransactions(requestedSize)
-        pushMsg('assistant', normalized, transactions.length ? transactions : undefined, 'Recent Transactions')
+        const messageData = {
+          text: normalized,
+          transactions: transactions.length ? transactions : undefined,
+          tableTitle: 'Recent Transactions' as const
+        }
+        if (shouldPushImmediately) {
+          pushMsg('assistant', normalized, messageData.transactions, messageData.tableTitle)
+        } else {
+          pendingBotMessageRef.current = messageData
+        }
         lastUserTranscriptRef.current = ''
       } catch {
-        pushMsg('assistant', normalized)
+        if (shouldPushImmediately) {
+          pushMsg('assistant', normalized)
+        } else {
+          pendingBotMessageRef.current = { text: normalized }
+        }
       }
     },
     [fetchLoanTransactions, fetchRecentTransactions, getRequestedTransactionCount, pushMsg]
@@ -428,6 +465,8 @@ export function useSmallWebRTC() {
     hasDetectedUserVoiceRef.current = false
     clearNoSoundTimer()
     llmTextBufferRef.current = ''
+    pendingBotMessageRef.current = null
+    hasAudioStartedRef.current = false
 
     try {
       // Create transport WITHOUT waitForICEGathering:true – that option adds an
@@ -470,6 +509,8 @@ export function useSmallWebRTC() {
         clearNoSoundTimer()
         voiceprintBlockedRef.current = false  // Reset block flag for new turn
         setOtpSignal(null)  // Reset OTP state for new turn
+        hasAudioStartedRef.current = false  // Reset audio flag for new turn
+        pendingBotMessageRef.current = null  // Clear any pending message
         setState('processing')
       })
 
@@ -482,6 +523,18 @@ export function useSmallWebRTC() {
         console.log('[SmallWebRTC] Bot started speaking')
         // Never clear llmTextBufferRef here: English skips rewriter LLM so TTS can
         // start before botLlmStopped; clearing would drop the buffered welcome text.
+        
+        // Mark that audio/speaking has started and flush any pending message
+        hasAudioStartedRef.current = true
+        if (pendingBotMessageRef.current) {
+          console.log('[SmallWebRTC] Flushing pending message:', pendingBotMessageRef.current.text.substring(0, 50))
+          const { text, transactions, tableTitle } = pendingBotMessageRef.current
+          pushMsg('assistant', text, transactions, tableTitle)
+          pendingBotMessageRef.current = null
+        } else {
+          console.log('[SmallWebRTC] No pending message to flush')
+        }
+        
         setState('speaking')
       })
 
@@ -490,15 +543,18 @@ export function useSmallWebRTC() {
         if (voiceprintBlockedRef.current) {
           // Verification failed — discard any bot text for this turn
           llmTextBufferRef.current = ''
+          pendingBotMessageRef.current = null
           setState('listening')
           return
         }
         // Flush any remaining buffer not yet flushed by botLlmStopped
         const accumulated = llmTextBufferRef.current.trim()
         if (accumulated) {
-          void pushAssistantMessage(accumulated)
+          void bufferAssistantMessage(accumulated)
           llmTextBufferRef.current = ''
         }
+        // Reset audio flag for next turn
+        hasAudioStartedRef.current = false
         setState('listening')
       })
 
@@ -513,6 +569,16 @@ export function useSmallWebRTC() {
         // event but come with a participant argument — skip those to avoid
         // playing back the user's own voice as a weird echo/artifact.
         if (track.kind !== 'audio' || participant != null) return
+
+        // Mark that audio has started for this turn
+        hasAudioStartedRef.current = true
+        
+        // Push any pending bot message now that audio is playing
+        if (pendingBotMessageRef.current) {
+          const { text, transactions, tableTitle } = pendingBotMessageRef.current
+          pushMsg('assistant', text, transactions, tableTitle)
+          pendingBotMessageRef.current = null
+        }
 
         if (!audioElRef.current) {
           audioElRef.current = new Audio()
@@ -550,31 +616,36 @@ export function useSmallWebRTC() {
       client.on('botLlmText', (data: any) => {
         if (voiceprintBlockedRef.current) return  // Suppress text when verification failed
         const token = typeof data === 'string' ? data : (data?.text ?? '')
-        console.log('[SmallWebRTC] Bot LLM text token:', token)
+        console.log('[SmallWebRTC] Bot LLM text token:', token, '| hasAudioStarted:', hasAudioStartedRef.current)
         llmTextBufferRef.current += token
       })
 
-      // botLlmStopped fires when the LLM finishes streaming — flush buffer immediately
+      // botLlmStopped fires when the LLM finishes streaming — buffer the message
       client.on('botLlmStopped', () => {
-        console.log('[SmallWebRTC] Bot LLM stopped, flushing buffer')
+        console.log('[SmallWebRTC] Bot LLM stopped, buffering message')
         if (voiceprintBlockedRef.current) {
           llmTextBufferRef.current = ''
-          return  // Don't flush — verification failed
+          return  // Don't buffer — verification failed
         }
         const accumulated = llmTextBufferRef.current.trim()
         if (accumulated) {
-          void pushAssistantMessage(accumulated)
+          console.log('[SmallWebRTC] Buffering accumulated text:', accumulated.substring(0, 50))
+          void bufferAssistantMessage(accumulated)
           llmTextBufferRef.current = ''
         }
       })
 
       // botTtsText carries the full TTS sentence — use as fallback if no LLM tokens came in
       client.on('botTtsText', (data: any) => {
-        console.log('[SmallWebRTC] Bot TTS text:', data)
+        console.log('[SmallWebRTC] Bot TTS text:', data, '| hasAudioStarted:', hasAudioStartedRef.current)
         if (voiceprintBlockedRef.current) return  // Suppress when verification failed
-        if (llmTextBufferRef.current) return // already handled via botLlmText
+        if (llmTextBufferRef.current) {
+          console.log('[SmallWebRTC] Skipping botTtsText (llmTextBuffer has content):', llmTextBufferRef.current.substring(0, 30))
+          return // already handled via botLlmText
+        }
         const text = typeof data === 'string' ? data : data?.text
-        if (text) void pushAssistantMessage(text)
+        console.log('[SmallWebRTC] Processing botTtsText:', text?.substring(0, 50))
+        if (text) void bufferAssistantMessage(text)
       })
 
       // botTranscript — final fallback for older backends
@@ -583,7 +654,7 @@ export function useSmallWebRTC() {
         if (voiceprintBlockedRef.current) return  // Suppress when verification failed
         if (llmTextBufferRef.current) return // already handled via botLlmText
         const text = typeof data === 'string' ? data : data?.text
-        if (text) void pushAssistantMessage(text)
+        if (text) void bufferAssistantMessage(text)
       })
 
       // Error handling
@@ -615,6 +686,7 @@ export function useSmallWebRTC() {
             // replacement text will appear.  We push our own error message.
             voiceprintBlockedRef.current = true
             llmTextBufferRef.current = ''
+            pendingBotMessageRef.current = null
             // Remove any assistant messages already flushed during this turn
             setMessages(prev => {
               const cutoff = Date.now() - 5000
@@ -723,7 +795,7 @@ export function useSmallWebRTC() {
     clearNoSoundTimer,
     forceTerminateLocalMedia,
     language,
-    pushAssistantMessage,
+    bufferAssistantMessage,
     pushMsg,
     shouldVerifyVoice,
     startNoSoundTimer,
