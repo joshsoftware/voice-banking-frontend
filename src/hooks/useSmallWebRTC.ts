@@ -122,27 +122,126 @@ function normalizeAssistantMessage(text: string) {
   return text.replace(/\s+/g, ' ').trim()
 }
 
+function isRecentTransactionsQuery(text: string) {
+  const normalized = text.toLowerCase()
+  const hasUserRequestVerb =
+    /\b(?:show|get|see|check|tell|give|display|want|need|fetch|view|list)\b/.test(normalized) ||
+    /\b(?:what are|what were)\b/.test(normalized)
+
+  if (!hasUserRequestVerb && !/\b(?:recent|latest|last)\s+\d{1,2}\s+transactions?\b/.test(normalized)) {
+    return false
+  }
+
+  return (
+    /\b(?:recent|latest|last)\s+(?:\d{1,2}\s+)?transactions?\b/.test(normalized) ||
+    /\b(?:show|get|see|check|tell)\s+(?:me\s+)?(?:my\s+)?(?:the\s+)?(?:recent|latest|last)?\s*transactions?\b/.test(normalized) ||
+    /\btransaction\s+history\b/.test(normalized) ||
+    /\b(?:latest|last|most recent)\s+transaction\b/.test(normalized)
+  )
+}
+
+/** Bot welcome / capability intro — must never trigger structured loan/txn tables. */
+function isAssistantWelcomeMessage(text: string) {
+  const normalized = text.toLowerCase()
+  if (/\bwhat would you like to do today\b/.test(normalized)) return true
+  if (/\bvoice banking assistant\b/.test(normalized)) return true
+  if (
+    /\b(can help you|i can help you)\b/.test(normalized) &&
+    /\b(account balance|review transactions|transfer money|loan details)\b/.test(normalized)
+  ) {
+    return true
+  }
+  if (
+    /\bwelcome\b/.test(normalized) &&
+    /\b(speak to me in|you can speak to me)\b/.test(normalized)
+  ) {
+    return true
+  }
+  return false
+}
+
 function isLoanStatementQuery(text: string) {
   const normalized = text.toLowerCase()
-  const hasLoanContext = /\bloan\b/.test(normalized)
+  const hasLoanContext = /\bloan\b/.test(normalized) || /\bemi\b/.test(normalized)
   if (!hasLoanContext) return false
+
+  // Common short voice commands (no extra verb required).
+  if (/\bloan\s+statement\b/.test(normalized)) return true
+  if (/\b(?:last|recent)\s+emi\s+payments?\b/.test(normalized)) return true
+
+  const hasUserRequestVerb =
+    /\b(?:show|get|see|check|tell|give|display|want|need|fetch|view|pull|send|list)\b/.test(normalized) ||
+    /\b(?:what are|what were|what is)\b/.test(normalized) ||
+    /\bmy\s+(?:loan|emi)\b/.test(normalized)
+
+  if (!hasUserRequestVerb) return false
 
   const asksForStatementLikeData =
     /\bstatement\b/.test(normalized) ||
     /\btransactions?\b/.test(normalized) ||
     /\bhistory\b/.test(normalized) ||
     /\brecent\b/.test(normalized) ||
-    /\blast\b/.test(normalized)
+    /\blast\b/.test(normalized) ||
+    /\bdetails\b/.test(normalized)
 
-  // "EMI" alone is ambiguous (e.g. "next EMI due date"), so only treat it as
-  // a statement request when paired with payment/list verbs.
   const asksForEmiPaymentList =
     /\bemi\b/.test(normalized) &&
     (/\bpayments?\b/.test(normalized) || /\bpaid\b/.test(normalized) || /\btransactions?\b/.test(normalized))
 
+  return asksForStatementLikeData || asksForEmiPaymentList
+}
+
+/** Backend sometimes returns spoken loan rows as prose — still render the structured table. */
+function isAssistantLoanStatementProse(text: string) {
+  const normalized = text.toLowerCase()
   return (
-    asksForStatementLikeData || asksForEmiPaymentList
+    /\bloan statement for\b/.test(normalized) ||
+    (/\bemi payment\b/.test(normalized) && /\brupees paid on\b/.test(normalized))
   )
+}
+
+function isAssistantRecentTransactionsProse(text: string) {
+  const normalized = text.toLowerCase()
+  return /\b(?:recent|latest|last)\s+transactions?\b/.test(normalized) && /\brupees\b/.test(normalized)
+}
+
+/** Bot is asking the user to choose (account type, etc.) — do not fetch tables yet. */
+function isAssistantClarifyingQuestion(text: string) {
+  const normalized = text.toLowerCase()
+  if (/\bwhich account\b/.test(normalized)) return true
+  if (/\bwould you like to check\b/.test(normalized)) return true
+  if (/\bplease (?:choose|select|specify|tell)\b/.test(normalized)) return true
+  if (
+    /\btransaction(?:s)?\s+history\b/.test(normalized) &&
+    /\b(current|savings?)\b/.test(normalized) &&
+    (/\bor\b/.test(normalized) || /\band\b/.test(normalized) || /\?/.test(normalized))
+  ) {
+    return true
+  }
+  if (/\bwhich\b.*\bwould you like\b/.test(normalized)) return true
+  return false
+}
+
+function isAccountSelectionReply(text: string) {
+  const normalized = text.toLowerCase().trim()
+  if (!normalized) return false
+  const words = normalized.split(/\s+/).filter(Boolean)
+  if (words.length > 6) return false
+  return /\b(savings?|current)\b/.test(normalized)
+}
+
+type PendingStructuredIntent = 'loan' | 'transactions' | null
+
+function clearPendingUserIntent(
+  pendingUserIntentRef: { current: string },
+  lastUserTranscriptRef: { current: string },
+  pendingStructuredIntentRef?: { current: PendingStructuredIntent }
+) {
+  pendingUserIntentRef.current = ''
+  lastUserTranscriptRef.current = ''
+  if (pendingStructuredIntentRef) {
+    pendingStructuredIntentRef.current = null
+  }
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -162,6 +261,9 @@ export function useSmallWebRTC() {
   const audioElRef = useRef<HTMLAudioElement | null>(null)
   const llmTextBufferRef = useRef<string>('')
   const lastUserTranscriptRef = useRef<string>('')
+  const pendingUserIntentRef = useRef<string>('')
+  const pendingStructuredIntentRef = useRef<PendingStructuredIntent>(null)
+  const hasUserSpokenThisSessionRef = useRef(false)
   const hasDetectedUserVoiceRef = useRef(false)
   const voiceprintBlockedRef = useRef(false)
   const noSoundTimerRef = useRef<number | null>(null)
@@ -205,7 +307,7 @@ export function useSmallWebRTC() {
   }, [])
 
   const getRequestedTransactionCount = useCallback(() => {
-    const text = lastUserTranscriptRef.current.toLowerCase()
+    const text = (pendingUserIntentRef.current || lastUserTranscriptRef.current).toLowerCase()
 
     if (/\b(?:latest|last|most recent)\s+transaction\b/.test(text)) {
       return 1
@@ -310,11 +412,53 @@ export function useSmallWebRTC() {
   const pushAssistantMessage = useCallback(
     async (text: string) => {
       const normalized = normalizeAssistantMessage(text)
-      const userIntentText = lastUserTranscriptRef.current || ''
+      const userIntentText = (pendingUserIntentRef.current || lastUserTranscriptRef.current || '').trim()
+
+      // Welcome / capability intro: never attach loan or transaction tables.
+      if (isAssistantWelcomeMessage(normalized)) {
+        clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
+        pushMsg('assistant', normalized)
+        return
+      }
+
+      // Bot is clarifying (e.g. "which account — CURRENT or SAVINGS?") — text only, keep intent for next turn.
+      if (isAssistantClarifyingQuestion(normalized)) {
+        if (pendingStructuredIntentRef.current === null && userIntentText) {
+          if (isLoanStatementQuery(userIntentText)) {
+            pendingStructuredIntentRef.current = 'loan'
+          } else if (isRecentTransactionsQuery(userIntentText)) {
+            pendingStructuredIntentRef.current = 'transactions'
+          }
+        }
+        pushMsg('assistant', normalized)
+        return
+      }
+
+      if (hasUserSpokenThisSessionRef.current && userIntentText) {
+        if (isLoanStatementQuery(userIntentText)) {
+          pendingStructuredIntentRef.current = 'loan'
+        } else if (isRecentTransactionsQuery(userIntentText)) {
+          pendingStructuredIntentRef.current = 'transactions'
+        }
+      }
+
+      const loanFromUserIntent =
+        pendingStructuredIntentRef.current === 'loan' &&
+        hasUserSpokenThisSessionRef.current &&
+        Boolean(userIntentText) &&
+        (isLoanStatementQuery(userIntentText) || isAccountSelectionReply(userIntentText))
+      const loanFromAssistantProse = isAssistantLoanStatementProse(normalized)
+      const needsLoanStatement = loanFromUserIntent || loanFromAssistantProse
+
+      const txnFromUserIntent =
+        pendingStructuredIntentRef.current === 'transactions' &&
+        hasUserSpokenThisSessionRef.current &&
+        Boolean(userIntentText) &&
+        !needsLoanStatement &&
+        (isRecentTransactionsQuery(userIntentText) || isAccountSelectionReply(userIntentText))
+      const txnFromAssistantProse = !needsLoanStatement && isAssistantRecentTransactionsProse(normalized)
       const needsRecentTransactions =
-        /(?:recent|latest|last)\s+transactions?/i.test(normalized) || /(?:recent|latest|last)\s+transactions?/i.test(userIntentText)
-      const needsLoanStatement =
-        isLoanStatementQuery(normalized) || isLoanStatementQuery(userIntentText)
+        txnFromUserIntent || (txnFromAssistantProse && pendingStructuredIntentRef.current === 'transactions')
 
       if (!needsRecentTransactions && !needsLoanStatement) {
         pushMsg('assistant', normalized)
@@ -324,15 +468,29 @@ export function useSmallWebRTC() {
       try {
         if (needsLoanStatement) {
           const loanTransactions = await fetchLoanTransactions()
-          pushMsg('assistant', normalized, loanTransactions.length ? loanTransactions : undefined, 'Loan Statement')
-          lastUserTranscriptRef.current = ''
+          // Table only in chat — bot audio/TTS continues unchanged.
+          const displayText = loanTransactions.length ? '' : normalized
+          pushMsg(
+            'assistant',
+            displayText,
+            loanTransactions.length ? loanTransactions : undefined,
+            'Loan Statement'
+          )
+          clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
           return
         }
 
         const requestedSize = getRequestedTransactionCount()
         const transactions = await fetchRecentTransactions(requestedSize)
-        pushMsg('assistant', normalized, transactions.length ? transactions : undefined, 'Recent Transactions')
-        lastUserTranscriptRef.current = ''
+        // Table only in chat — bot audio/TTS continues unchanged.
+        const displayText = transactions.length ? '' : normalized
+        pushMsg(
+          'assistant',
+          displayText,
+          transactions.length ? transactions : undefined,
+          'Recent Transactions'
+        )
+        clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
       } catch {
         pushMsg('assistant', normalized)
       }
@@ -425,6 +583,9 @@ export function useSmallWebRTC() {
     setSessionId(null)
     setInputSoundStatus(null)
     lastUserTranscriptRef.current = ''
+    pendingUserIntentRef.current = ''
+    pendingStructuredIntentRef.current = null
+    hasUserSpokenThisSessionRef.current = false
     hasDetectedUserVoiceRef.current = false
     clearNoSoundTimer()
     llmTextBufferRef.current = ''
@@ -541,6 +702,8 @@ export function useSmallWebRTC() {
           text = text.replace(/^\[[a-z]{2}\]\s*/i, '');
         }
         if (text && data.final) {
+          hasUserSpokenThisSessionRef.current = true
+          pendingUserIntentRef.current = text
           lastUserTranscriptRef.current = text
           pushMsg('user', text)
         }
