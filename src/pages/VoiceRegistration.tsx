@@ -223,7 +223,22 @@ export default function VoiceRegistration() {
       const pc = new RTCPeerConnection({ iceServers })
       pcRef.current = pc
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      } catch (mediaError) {
+        // Handle getUserMedia specific errors
+        if (mediaError instanceof DOMException) {
+          if (mediaError.name === 'NotAllowedError') {
+            throw new Error(t('micPermissionDenied') + '. ' + t('micPermissionInstructions'))
+          } else if (mediaError.name === 'NotFoundError') {
+            throw new Error(t('micNotFound'))
+          } else {
+            throw new Error(t('micAccessError'))
+          }
+        }
+        throw new Error(t('micAccessError'))
+      }
       micStreamRef.current = stream
       setMicStream(stream)
       stream.getTracks().forEach((t) => pc.addTrack(t, stream))
@@ -365,18 +380,23 @@ export default function VoiceRegistration() {
     setLoading(true)
     setMicError(null)
     try {
+      // Test microphone access early to provide immediate feedback
+      const testStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // Stop the test stream immediately since we just wanted to check permission
+      stopMediaStream(testStream)
+      // If successful, proceed to image challenge phase
       setPhase('imageChallenge')
     } catch (e) {
       if (e instanceof DOMException) {
         if (e.name === 'NotAllowedError') {
-          setMicError('Microphone access was denied. Allow the mic to register your voice.')
+          setMicError(t('micPermissionDenied') + '. ' + t('micPermissionInstructions'))
         } else if (e.name === 'NotFoundError') {
-          setMicError('No microphone was found on this device.')
+          setMicError(t('micNotFound'))
         } else {
-          setMicError('Could not access the microphone.')
+          setMicError(t('micAccessError'))
         }
       } else {
-        setMicError('Could not access the microphone.')
+        setMicError(t('micAccessError'))
       }
     } finally {
       setLoading(false)
@@ -521,7 +541,9 @@ export default function VoiceRegistration() {
               onSubmit={() => void handleImageSubmit()}
             />
             {micError ? (
-              <p className="mx-auto mt-2 max-w-[320px] text-center text-xs leading-snug text-red-600">{micError}</p>
+              <div className="mx-auto mt-3 max-w-[320px] rounded-xl bg-red-50 px-4 py-3 text-center">
+                <p className="text-sm font-semibold leading-snug text-red-700">{micError}</p>
+              </div>
             ) : null}
             {!isRtcReady && enrollmentSessionId ? (
               <p className="mx-auto mt-1 max-w-[320px] text-center text-[11px] text-[var(--color-text-muted-2)]">
@@ -642,7 +664,9 @@ export default function VoiceRegistration() {
                 </Button>
               )}
               {phase === 'consent' && micError ? (
-                <p className="text-center text-xs leading-snug text-red-600">{micError}</p>
+                <div className="rounded-xl bg-red-50 px-4 py-3 text-center">
+                  <p className="text-sm font-semibold leading-snug text-red-700">{micError}</p>
+                </div>
               ) : null}
 
               <button
