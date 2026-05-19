@@ -582,6 +582,7 @@ export function useSmallWebRTC() {
     setState('connecting')
     setSessionId(null)
     setInputSoundStatus(null)
+    setVoiceprintStatus(null)
     lastUserTranscriptRef.current = ''
     pendingUserIntentRef.current = ''
     pendingStructuredIntentRef.current = null
@@ -920,6 +921,7 @@ export function useSmallWebRTC() {
 
     clearNoSoundTimer()
     isBackgroundPausedRef.current = false
+    setVoiceprintStatus(null)
     setState('disconnected')
   }, [clearNoSoundTimer, forceTerminateLocalMedia])
 
