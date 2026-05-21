@@ -13,6 +13,7 @@ export default function Listening() {
   const {
     state,
     isMuted,
+    isMicHeld,
     messages,
     sessionId,
     inputSoundStatus,
@@ -21,6 +22,8 @@ export default function Listening() {
     connect,
     disconnect,
     toggleMute,
+    startPushToTalk,
+    stopPushToTalk,
     submitOtp,
     stopAudioTracks,
     client,
@@ -57,18 +60,13 @@ export default function Listening() {
     return () => window.clearTimeout(timer)
   }, [inputSoundStatus])
 
-  const handleStop = async () => {
-    stopAudioTracks()
-    await disconnect()
-    // Don't navigate - keep chat window open
-  }
-
   const handleReconnect = async () => {
     // Reconnect to start a new session while keeping chat history
     await connect()
   }
 
   const handleClose = async () => {
+    stopPushToTalk()
     stopAudioTracks()
     await disconnect()
     navigate('/home')
@@ -87,12 +85,14 @@ export default function Listening() {
           <ListeningSheet
             state={state}
             isMuted={isMuted}
+            isMicHeld={isMicHeld}
             messages={messages}
             voiceprintStatus={voiceprintStatus}
             otpSignal={otpSignal}
             onToggleMute={toggleMute}
+            onPushToTalkStart={startPushToTalk}
+            onPushToTalkEnd={stopPushToTalk}
             onSubmitOtp={submitOtp}
-            onStop={handleStop}
             onReconnect={handleReconnect}
             onClose={handleClose}
             onFeedback={() => setShowFeedback(true)}

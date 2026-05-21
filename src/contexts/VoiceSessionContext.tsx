@@ -6,6 +6,7 @@ import type { PipecatClient } from '@pipecat-ai/client-js';
 interface VoiceSessionContextValue {
     state: WebRTCState;
     isMuted: boolean;
+    isMicHeld: boolean;
     messages: ChatMessage[];
     sessionId: string | null;
     inputSoundStatus: InputSoundStatus | null;
@@ -14,6 +15,8 @@ interface VoiceSessionContextValue {
     connect: () => Promise<void>;
     disconnect: () => Promise<void>;
     toggleMute: () => void;
+    startPushToTalk: () => void;
+    stopPushToTalk: () => void;
     submitOtp: (code: string) => Promise<any>;
     stopAudioTracks: () => void;
     client: PipecatClient | null;
