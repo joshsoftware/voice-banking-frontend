@@ -107,7 +107,6 @@ interface ListeningSheetProps {
   onPushToTalkStart: () => void
   onPushToTalkEnd: () => void
   onSubmitOtp?: (code: string) => Promise<any>
-  onStop: () => void
   onReconnect?: () => void
   onClose?: () => void
   onFeedback?: () => void
@@ -125,7 +124,6 @@ export function ListeningSheet({
   onPushToTalkStart,
   onPushToTalkEnd,
   onSubmitOtp,
-  onStop,
   onReconnect,
   onClose,
   onFeedback,
@@ -284,7 +282,7 @@ export function ListeningSheet({
             type="button"
             onClick={onClose}
             className="absolute top-4 right-4 z-10 grid size-8 place-items-center rounded-full bg-black/5 hover:bg-black/10 active:bg-black/15 transition-colors"
-            aria-label="Close chat"
+            aria-label={t('close')}
           >
             <CloseIcon className="text-[var(--color-text-muted-2)]" />
           </button>
@@ -386,7 +384,6 @@ export function ListeningSheet({
 
           {/* Pinned bottom actions */}
           <div className="flex flex-col items-center gap-2 pt-3 pb-3 border-t border-black/5 mt-2">
-            {/* Stop/Reconnect button */}
             {isDisconnected ? (
               onReconnect && (
                 <div className="flex flex-col items-center gap-3">
@@ -404,34 +401,22 @@ export function ListeningSheet({
                 </div>
               )
             ) : (
-              <>
-                {showPushToTalk && (
-                  <button
-                    type="button"
-                    aria-label={t('ariaHoldToSpeak')}
-                    onPointerDown={handlePushToTalkPointerDown}
-                    onPointerUp={handlePushToTalkPointerUp}
-                    onPointerCancel={onPushToTalkEnd}
-                    className={`h-16 w-full max-w-[280px] touch-none select-none rounded-full font-semibold shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98] ${
-                      isMicHeld
-                        ? '[background:var(--gradient-mic)] text-white shadow-[var(--shadow-mic)]'
-                        : 'bg-[var(--color-surface-card)] text-[var(--color-brand-900)] ring-2 ring-[var(--color-brand-500)]/30'
-                    }`}
-                  >
-                    {isMicHeld ? t('releaseToMute') : t('holdToSpeak')}
-                  </button>
-                )}
-                <Button
+              showPushToTalk && (
+                <button
                   type="button"
-                  onClick={onStop}
-                  variant={isError ? 'success' : 'primary'}
-                  className={`h-12 w-36 rounded-full font-semibold transition-all ${
-                    isError ? 'bg-red-500 hover:bg-red-600' : ''
+                  aria-label={t('ariaHoldToSpeak')}
+                  onPointerDown={handlePushToTalkPointerDown}
+                  onPointerUp={handlePushToTalkPointerUp}
+                  onPointerCancel={onPushToTalkEnd}
+                  className={`h-16 w-full max-w-[280px] touch-none select-none rounded-full font-semibold shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98] ${
+                    isMicHeld
+                      ? '[background:var(--gradient-mic)] text-white shadow-[var(--shadow-mic)]'
+                      : 'bg-[var(--color-surface-card)] text-[var(--color-brand-900)] ring-2 ring-[var(--color-brand-500)]/30'
                   }`}
                 >
-                  {isError ? t('dismiss') : t('stop')}
-                </Button>
-              </>
+                  {isMicHeld ? t('releaseToMute') : t('holdToSpeak')}
+                </button>
+              )
             )}
 
             {showMuteControl && (
