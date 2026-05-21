@@ -100,7 +100,7 @@ export function Header({
                     onUnregisterVoice()
                   }}
                 >
-                  Unregister voice
+                  {t('menuUnregisterVoice')}
                 </button>
               ) : (
                 <button
