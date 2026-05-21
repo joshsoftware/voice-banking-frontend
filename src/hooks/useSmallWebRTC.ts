@@ -251,6 +251,7 @@ export function useSmallWebRTC() {
   const { preferredLanguage: authPreferredLanguage } = useAuth()
   const [state, setState] = useState<WebRTCState>('idle')
   const [isMuted, setIsMuted] = useState(false)
+  const [isMicHeld, setIsMicHeld] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [inputSoundStatus, setInputSoundStatus] = useState<InputSoundStatus | null>(null)
   const [voiceprintStatus, setVoiceprintStatus] = useState<VoiceprintStatus | null>(null)
@@ -269,6 +270,7 @@ export function useSmallWebRTC() {
   const noSoundTimerRef = useRef<number | null>(null)
   const isBackgroundPausedRef = useRef(false)
   const wasMutedBeforeBackgroundRef = useRef(false)
+  const isMicInputEnabledRef = useRef(false)
   const activeCustomer = getActiveCustomer()
   const activeCustomerId = activeCustomer?.customer_id ?? null
   const activeCustomerName = activeCustomer?.name ?? 'User'
@@ -588,6 +590,8 @@ export function useSmallWebRTC() {
     pendingStructuredIntentRef.current = null
     hasUserSpokenThisSessionRef.current = false
     hasDetectedUserVoiceRef.current = false
+    isMicInputEnabledRef.current = false
+    setIsMicHeld(false)
     clearNoSoundTimer()
     llmTextBufferRef.current = ''
 
@@ -618,9 +622,15 @@ export function useSmallWebRTC() {
       })
 
       client.on('botReady', () => {
-        console.log('[SmallWebRTC] Bot ready')
+        console.log('[SmallWebRTC] Bot ready — mic muted until hold-to-speak')
+        isMicInputEnabledRef.current = false
+        setIsMicHeld(false)
+        try {
+          void client.enableMic(false)
+        } catch (err) {
+          console.error('[SmallWebRTC] Failed to mute mic on bot ready:', err)
+        }
         setState('listening')
-        startNoSoundTimer()
       })
 
       client.on('userStartedSpeaking', () => {
@@ -921,6 +931,8 @@ export function useSmallWebRTC() {
 
     clearNoSoundTimer()
     isBackgroundPausedRef.current = false
+    isMicInputEnabledRef.current = false
+    setIsMicHeld(false)
     setVoiceprintStatus(null)
     setState('disconnected')
   }, [clearNoSoundTimer, forceTerminateLocalMedia])
@@ -970,11 +982,11 @@ export function useSmallWebRTC() {
         console.warn('[SmallWebRTC] Error checking PC state on resume:', pcCheckErr)
       }
 
-      console.log('[SmallWebRTC] App returned to foreground, resuming mic and bot audio')
+      console.log('[SmallWebRTC] App returned to foreground, restoring mic and bot audio')
       isBackgroundPausedRef.current = false
 
       try {
-        void clientRef.current.enableMic(true)
+        void clientRef.current.enableMic(isMicInputEnabledRef.current)
       } catch (err) {
         console.error('[SmallWebRTC] Failed to resume mic on foreground:', err)
       }
@@ -989,7 +1001,9 @@ export function useSmallWebRTC() {
       }
 
       setState('listening')
-      startNoSoundTimer()
+      if (isMicInputEnabledRef.current) {
+        startNoSoundTimer()
+      }
     }
 
     const handleVisibilityChange = () => {
@@ -1006,6 +1020,47 @@ export function useSmallWebRTC() {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [clearNoSoundTimer, disconnect, startNoSoundTimer])
+
+  // ── Push-to-talk (mic capture) ─────────────────────────────────────────────
+
+  const setMicrophoneCapture = useCallback((enabled: boolean) => {
+    const client = clientRef.current
+    if (!client) return
+
+    const sessionReady =
+      state === 'listening' ||
+      state === 'speaking' ||
+      state === 'processing' ||
+      state === 'connected'
+
+    if (enabled && !sessionReady) return
+
+    if (isMicInputEnabledRef.current === enabled) return
+
+    isMicInputEnabledRef.current = enabled
+    setIsMicHeld(enabled)
+
+    try {
+      void client.enableMic(enabled)
+    } catch (err) {
+      console.error('[SmallWebRTC] Failed to set mic capture:', err)
+    }
+
+    if (enabled) {
+      startNoSoundTimer()
+    } else {
+      clearNoSoundTimer()
+      setInputSoundStatus(null)
+    }
+  }, [clearNoSoundTimer, startNoSoundTimer, state])
+
+  const startPushToTalk = useCallback(() => {
+    setMicrophoneCapture(true)
+  }, [setMicrophoneCapture])
+
+  const stopPushToTalk = useCallback(() => {
+    setMicrophoneCapture(false)
+  }, [setMicrophoneCapture])
 
   // ── Toggle Mute ────────────────────────────────────────────────────────────
 
@@ -1117,6 +1172,7 @@ export function useSmallWebRTC() {
   return {
     state,
     isMuted,
+    isMicHeld,
     messages,
     sessionId,
     inputSoundStatus,
@@ -1125,6 +1181,8 @@ export function useSmallWebRTC() {
     connect,
     disconnect,
     toggleMute,
+    startPushToTalk,
+    stopPushToTalk,
     submitOtp,
     stopAudioTracks,
     client: clientRef.current,

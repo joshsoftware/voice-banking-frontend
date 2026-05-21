@@ -99,10 +99,13 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
 interface ListeningSheetProps {
   state: WebRTCState
   isMuted: boolean
+  isMicHeld: boolean
   messages: ChatMessage[]
   voiceprintStatus: VoiceprintStatus | null
   otpSignal: OTPSignal | null
   onToggleMute: () => void
+  onPushToTalkStart: () => void
+  onPushToTalkEnd: () => void
   onSubmitOtp?: (code: string) => Promise<any>
   onStop: () => void
   onReconnect?: () => void
@@ -114,10 +117,13 @@ interface ListeningSheetProps {
 export function ListeningSheet({
   state,
   isMuted,
+  isMicHeld,
   messages,
   voiceprintStatus,
   otpSignal,
   onToggleMute,
+  onPushToTalkStart,
+  onPushToTalkEnd,
   onSubmitOtp,
   onStop,
   onReconnect,
@@ -129,7 +135,26 @@ export function ListeningSheet({
   const isActive = state === 'listening' || state === 'speaking'
   const isError = state === 'error'
   const isDisconnected = state === 'disconnected'
+  const isConnecting = state === 'connecting'
+  const showPushToTalk =
+    !isDisconnected && !isError && !isConnecting && state !== 'idle'
+  const showHoldHint = showPushToTalk && !isMicHeld
   const { t } = useTranslation()
+
+  const handlePushToTalkPointerDown = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    onPushToTalkStart()
+  }, [onPushToTalkStart])
+
+  const handlePushToTalkPointerUp = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    onPushToTalkEnd()
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch {
+      // capture may already be released
+    }
+  }, [onPushToTalkEnd])
 
   // ── Drag-to-resize ─────────────────────────────────────────────────────────
   const MIN_VH = 28
@@ -282,7 +307,7 @@ export function ListeningSheet({
             <div
               className={`text-sm font-medium leading-5 transition-colors duration-300 ${STATUS_COLORS[state]}`}
             >
-              {statusLabels[state]}
+              {showHoldHint ? t('statusHoldToSpeak') : statusLabels[state]}
             </div>
 
             {/* Voiceprint verification badge */}
@@ -306,7 +331,7 @@ export function ListeningSheet({
             )}
 
             {/* Waveform */}
-            <Waveform active={isActive} />
+            <Waveform active={isActive && isMicHeld} />
 
             {/* OTP Section (Overlay-like within sheet) */}
             {/* TODO: OTP verification is temporarily disabled. Actual verification must be restored before production rollout. */}
@@ -379,16 +404,34 @@ export function ListeningSheet({
                 </div>
               )
             ) : (
-              <Button
-                type="button"
-                onClick={onStop}
-                variant={isError ? 'success' : 'primary'}
-                className={`h-14 w-44 rounded-full font-semibold transition-all ${
-                  isError ? 'bg-red-500 hover:bg-red-600' : ''
-                }`}
-              >
-                {isError ? t('dismiss') : t('stop')}
-              </Button>
+              <>
+                {showPushToTalk && (
+                  <button
+                    type="button"
+                    aria-label={t('ariaHoldToSpeak')}
+                    onPointerDown={handlePushToTalkPointerDown}
+                    onPointerUp={handlePushToTalkPointerUp}
+                    onPointerCancel={onPushToTalkEnd}
+                    className={`h-16 w-full max-w-[280px] touch-none select-none rounded-full font-semibold shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98] ${
+                      isMicHeld
+                        ? '[background:var(--gradient-mic)] text-white shadow-[var(--shadow-mic)]'
+                        : 'bg-[var(--color-surface-card)] text-[var(--color-brand-900)] ring-2 ring-[var(--color-brand-500)]/30'
+                    }`}
+                  >
+                    {isMicHeld ? t('releaseToMute') : t('holdToSpeak')}
+                  </button>
+                )}
+                <Button
+                  type="button"
+                  onClick={onStop}
+                  variant={isError ? 'success' : 'primary'}
+                  className={`h-12 w-36 rounded-full font-semibold transition-all ${
+                    isError ? 'bg-red-500 hover:bg-red-600' : ''
+                  }`}
+                >
+                  {isError ? t('dismiss') : t('stop')}
+                </Button>
+              </>
             )}
 
             {showMuteControl && (
