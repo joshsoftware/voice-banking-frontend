@@ -2,7 +2,6 @@ import './App.css'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { LanguageProvider } from '@/i18n/LanguageProvider'
-import Home from './pages/Home'
 import Welcome from './pages/Welcome'
 import OtpVerification from './pages/OtpVerification'
 import Listening from './pages/Listening'
@@ -38,7 +37,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
     } else if (!isVoiceprintRegistered) {
       return <Navigate to="/voice-registration" replace />
     } else if (isVoiceprintRegistered || (user?.customer_id && isVoiceSkipAllowed(user.customer_id))) {
-      return <Navigate to="/home" replace />
+      return <Navigate to="/listening" replace />
     }
   }
 
@@ -60,7 +59,7 @@ function App() {
             
             {/* Protected Routes */}
             <Route path="/language" element={<ProtectedRoute><LanguageSelect /></ProtectedRoute>} />
-            <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+            <Route path="/home" element={<ProtectedRoute><Navigate to="/listening" replace /></ProtectedRoute>} />
             <Route path="/listening" element={<ProtectedRoute><Listening /></ProtectedRoute>} />
             <Route path="/voice-registration" element={<ProtectedRoute><VoiceRegistration /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

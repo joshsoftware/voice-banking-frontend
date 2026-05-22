@@ -134,9 +134,9 @@ export function ListeningSheet({
   const isError = state === 'error'
   const isDisconnected = state === 'disconnected'
   const isConnecting = state === 'connecting'
-  const showPushToTalk =
-    !isDisconnected && !isError && !isConnecting && state !== 'idle'
-  const showHoldHint = showPushToTalk && !isMicHeld
+  const showPushToTalk = !isDisconnected && !isError
+  const isPushToTalkDisabled = state === 'idle' || isConnecting
+  const showHoldHint = showPushToTalk && !isMicHeld && !isPushToTalkDisabled
   const { t } = useTranslation()
 
   const handlePushToTalkPointerDown = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
@@ -405,16 +405,19 @@ export function ListeningSheet({
                 <button
                   type="button"
                   aria-label={t('ariaHoldToSpeak')}
-                  onPointerDown={handlePushToTalkPointerDown}
-                  onPointerUp={handlePushToTalkPointerUp}
-                  onPointerCancel={onPushToTalkEnd}
+                  disabled={isPushToTalkDisabled}
+                  onPointerDown={isPushToTalkDisabled ? undefined : handlePushToTalkPointerDown}
+                  onPointerUp={isPushToTalkDisabled ? undefined : handlePushToTalkPointerUp}
+                  onPointerCancel={isPushToTalkDisabled ? undefined : onPushToTalkEnd}
                   className={`h-16 w-full max-w-[280px] touch-none select-none rounded-full font-semibold shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98] ${
-                    isMicHeld
-                      ? '[background:var(--gradient-mic)] text-white shadow-[var(--shadow-mic)]'
-                      : 'bg-[var(--color-surface-card)] text-[var(--color-brand-900)] ring-2 ring-[var(--color-brand-500)]/30'
+                    isPushToTalkDisabled
+                      ? 'bg-[var(--color-surface-card)] text-[var(--color-text-muted-2)] ring-2 ring-[var(--color-brand-500)]/10 opacity-60 cursor-not-allowed'
+                      : isMicHeld
+                        ? '[background:var(--gradient-mic)] text-white shadow-[var(--shadow-mic)]'
+                        : 'bg-[var(--color-surface-card)] text-[var(--color-brand-900)] ring-2 ring-[var(--color-brand-500)]/30'
                   }`}
                 >
-                  {isMicHeld ? t('releaseToMute') : t('holdToSpeak')}
+                  {isPushToTalkDisabled ? t('statusConnecting') : isMicHeld ? t('releaseToMute') : t('holdToSpeak')}
                 </button>
               )
             )}
