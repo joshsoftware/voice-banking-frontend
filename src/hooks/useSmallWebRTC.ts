@@ -617,7 +617,15 @@ export function useSmallWebRTC() {
       // ── Event Handlers ──────────────────────────────────────────────────────
 
       client.on('connected', () => {
-        console.log('[SmallWebRTC] Connected')
+        console.log('[SmallWebRTC] Connected — muting mic until hold-to-speak')
+        isMicInputEnabledRef.current = false
+        try {
+          void client.enableMic(false)
+          const tracks = client.tracks()
+          if (tracks?.local?.audio) tracks.local.audio.enabled = false
+        } catch (err) {
+          console.error('[SmallWebRTC] Failed to mute mic on connected:', err)
+        }
         setState('connected')
       })
 
@@ -1042,6 +1050,8 @@ export function useSmallWebRTC() {
 
     try {
       void client.enableMic(enabled)
+      const tracks = client.tracks()
+      if (tracks?.local?.audio) tracks.local.audio.enabled = enabled
     } catch (err) {
       console.error('[SmallWebRTC] Failed to set mic capture:', err)
     }

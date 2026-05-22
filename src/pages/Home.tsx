@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useTranslation } from '@/i18n/LanguageHooks'
 import { Header } from '@/components/home/Header'
 import { BalanceCard } from '@/components/home/BalanceCard'
-import { VoiceSheet } from '@/components/home/VoiceSheet'
 
 import {
   disallowVoiceSkip,
@@ -92,7 +91,7 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
           </div>
 
           {/* Bottom Sheet */}
-          {bottomSheet ?? <VoiceSheet onStart={() => navigate('/listening')} />}
+          {bottomSheet}
 
           {showVoiceUnregisteredToast && (
             <div

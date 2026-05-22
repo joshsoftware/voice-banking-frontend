@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useNavigationType } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import Home from './Home'
 import { ListeningSheet } from '@/components/home/ListeningSheet'
 import { FeedbackModal } from '@/components/home/FeedbackModal'
@@ -9,7 +9,6 @@ import { getActiveCustomer } from '@/lib/demoCustomer'
 
 export default function Listening() {
   const navigate = useNavigate()
-  const navigationType = useNavigationType()
   const {
     state,
     isMuted,
@@ -20,31 +19,25 @@ export default function Listening() {
     voiceprintStatus,
     otpSignal,
     connect,
-    disconnect,
     toggleMute,
     startPushToTalk,
     stopPushToTalk,
     submitOtp,
-    stopAudioTracks,
     client,
   } = useVoiceSession()
   const [showFeedback, setShowFeedback] = useState(false)
   const [soundPopup, setSoundPopup] = useState<string | null>(null)
+  const [chatOpen, setChatOpen] = useState(true)
   const customer = getActiveCustomer()
 
-  // Auto-connect only on intentional navigation (not browser back/forward)
   useEffect(() => {
-    if (navigationType !== 'POP') {
-      connect()
-    } else {
-      navigate('/home', { replace: true })
-    }
-  }, [connect, navigationType, navigate])
+    connect()
+  }, [connect])
 
   // Navigate back only on errors (not on normal disconnect)
   useEffect(() => {
     if (state === 'error') {
-      const timer = setTimeout(() => navigate('/home'), 2500)
+      const timer = setTimeout(() => navigate('/welcome', { replace: true }), 2500)
       return () => clearTimeout(timer)
     }
   }, [state, navigate])
@@ -65,11 +58,8 @@ export default function Listening() {
     await connect()
   }
 
-  const handleClose = async () => {
-    stopPushToTalk()
-    stopAudioTracks()
-    await disconnect()
-    navigate('/home')
+  const handleClose = () => {
+    setChatOpen(false)
   }
 
   return (
@@ -82,21 +72,52 @@ export default function Listening() {
       ) : null}
       <Home
         bottomSheet={
-          <ListeningSheet
-            state={state}
-            isMuted={isMuted}
-            isMicHeld={isMicHeld}
-            messages={messages}
-            voiceprintStatus={voiceprintStatus}
-            otpSignal={otpSignal}
-            onToggleMute={toggleMute}
-            onPushToTalkStart={startPushToTalk}
-            onPushToTalkEnd={stopPushToTalk}
-            onSubmitOtp={submitOtp}
-            onReconnect={handleReconnect}
-            onClose={handleClose}
-            onFeedback={() => setShowFeedback(true)}
-          />
+          chatOpen ? (
+            <ListeningSheet
+              state={state}
+              isMuted={isMuted}
+              isMicHeld={isMicHeld}
+              messages={messages}
+              voiceprintStatus={voiceprintStatus}
+              otpSignal={otpSignal}
+              onToggleMute={toggleMute}
+              onPushToTalkStart={startPushToTalk}
+              onPushToTalkEnd={stopPushToTalk}
+              onSubmitOtp={submitOtp}
+              onReconnect={handleReconnect}
+              onClose={handleClose}
+              onFeedback={() => setShowFeedback(true)}
+            />
+          ) : (
+            <div className="absolute bottom-0 left-0 w-full">
+              <div className="rounded-t-3xl bg-[var(--color-surface-card)] px-5 py-6 shadow-[var(--shadow-sheet)]">
+                <div className="mx-auto flex w-full max-w-[356px] flex-col items-center px-3 pb-2">
+                  <button
+                    type="button"
+                    onPointerDown={(e) => {
+                      e.preventDefault()
+                      startPushToTalk()
+                      setChatOpen(true)
+                      const handleUp = () => {
+                        stopPushToTalk()
+                        document.removeEventListener('pointerup', handleUp)
+                        document.removeEventListener('pointercancel', handleUp)
+                      }
+                      document.addEventListener('pointerup', handleUp)
+                      document.addEventListener('pointercancel', handleUp)
+                    }}
+                    className={`h-16 w-full max-w-[280px] touch-none select-none rounded-full font-semibold shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98] ${
+                      isMicHeld
+                        ? '[background:var(--gradient-mic)] text-white shadow-[var(--shadow-mic)]'
+                        : 'bg-[var(--color-surface-card)] text-[var(--color-brand-900)] ring-2 ring-[var(--color-brand-500)]/30'
+                    }`}
+                  >
+                    {isMicHeld ? 'Release to send' : 'Hold to speak'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
         }
       />
       {showFeedback && (
