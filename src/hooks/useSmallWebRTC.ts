@@ -11,6 +11,24 @@ import { useAuth } from '@/contexts/AuthContext'
 // Helper to get client instance (for audio component)
 let globalClientInstance: PipecatClient | null = null
 
+// ─── Beep ─────────────────────────────────────────────────────────────────────
+
+function playBeep() {
+  try {
+    const ctx = new AudioContext()
+    const osc = ctx.createOscillator(), gain = ctx.createGain()
+    osc.connect(gain); gain.connect(ctx.destination)
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(440, ctx.currentTime)
+    gain.gain.setValueAtTime(0, ctx.currentTime)
+    gain.gain.linearRampToValueAtTime(0.9, ctx.currentTime + 0.02)
+    gain.gain.setValueAtTime(0.9, ctx.currentTime + 0.1)
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.1)
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 1.1)
+    osc.onended = () => ctx.close()
+  } catch {}
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type WebRTCState =
@@ -1057,6 +1075,7 @@ export function useSmallWebRTC() {
     }
 
     if (enabled) {
+      playBeep()
       startNoSoundTimer()
     } else {
       clearNoSoundTimer()
