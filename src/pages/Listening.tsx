@@ -35,6 +35,13 @@ export default function Listening() {
     connect()
   }, [connect])
 
+  // Auto-reconnect with a fresh session on unexpected disconnect
+  useEffect(() => {
+    if (state !== 'disconnected') return
+    const timer = setTimeout(() => connect(), 1500)
+    return () => clearTimeout(timer)
+  }, [state, connect])
+
   // Navigate back only on errors (not on normal disconnect)
   useEffect(() => {
     if (state === 'error') {
