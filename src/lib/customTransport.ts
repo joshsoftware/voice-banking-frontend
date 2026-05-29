@@ -29,18 +29,34 @@ function extractHeaders(h: Headers | Record<string, string> | undefined): Record
 export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
   private _isNegotiated = false;
   private _isNegotiating = false;
+  /** Set before connect() after disconnect/ICE failure so the server creates a new peer. */
+  forceFreshPeerConnection = false;
+
+  private _resetPeerIdentity() {
+    // @ts-ignore
+    (this as any).pc_id = null;
+    this._isNegotiated = false;
+  }
 
   // @ts-ignore
   async _disconnect() {
     console.log('[CustomTransport] _disconnect: cleaning up state');
     this._isNegotiated = false;
     this._isNegotiating = false;
+    this._resetPeerIdentity();
     // @ts-ignore
     await super._disconnect();
   }
 
   // @ts-ignore
   async negotiate(recreatePeerConnection = false) {
+    if (this.forceFreshPeerConnection) {
+      recreatePeerConnection = true;
+      this._resetPeerIdentity();
+      this.forceFreshPeerConnection = false;
+      console.log('[CustomTransport] Forcing fresh peer connection (post-disconnect reconnect)');
+    }
+
     if (this._isNegotiated && !recreatePeerConnection) {
       console.log('[CustomTransport] Already negotiated, skipping redundant offer');
       return;
@@ -55,8 +71,20 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
       // @ts-ignore
       const pc: RTCPeerConnection = (this as any).pc;
       if (!pc || pc.signalingState === 'closed') {
+        this._resetPeerIdentity();
         this._isNegotiating = false;
         return;
+      }
+
+      const iceState = pc.iceConnectionState;
+      if (
+        recreatePeerConnection ||
+        iceState === 'failed' ||
+        iceState === 'closed' ||
+        iceState === 'disconnected'
+      ) {
+        this._resetPeerIdentity();
+        recreatePeerConnection = true;
       }
 
       const offer = await pc.createOffer();
@@ -95,13 +123,14 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
       // @ts-ignore
       const webrtcRequest = (this as any)._webrtcRequest;
       // @ts-ignore
-      const pcId = (this as any).pc_id || null;
+      const pcId = recreatePeerConnection ? null : ((this as any).pc_id || null);
 
       const payload: Record<string, unknown> = {
         sdp: pc.localDescription?.sdp ?? offer.sdp,
         type: pc.localDescription?.type ?? offer.type,
         pc_id: pcId,
         restart_pc: recreatePeerConnection,
+        force_fresh_peer: recreatePeerConnection,
         // Pass requestData through so the backend bot receives customer_id etc.
         ...(webrtcRequest?.requestData ? { requestData: webrtcRequest.requestData } : {}),
       };
@@ -120,7 +149,7 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
       });
 
       if (!response.ok) {
-        this._isNegotiated = false;
+        this._resetPeerIdentity();
         this._isNegotiating = false;
         const text = await response.text();
         throw new Error(`Negotiation failed (${response.status}): ${text}`);
@@ -132,7 +161,7 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
       const remoteType = answer.type || answer.answer?.type || 'answer';
 
       if (!remoteSdp) {
-        this._isNegotiated = false;
+        this._resetPeerIdentity();
         this._isNegotiating = false;
         console.error('[CustomTransport] Unexpected answer body:', answer);
         throw new Error('No SDP found in answer from server');
@@ -150,7 +179,7 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
       // @ts-ignore – 'closed' is a valid runtime value despite TS excluding it
       if (pc.signalingState === 'closed') {
         console.warn('[CustomTransport] PC closed during negotiation, aborting');
-        this._isNegotiated = false;
+        this._resetPeerIdentity();
         this._isNegotiating = false;
         return;
       }
@@ -160,6 +189,7 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
       this._isNegotiating = false;
       console.log('[CustomTransport] Negotiation successful, pc_id:', newPcId);
     } catch (e) {
+      this._resetPeerIdentity();
       this._isNegotiating = false;
       console.error('[CustomTransport] Negotiation error:', e);
       throw e;

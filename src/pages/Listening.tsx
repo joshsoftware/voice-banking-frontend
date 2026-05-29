@@ -32,6 +32,8 @@ export default function Listening() {
   const [chatOpen, setChatOpen] = useState(true)
   const didInitialConnectRef = useRef(false)
   const reconnectInFlightRef = useRef(false)
+  const reconnectCountRef = useRef(0)
+  const MAX_AUTO_RECONNECTS = 3
   const customer = getActiveCustomer()
 
   useEffect(() => {
@@ -40,23 +42,34 @@ export default function Listening() {
     void connect()
   }, [connect])
 
-  // Auto-reconnect with a fresh session on unexpected disconnect
+  // Auto-reconnect with a fresh WebRTC peer on unexpected disconnect (capped).
   useEffect(() => {
     if (state !== 'disconnected') return
     if (reconnectInFlightRef.current) return
+    if (reconnectCountRef.current >= MAX_AUTO_RECONNECTS) {
+      console.warn('[Listening] Max auto-reconnect attempts reached')
+      return
+    }
     reconnectInFlightRef.current = true
+    reconnectCountRef.current += 1
 
     const timer = setTimeout(() => {
       void connect().finally(() => {
         reconnectInFlightRef.current = false
       })
-    }, 1500)
+    }, 2500)
 
     return () => {
       clearTimeout(timer)
       reconnectInFlightRef.current = false
     }
   }, [state, connect])
+
+  useEffect(() => {
+    if (state === 'connected' || state === 'listening') {
+      reconnectCountRef.current = 0
+    }
+  }, [state])
 
   // Navigate back only on errors (not on normal disconnect)
   useEffect(() => {

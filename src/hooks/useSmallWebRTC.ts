@@ -304,6 +304,8 @@ export function useSmallWebRTC() {
 
   const clientRef = useRef<PipecatClient | null>(null)
   const isConnectingRef = useRef(false)
+  const shouldForceFreshPeerRef = useRef(false)
+  const reconnectAttemptRef = useRef(0)
   const audioElRef = useRef<HTMLAudioElement | null>(null)
   const llmTextBufferRef = useRef<string>('')
   const lastUserTranscriptRef = useRef<string>('')
@@ -647,6 +649,10 @@ export function useSmallWebRTC() {
       // triggers a second gathering round) creates an endless offer loop.
       // Our custom negotiate() already waits for gathering manually.
       const transport = new CustomSmallWebRTCTransport()
+      if (shouldForceFreshPeerRef.current) {
+        transport.forceFreshPeerConnection = true
+        shouldForceFreshPeerRef.current = false
+      }
 
       // Create Pipecat client
       const client = new PipecatClient({
@@ -662,6 +668,7 @@ export function useSmallWebRTC() {
 
       client.on('connected', () => {
         console.log('[SmallWebRTC] Connected — muting mic until hold-to-speak')
+        reconnectAttemptRef.current = 0
         isMicInputEnabledRef.current = false
         try {
           void client.enableMic(false)
@@ -815,12 +822,14 @@ export function useSmallWebRTC() {
       // Error handling
       client.on('error', (error: any) => {
         console.error('[SmallWebRTC] Error:', error)
+        shouldForceFreshPeerRef.current = true
         setState('error')
         pushMsg('status', `Error: ${error.message || 'Connection failed'}`)
       })
 
       client.on('disconnected', () => {
         console.log('[SmallWebRTC] Disconnected')
+        shouldForceFreshPeerRef.current = true
         clearNoSoundTimer()
         setState('disconnected')
       })
@@ -930,6 +939,7 @@ export function useSmallWebRTC() {
 
     } catch (err) {
       console.error('[SmallWebRTC] Connect error:', err)
+      shouldForceFreshPeerRef.current = true
       clearNoSoundTimer()
       pushMsg('status', `Error: ${err instanceof Error ? err.message : 'Unknown'}`)
       setState('error')
@@ -990,6 +1000,7 @@ export function useSmallWebRTC() {
     clearNoSoundTimer()
     isBackgroundPausedRef.current = false
     isMicInputEnabledRef.current = false
+    shouldForceFreshPeerRef.current = true
     setIsMicHeld(false)
     setVoiceprintStatus(null)
     setState('disconnected')
