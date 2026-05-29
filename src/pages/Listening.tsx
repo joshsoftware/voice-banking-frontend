@@ -6,6 +6,7 @@ import { FeedbackModal } from '@/components/home/FeedbackModal'
 import { useVoiceSession } from '@/contexts/VoiceSessionContext'
 import { BotAudio } from '@/components/BotAudio'
 import { getActiveCustomer } from '@/lib/demoCustomer'
+import { MicIcon } from '@/components/ui/icons'
 
 export default function Listening() {
   const navigate = useNavigate()
@@ -106,13 +107,14 @@ export default function Listening() {
                       document.addEventListener('pointerup', handleUp)
                       document.addEventListener('pointercancel', handleUp)
                     }}
-                    className={`h-16 w-full max-w-[280px] touch-none select-none rounded-full font-semibold shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98] ${
+                    className={`h-16 w-full max-w-[280px] touch-none select-none rounded-full font-semibold shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98] flex items-center justify-center gap-3 px-6 ${
                       isMicHeld
                         ? '[background:var(--gradient-mic)] text-white shadow-[var(--shadow-mic)]'
                         : 'bg-[var(--color-surface-card)] text-[var(--color-brand-900)] ring-2 ring-[var(--color-brand-500)]/30'
                     }`}
                   >
-                    {isMicHeld ? 'Release to send' : 'Hold to speak'}
+                    <MicIcon width="20" height="20" className="shrink-0" />
+                    <span>{isMicHeld ? 'Release to send' : 'Hold to speak'}</span>
                   </button>
                 </div>
               </div>

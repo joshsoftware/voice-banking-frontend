@@ -32,6 +32,14 @@ function formatTransactionDate(value?: string) {
   }).format(date)
 }
 
+function formatMessageTime(ts: number): string {
+  return new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(ts))
+}
+
 // ─── Chat bubble ──────────────────────────────────────────────────────────────
 
 function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
@@ -40,8 +48,13 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
 
   if (items.length === 0) {
     return (
-      <div className="max-w-[80%] whitespace-pre-line rounded-2xl bg-[var(--color-brand-500)] px-4 py-2 text-sm leading-snug text-white shadow-sm">
-        {msg.text}
+      <div className="max-w-[80%] rounded-2xl bg-[var(--color-brand-500)] px-4 py-2 text-sm leading-snug text-white shadow-sm">
+        <div className="flex items-end justify-between gap-2">
+          <div className="flex-1 whitespace-pre-line">{msg.text}</div>
+          <div className="shrink-0 self-end text-[10px] text-white/60 leading-none">
+            {formatMessageTime(msg.ts)}
+          </div>
+        </div>
       </div>
     )
   }
@@ -69,6 +82,11 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
           </div>
         ))}
       </div>
+      <div className="mt-1 flex justify-end">
+        <div className="text-[10px] text-white/60">
+          {formatMessageTime(msg.ts)}
+        </div>
+      </div>
     </div>
   )
 }
@@ -86,8 +104,13 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
       {msg.role === 'assistant' ? (
         <RecentTransactionsBubble msg={msg} />
       ) : (
-        <div className="max-w-[80%] whitespace-pre-line rounded-2xl bg-[var(--color-surface-app)] px-4 py-2 text-sm leading-snug text-[var(--color-brand-900)] shadow-sm">
-          {msg.text}
+        <div className="max-w-[80%] rounded-2xl bg-[var(--color-surface-app)] px-4 py-2 text-sm leading-snug text-[var(--color-brand-900)] shadow-sm">
+          <div className="flex items-end justify-between gap-2">
+            <div className="flex-1 whitespace-pre-line">{msg.text}</div>
+            <div className="shrink-0 self-end text-[10px] text-gray-500/70 leading-none">
+              {formatMessageTime(msg.ts)}
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -409,7 +432,7 @@ export function ListeningSheet({
                   onPointerDown={isPushToTalkDisabled ? undefined : handlePushToTalkPointerDown}
                   onPointerUp={isPushToTalkDisabled ? undefined : handlePushToTalkPointerUp}
                   onPointerCancel={isPushToTalkDisabled ? undefined : onPushToTalkEnd}
-                  className={`h-16 w-full max-w-[280px] touch-none select-none rounded-full font-semibold shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98] ${
+                  className={`h-16 w-full max-w-[280px] touch-none select-none rounded-full font-semibold shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98] flex items-center justify-center gap-3 px-6 ${
                     isPushToTalkDisabled
                       ? 'bg-[var(--color-surface-card)] text-[var(--color-text-muted-2)] ring-2 ring-[var(--color-brand-500)]/10 opacity-60 cursor-not-allowed'
                       : isMicHeld
@@ -417,7 +440,8 @@ export function ListeningSheet({
                         : 'bg-[var(--color-surface-card)] text-[var(--color-brand-900)] ring-2 ring-[var(--color-brand-500)]/30'
                   }`}
                 >
-                  {isPushToTalkDisabled ? t('statusConnecting') : isMicHeld ? t('releaseToMute') : t('holdToSpeak')}
+                  <MicIcon width="20" height="20" className="shrink-0" />
+                  <span>{isPushToTalkDisabled ? t('statusConnecting') : isMicHeld ? t('releaseToMute') : t('holdToSpeak')}</span>
                 </button>
               )
             )}
