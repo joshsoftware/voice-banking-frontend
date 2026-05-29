@@ -20,6 +20,7 @@ export default function Listening() {
     voiceprintStatus,
     otpSignal,
     connect,
+    disconnect,
     toggleMute,
     startPushToTalk,
     stopPushToTalk,
@@ -66,7 +67,8 @@ export default function Listening() {
     await connect()
   }
 
-  const handleClose = () => {
+  const handleClose = async () => {
+    await disconnect()
     setChatOpen(false)
   }
 
