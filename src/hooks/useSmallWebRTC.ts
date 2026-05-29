@@ -306,6 +306,7 @@ export function useSmallWebRTC() {
   const isConnectingRef = useRef(false)
   const audioElRef = useRef<HTMLAudioElement | null>(null)
   const llmTextBufferRef = useRef<string>('')
+  const llmFlushedRef = useRef(false)
   const lastUserTranscriptRef = useRef<string>('')
   const pendingUserIntentRef = useRef<string>('')
   const pendingStructuredIntentRef = useRef<PendingStructuredIntent>(null)
@@ -638,6 +639,7 @@ export function useSmallWebRTC() {
     setIsMicHeld(false)
     clearNoSoundTimer()
     llmTextBufferRef.current = ''
+    llmFlushedRef.current = false
 
     try {
       // Create transport WITHOUT waitForICEGathering:true – that option adds an
@@ -693,6 +695,7 @@ export function useSmallWebRTC() {
         }
         clearNoSoundTimer()
         voiceprintBlockedRef.current = false  // Reset block flag for new turn
+        llmFlushedRef.current = false  // Reset flush flag for new turn
         setOtpSignal(null)  // Reset OTP state for new turn
         setState('processing')
       })
@@ -791,6 +794,7 @@ export function useSmallWebRTC() {
         if (accumulated) {
           void pushAssistantMessage(accumulated)
           llmTextBufferRef.current = ''
+          llmFlushedRef.current = true  // Mark as flushed so botTtsText/botTranscript won't duplicate
         }
       })
 
@@ -798,7 +802,7 @@ export function useSmallWebRTC() {
       client.on('botTtsText', (data: any) => {
         console.log('[SmallWebRTC] Bot TTS text:', data)
         if (voiceprintBlockedRef.current) return  // Suppress when verification failed
-        if (llmTextBufferRef.current) return // already handled via botLlmText
+        if (llmTextBufferRef.current || llmFlushedRef.current) return // already handled via botLlmText/botLlmStopped
         const text = typeof data === 'string' ? data : data?.text
         if (text) void pushAssistantMessage(text)
       })
@@ -807,7 +811,7 @@ export function useSmallWebRTC() {
       client.on('botTranscript', (data: any) => {
         console.log('[SmallWebRTC] Bot transcript:', data)
         if (voiceprintBlockedRef.current) return  // Suppress when verification failed
-        if (llmTextBufferRef.current) return // already handled via botLlmText
+        if (llmTextBufferRef.current || llmFlushedRef.current) return // already handled via botLlmText/botLlmStopped
         const text = typeof data === 'string' ? data : data?.text
         if (text) void pushAssistantMessage(text)
       })
@@ -820,7 +824,12 @@ export function useSmallWebRTC() {
       })
 
       client.on('disconnected', () => {
-        console.log('[SmallWebRTC] Disconnected')
+        console.log('[SmallWebRTC] Disconnected — cleaning up to prevent stale session reuse')
+        forceTerminateLocalMedia()
+        clientRef.current = null
+        globalClientInstance = null
+        isMicInputEnabledRef.current = false
+        setIsMicHeld(false)
         clearNoSoundTimer()
         setState('disconnected')
       })

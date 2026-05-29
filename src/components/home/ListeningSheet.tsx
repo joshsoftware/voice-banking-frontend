@@ -409,19 +409,22 @@ export function ListeningSheet({
           <div className="flex flex-col items-center gap-2 pt-3 pb-3 border-t border-black/5 mt-2">
             {isDisconnected ? (
               onReconnect && (
-                <div className="flex flex-col items-center gap-3">
-                  {/* Mic button for reconnection */}
-                  <div className="w-64 rounded-[52px] bg-[var(--color-surface-card)] px-4 py-3 shadow-[var(--shadow-voice-btn)]">
-                    <button
-                      type="button"
-                      aria-label={t('ariaStartVoiceConversation')}
-                      onClick={onReconnect}
-                      className="flex h-16 w-full items-center justify-center rounded-full [background:var(--gradient-mic)] shadow-[var(--shadow-mic)] transition-transform hover:scale-105 active:scale-95"
-                    >
-                      <MicIcon className="text-white" />
-                    </button>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  aria-label={t('ariaStartVoiceConversation')}
+                  onPointerDown={(e) => {
+                    e.preventDefault()
+                    e.currentTarget.setPointerCapture(e.pointerId)
+                    void onReconnect()
+                  }}
+                  onPointerUp={(e) => {
+                    try { e.currentTarget.releasePointerCapture(e.pointerId) } catch {}
+                  }}
+                  onPointerCancel={() => {}}
+                  className="h-16 w-full max-w-[280px] touch-none select-none rounded-full bg-[var(--color-surface-card)] font-semibold text-[var(--color-brand-900)] ring-2 ring-[var(--color-brand-500)]/30 shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98]"
+                >
+                  {t('holdToSpeak')}
+                </button>
               )
             ) : (
               showPushToTalk && (
