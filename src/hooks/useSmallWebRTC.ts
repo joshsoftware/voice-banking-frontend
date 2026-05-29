@@ -124,6 +124,32 @@ function loadChatHistory(customerId: string | null, authSessionId: string | null
   }
 }
 
+// ─── Mute State Storage ────────────────────────────────────────────────────────
+
+const MUTE_STATE_KEY_PREFIX = 'voicebank.isMuted'
+
+function getMuteStorageKey(authSessionId: string | null): string {
+  return `${MUTE_STATE_KEY_PREFIX}.${authSessionId ?? 'no-session'}`
+}
+
+function loadMuteState(authSessionId: string | null): boolean {
+  try {
+    const raw = localStorage.getItem(getMuteStorageKey(authSessionId))
+    if (raw === null) return false // Default to unmuted for new sessions
+    return raw === 'true'
+  } catch {
+    return false
+  }
+}
+
+function saveMuteState(authSessionId: string | null, isMuted: boolean): void {
+  try {
+    localStorage.setItem(getMuteStorageKey(authSessionId), String(isMuted))
+  } catch {
+    console.warn('[SmallWebRTC] Failed to save mute state to localStorage')
+  }
+}
+
 function forceLogoutOnUnauthorized() {
   localStorage.removeItem('voicebank.access_token')
   localStorage.removeItem('voicebank.refresh_token')
@@ -266,9 +292,10 @@ function clearPendingUserIntent(
 
 export function useSmallWebRTC() {
   const { language } = useLanguage()
-  const { preferredLanguage: authPreferredLanguage } = useAuth()
+  const { preferredLanguage: authPreferredLanguage, isAuthenticated } = useAuth()
   const [state, setState] = useState<WebRTCState>('idle')
-  const [isMuted, setIsMuted] = useState(false)
+  const authSessionId = localStorage.getItem(AUTH_SESSION_ID_KEY)
+  const [isMuted, setIsMuted] = useState(() => loadMuteState(authSessionId))
   const [isMicHeld, setIsMicHeld] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [inputSoundStatus, setInputSoundStatus] = useState<InputSoundStatus | null>(null)
@@ -295,7 +322,6 @@ export function useSmallWebRTC() {
 
   const primaryAccount = activeCustomerId ? getPrimaryAccount(activeCustomerId) : null
   const primaryLoanAccount = activeCustomerId ? getPrimaryLoanAccount(activeCustomerId) : null
-  const authSessionId = localStorage.getItem(AUTH_SESSION_ID_KEY)
   const shouldVerifyVoice = activeCustomerId ? isVoiceRegistered(activeCustomerId) : false
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadChatHistory(activeCustomerId, authSessionId))
@@ -943,6 +969,12 @@ export function useSmallWebRTC() {
 
     console.log('[SmallWebRTC] Disconnecting...')
 
+    // Reset mute state to unmuted on disconnect
+    setIsMuted(false)
+    if (audioElRef.current) {
+      audioElRef.current.muted = false
+    }
+
     // Null out refs immediately to prevent concurrent disconnect/connect races
     clientRef.current = null
     globalClientInstance = null
@@ -1047,6 +1079,22 @@ export function useSmallWebRTC() {
     }
   }, [clearNoSoundTimer, disconnect, startNoSoundTimer])
 
+  // ── Auth-aware cleanup ─────────────────────────────────────────────────────
+  // Disconnect WebRTC session when user logs out to prevent resource leaks
+
+  const prevAuthRef = useRef(isAuthenticated)
+
+  useEffect(() => {
+    // Detect logout: previous state was authenticated, now it's not
+    if (prevAuthRef.current && !isAuthenticated && clientRef.current) {
+      console.log('[SmallWebRTC] Auth state changed to logged out, disconnecting...')
+      disconnect()
+    }
+    
+    // Update the previous auth state for next comparison
+    prevAuthRef.current = isAuthenticated
+  }, [isAuthenticated, disconnect])
+
   // ── Push-to-talk (mic capture) ─────────────────────────────────────────────
 
   const setMicrophoneCapture = useCallback((enabled: boolean) => {
@@ -1103,6 +1151,10 @@ export function useSmallWebRTC() {
     }
 
     setIsMuted(newMutedState)
+    
+    // Persist mute preference for current auth session
+    const currentAuthSessionId = localStorage.getItem(AUTH_SESSION_ID_KEY)
+    saveMuteState(currentAuthSessionId, newMutedState)
   }, [isMuted])
 
   // ── Submit OTP ─────────────────────────────────────────────────────────────
