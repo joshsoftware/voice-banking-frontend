@@ -36,13 +36,6 @@ export default function Listening() {
     connect()
   }, [connect])
 
-  // Auto-reconnect with a fresh session on unexpected disconnect
-  useEffect(() => {
-    if (state !== 'disconnected') return
-    const timer = setTimeout(() => connect(), 1500)
-    return () => clearTimeout(timer)
-  }, [state, connect])
-
   // Navigate back only on errors (not on normal disconnect)
   useEffect(() => {
     if (state === 'error') {
@@ -101,20 +94,28 @@ export default function Listening() {
           ) : (
             <div className="absolute bottom-0 left-0 w-full">
               <div className="rounded-t-3xl bg-[var(--color-surface-card)] px-5 py-6 shadow-[var(--shadow-sheet)]">
-                <div className="mx-auto flex w-full max-w-[356px] flex-col items-center px-3 pb-2">
+                <div className="mx-auto flex w-full max-w-[356px] flex-col items-center gap-3 px-3 pb-2">
+                  {state === 'disconnected' && (
+                    <p className="text-sm font-semibold text-red-500">Session Ended</p>
+                  )}
                   <button
                     type="button"
                     onPointerDown={(e) => {
                       e.preventDefault()
-                      startPushToTalk()
-                      setChatOpen(true)
-                      const handleUp = () => {
-                        stopPushToTalk()
-                        document.removeEventListener('pointerup', handleUp)
-                        document.removeEventListener('pointercancel', handleUp)
+                      if (state === 'disconnected') {
+                        void connect()
+                        setChatOpen(true)
+                      } else {
+                        startPushToTalk()
+                        setChatOpen(true)
+                        const handleUp = () => {
+                          stopPushToTalk()
+                          document.removeEventListener('pointerup', handleUp)
+                          document.removeEventListener('pointercancel', handleUp)
+                        }
+                        document.addEventListener('pointerup', handleUp)
+                        document.addEventListener('pointercancel', handleUp)
                       }
-                      document.addEventListener('pointerup', handleUp)
-                      document.addEventListener('pointercancel', handleUp)
                     }}
                     className={`h-16 w-full max-w-[280px] touch-none select-none rounded-full font-semibold shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98] flex items-center justify-center gap-3 px-6 ${
                       isMicHeld
@@ -123,7 +124,7 @@ export default function Listening() {
                     }`}
                   >
                     <MicIcon width="20" height="20" className="shrink-0" />
-                    <span>{isMicHeld ? 'Release to send' : 'Hold to speak'}</span>
+                    <span>{state === 'disconnected' ? 'Hold to reconnect' : isMicHeld ? 'Release to send' : 'Hold to speak'}</span>
                   </button>
                 </div>
               </div>
