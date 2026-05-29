@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Home from './Home'
 import { ListeningSheet } from '@/components/home/ListeningSheet'
@@ -30,17 +30,32 @@ export default function Listening() {
   const [showFeedback, setShowFeedback] = useState(false)
   const [soundPopup, setSoundPopup] = useState<string | null>(null)
   const [chatOpen, setChatOpen] = useState(true)
+  const didInitialConnectRef = useRef(false)
+  const reconnectInFlightRef = useRef(false)
   const customer = getActiveCustomer()
 
   useEffect(() => {
-    connect()
+    if (didInitialConnectRef.current) return
+    didInitialConnectRef.current = true
+    void connect()
   }, [connect])
 
   // Auto-reconnect with a fresh session on unexpected disconnect
   useEffect(() => {
     if (state !== 'disconnected') return
-    const timer = setTimeout(() => connect(), 1500)
-    return () => clearTimeout(timer)
+    if (reconnectInFlightRef.current) return
+    reconnectInFlightRef.current = true
+
+    const timer = setTimeout(() => {
+      void connect().finally(() => {
+        reconnectInFlightRef.current = false
+      })
+    }, 1500)
+
+    return () => {
+      clearTimeout(timer)
+      reconnectInFlightRef.current = false
+    }
   }, [state, connect])
 
   // Navigate back only on errors (not on normal disconnect)
