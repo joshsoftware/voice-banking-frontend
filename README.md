@@ -1,2 +1,2 @@
 
-**This is react application created for accessing voice banking**
+**This is stage branch for React application created for accessing voice banking**
