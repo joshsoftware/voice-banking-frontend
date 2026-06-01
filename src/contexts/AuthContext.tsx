@@ -10,6 +10,15 @@ import {
   setStoredLanguageForPhone,
 } from '@/i18n/languageStorage';
 
+function getJwtExpiry(token: string): number | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]!))
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null
+  } catch {
+    return null
+  }
+}
+
 interface AuthContextType {
   user: DemoCustomer | null;
   mobileNumber: string | null;
@@ -82,6 +91,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .forEach((key) => localStorage.removeItem(key));
     clearActiveCustomer();
   }, []);
+
+  // Attempt a silent token refresh; fall back to logout + redirect on any failure
+  const tryRefreshOrLogout = useCallback(async () => {
+    const rt = localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (!rt) {
+      logout();
+      window.location.href = '/welcome';
+      return;
+    }
+    try {
+      const resp = await authApi.refreshToken(rt);
+      localStorage.setItem(ACCESS_TOKEN_KEY, resp.access_token);
+      localStorage.setItem(REFRESH_TOKEN_KEY, resp.refresh_token);
+      setAccessToken(resp.access_token);
+      setRefreshToken(resp.refresh_token);
+    } catch {
+      logout();
+      window.location.href = '/welcome';
+    }
+  }, [logout]);
+
+  // Schedule automatic token refresh 60 s before the JWT expires.
+  // Re-runs whenever accessToken changes (i.e. after each successful refresh).
+  useEffect(() => {
+    if (!accessToken) return;
+    const expiry = getJwtExpiry(accessToken);
+    if (!expiry) return;
+
+    const msUntilExpiry = expiry - Date.now();
+    if (msUntilExpiry <= 0) {
+      // Already expired — refresh immediately
+      void tryRefreshOrLogout();
+      return;
+    }
+
+    // Refresh 60 s before expiry (minimum 0 ms so the timer always fires)
+    const delay = Math.max(0, msUntilExpiry - 60_000);
+    const timer = window.setTimeout(() => void tryRefreshOrLogout(), delay);
+    return () => clearTimeout(timer);
+  }, [accessToken, tryRefreshOrLogout]);
+
+  // When the app returns to the foreground (tab/phone wake), verify the token
+  // hasn't expired while the device was sleeping (setTimeout doesn't fire then).
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+      if (!token) return;
+      const expiry = getJwtExpiry(token);
+      if (expiry && Date.now() >= expiry) {
+        void tryRefreshOrLogout();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [tryRefreshOrLogout]);
 
   const handleSessionInvalidated = useCallback(() => {
     logout();
