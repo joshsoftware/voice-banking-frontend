@@ -45,10 +45,7 @@ export default function Listening() {
   }, [state, navigate])
 
   useEffect(() => {
-    if (!inputSoundStatus) {
-      setSoundPopup(null)
-      return
-    }
+    if (!inputSoundStatus) return
     if (inputSoundStatus === 'voice_detected') {
       setSoundPopup('Voice detected')
     } else {
