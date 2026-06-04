@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { EyeIcon } from '@/components/ui/icons'
+import { EyeIcon, EyeOffIcon } from '@/components/ui/icons'
 import { useTranslation } from '@/i18n/LanguageHooks'
 import type { DemoAccount } from '@/lib/demoCustomer'
 import { API_BASE } from '@/lib/constants'
@@ -204,7 +204,11 @@ export function BalanceCard({ account }: BalanceCardProps) {
             disabled={balanceLoading}
             className="rounded-full p-1.5 transition-colors hover:bg-gray-50 disabled:opacity-50"
           >
-            <EyeIcon className="size-5 text-[var(--color-brand-900)]/60" />
+            {showBalance ? (
+              <EyeIcon className="size-5 text-[var(--color-brand-900)]/60" />
+            ) : (
+              <EyeOffIcon className="size-5 text-[var(--color-brand-900)]/60" />
+            )}
           </button>
         </div>
 
