@@ -15,7 +15,7 @@ const STATUS_COLORS: Record<WebRTCState, string> = {
   processing: 'text-amber-500',
   speaking: 'text-emerald-600',
   error: 'text-red-500',
-  disconnected: 'text-[var(--color-text-muted-1)]',
+  disconnected: 'text-red-500 font-semibold',
 }
 
 function formatTransactionDate(value?: string) {
@@ -326,7 +326,7 @@ export function ListeningSheet({
           <div className="flex flex-col flex-1 min-h-0 items-center gap-4 overflow-hidden">
             {/* Status label */}
             <div
-              className={`text-sm font-medium leading-5 transition-colors duration-300 ${STATUS_COLORS[state]}`}
+              className={`leading-5 transition-colors duration-300 ${isDisconnected ? 'text-base' : 'text-sm font-medium'} ${STATUS_COLORS[state]}`}
             >
               {showHoldHint ? t('statusHoldToSpeak') : statusLabels[state]}
             </div>
