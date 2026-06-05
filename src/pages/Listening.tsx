@@ -45,12 +45,11 @@ export default function Listening() {
   }, [state, navigate])
 
   useEffect(() => {
-    if (!inputSoundStatus) return
-    if (inputSoundStatus === 'voice_detected') {
-      setSoundPopup('Voice detected')
-    } else {
-      setSoundPopup('No sound detected. Please speak louder or check your mic.')
+    if (!inputSoundStatus || inputSoundStatus === 'voice_detected') {
+      setSoundPopup(null)
+      return
     }
+    setSoundPopup('No sound detected. Please speak louder or check your mic.')
     const timer = window.setTimeout(() => setSoundPopup(null), 2200)
     return () => window.clearTimeout(timer)
   }, [inputSoundStatus])
