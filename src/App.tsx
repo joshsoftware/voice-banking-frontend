@@ -48,7 +48,11 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 }
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAdminAuthenticated } = useAdmin()
+  const { isAdminAuthenticated, isLoading } = useAdmin()
+  
+  if (isLoading) {
+    return <div className="flex h-screen items-center justify-center text-white">Loading...</div>
+  }
   
   if (!isAdminAuthenticated) {
     return <Navigate to="/admin/login" replace />
