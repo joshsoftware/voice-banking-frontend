@@ -699,6 +699,10 @@ export function useSmallWebRTC() {
       })
 
       client.on('userStartedSpeaking', () => {
+        if (!isMicInputEnabledRef.current) {
+          console.log('[SmallWebRTC] Ignoring userStartedSpeaking — mic not held (hold-to-speak inactive)')
+          return
+        }
         console.log('[SmallWebRTC] User started speaking')
         if (!hasDetectedUserVoiceRef.current) {
           hasDetectedUserVoiceRef.current = true
@@ -712,6 +716,10 @@ export function useSmallWebRTC() {
       })
 
       client.on('userStoppedSpeaking', () => {
+        if (!isMicInputEnabledRef.current) {
+          console.log('[SmallWebRTC] Ignoring userStoppedSpeaking — mic not held (hold-to-speak inactive)')
+          return
+        }
         console.log('[SmallWebRTC] User stopped speaking')
         setState('listening')
       })

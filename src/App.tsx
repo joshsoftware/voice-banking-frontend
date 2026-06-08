@@ -34,9 +34,9 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   if (isAuthenticated) {
     if (isNewUser || !preferredLanguage) {
       return <Navigate to="/language" replace />
-    } else if (!isVoiceprintRegistered) {
+    } else if (!isVoiceprintRegistered && !(user?.customer_id && isVoiceSkipAllowed(user.customer_id))) {
       return <Navigate to="/voice-registration" replace />
-    } else if (isVoiceprintRegistered || (user?.customer_id && isVoiceSkipAllowed(user.customer_id))) {
+    } else {
       return <Navigate to="/listening" replace />
     }
   }
