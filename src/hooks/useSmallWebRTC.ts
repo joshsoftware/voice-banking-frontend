@@ -168,20 +168,23 @@ function normalizeAssistantMessage(text: string) {
 
 function isRecentTransactionsQuery(text: string) {
   const normalized = text.toLowerCase()
+
+  // Unambiguous patterns — match regardless of whether a request verb is present.
+  // These are specific enough that no false-positive guard is needed.
+  if (/\b(?:recent|latest|last)\s+(?:\d{1,2}\s+)?transactions?\b/.test(normalized)) return true
+  if (/\btransaction\s+(?:history|statement|list|details?)\b/.test(normalized)) return true
+  if (/\baccount\s+(?:statement|history)\b/.test(normalized)) return true
+  if (/\b(?:latest|last|most recent)\s+transaction\b/.test(normalized)) return true
+  if (/\b(?:my|all)\s+transactions?\b/.test(normalized)) return true
+
+  // Verb-gated patterns — generic words like "transactions" need a request verb
+  // to avoid matching them in unrelated sentences.
   const hasUserRequestVerb =
-    /\b(?:show|get|see|check|tell|give|display|want|need|fetch|view|list)\b/.test(normalized) ||
-    /\b(?:what are|what were)\b/.test(normalized)
+    /\b(?:show|get|see|check|tell|give|display|want|need|fetch|view|list|find|send|pull)\b/.test(normalized) ||
+    /\b(?:what are|what were|what is)\b/.test(normalized)
+  if (!hasUserRequestVerb) return false
 
-  if (!hasUserRequestVerb && !/\b(?:recent|latest|last)\s+\d{1,2}\s+transactions?\b/.test(normalized)) {
-    return false
-  }
-
-  return (
-    /\b(?:recent|latest|last)\s+(?:\d{1,2}\s+)?transactions?\b/.test(normalized) ||
-    /\b(?:show|get|see|check|tell)\s+(?:me\s+)?(?:my\s+)?(?:the\s+)?(?:recent|latest|last)?\s*transactions?\b/.test(normalized) ||
-    /\btransaction\s+history\b/.test(normalized) ||
-    /\b(?:latest|last|most recent)\s+transaction\b/.test(normalized)
-  )
+  return /\b(?:show|get|see|check|tell|list|give|view|fetch|find)\s+(?:me\s+)?(?:my\s+)?(?:all\s+)?(?:the\s+)?(?:recent|latest|last)?\s*transactions?\b/.test(normalized)
 }
 
 /** Bot welcome / capability intro — must never trigger structured loan/txn tables. */
@@ -246,7 +249,13 @@ function isAssistantLoanStatementProse(text: string) {
 
 function isAssistantRecentTransactionsProse(text: string) {
   const normalized = text.toLowerCase()
-  return /\b(?:recent|latest|last)\s+transactions?\b/.test(normalized) && /\brupees\b/.test(normalized)
+  // "recent/latest/last transactions … rupees" — original pattern
+  if (/\b(?:recent|latest|last)\s+transactions?\b/.test(normalized) && /\brupees\b/.test(normalized)) return true
+  // Bot listing transactions as prose: "debited on YYYY-MM-DD" or "credited on YYYY-MM-DD"
+  if (/\b(?:debited?|credited?)\s+on\b/.test(normalized) && /\d{4}-\d{2}-\d{2}/.test(text)) return true
+  // "Transfer to/from X … on YYYY-MM-DD" — typical multi-row listing format
+  if (/\btransfer\s+(?:to|from)\b/.test(normalized) && /\bon \d{4}-\d{2}-\d{2}\b/.test(text)) return true
+  return false
 }
 
 /** Bot is asking the user to choose (account type, etc.) — do not fetch tables yet. */
@@ -504,8 +513,10 @@ export function useSmallWebRTC() {
         !needsLoanStatement &&
         (isRecentTransactionsQuery(userIntentText) || isAccountSelectionReply(userIntentText))
       const txnFromAssistantProse = !needsLoanStatement && isAssistantRecentTransactionsProse(normalized)
-      const needsRecentTransactions =
-        txnFromUserIntent || (txnFromAssistantProse && pendingStructuredIntentRef.current === 'transactions')
+      // txnFromAssistantProse no longer requires pendingStructuredIntentRef === 'transactions':
+      // if the bot's response clearly contains a transaction list, show the table regardless of
+      // whether the user's phrase matched our intent patterns.
+      const needsRecentTransactions = txnFromUserIntent || txnFromAssistantProse
 
       if (!needsRecentTransactions && !needsLoanStatement) {
         pushMsg('assistant', normalized)
