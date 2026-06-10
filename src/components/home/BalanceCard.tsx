@@ -199,6 +199,7 @@ export function BalanceCard({ account }: BalanceCardProps) {
           <div className="text-sm font-medium leading-5 text-[var(--color-text-muted-1)]">{t('availableBalance')}</div>
           <button
             type="button"
+            data-testid="home-balance-toggle-btn"
             aria-label={showBalance ? t('ariaHideBalance') : t('ariaShowBalance')}
             onClick={() => void handleToggleBalance()}
             disabled={balanceLoading}
@@ -236,6 +237,7 @@ export function BalanceCard({ account }: BalanceCardProps) {
           <div className="text-sm font-medium leading-5 text-[var(--color-text-muted-3)]">{maskedAccount}</div>
           <button
             type="button"
+            data-testid="home-transactions-btn"
             onClick={() => void handleViewDetails()}
             className="rounded-xl px-4 py-2 text-sm font-semibold leading-5 text-[var(--color-brand-300)] transition-colors hover:bg-gray-50"
           >
@@ -248,6 +250,7 @@ export function BalanceCard({ account }: BalanceCardProps) {
             <div className="mb-2 flex items-center justify-end">
               <button
                 type="button"
+                data-testid="home-transactions-collapse-btn"
                 aria-label="Collapse recent transactions"
                 onClick={() => setShowTransactions(false)}
                 className="rounded-md p-1 text-[var(--color-brand-300)] transition-colors hover:bg-white"

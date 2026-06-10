@@ -537,6 +537,7 @@ export default function VoiceRegistration() {
                 ) : null}
                 <button
                   type="button"
+                  data-testid="voice-registration-play-audio-btn"
                   aria-label={t('voiceRegistrationPlayImageDescription')}
                   onClick={playImageDescription}
                   className="absolute right-3 top-3 grid size-10 place-items-center rounded-full bg-white text-[var(--color-brand-500)] shadow-[var(--shadow-mute)] transition-transform active:scale-95"
@@ -645,6 +646,7 @@ export default function VoiceRegistration() {
               <label className="mx-auto mt-5 flex w-full max-w-[320px] shrink-0 items-start gap-3 px-5 text-xs leading-snug text-[var(--color-brand-900)]">
                 <input
                   type="checkbox"
+                  data-testid="voice-registration-consent-checkbox"
                   checked={consent}
                   onChange={(e) => setConsent(e.target.checked)}
                   className="mt-0.5 size-4 shrink-0 rounded border-[#9bb0c7]"
@@ -662,6 +664,7 @@ export default function VoiceRegistration() {
               {phase === 'consent' ? (
                 <Button
                   type="button"
+                  data-testid="voice-registration-start-btn"
                   onClick={handleStartRegistration}
                   disabled={!canStart}
                   className="h-14 w-full rounded-full text-base font-semibold disabled:bg-[#c8d4e2] disabled:text-white"
@@ -686,6 +689,7 @@ export default function VoiceRegistration() {
 
               <button
                 type="button"
+                data-testid="voice-registration-skip-btn"
                 onClick={skipForNow}
                 className="w-full pb-0.5 text-center text-base font-medium text-[var(--color-text-muted-1)]"
               >

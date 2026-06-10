@@ -303,6 +303,7 @@ export function ListeningSheet({
         {onClose && (
           <button
             type="button"
+            data-testid="listening-close-btn"
             onClick={onClose}
             className="absolute top-4 right-4 z-10 grid size-8 place-items-center rounded-full bg-black/5 hover:bg-black/10 active:bg-black/15 transition-colors"
             aria-label={t('close')}
@@ -411,6 +412,7 @@ export function ListeningSheet({
               onReconnect && (
                 <button
                   type="button"
+                  data-testid="listening-reconnect-btn"
                   aria-label={t('ariaStartVoiceConversation')}
                   onPointerDown={(e) => {
                     e.preventDefault()
@@ -430,6 +432,7 @@ export function ListeningSheet({
               showPushToTalk && (
                 <button
                   type="button"
+                  data-testid="listening-hold-to-speak-btn"
                   aria-label={t('ariaHoldToSpeak')}
                   disabled={isPushToTalkDisabled}
                   onPointerDown={isPushToTalkDisabled ? undefined : handlePushToTalkPointerDown}
@@ -454,6 +457,7 @@ export function ListeningSheet({
                 {onFeedback && (
                   <button
                     type="button"
+                    data-testid="listening-feedback-btn"
                     onClick={onFeedback}
                     className="mr-auto flex items-center gap-1.5 text-xs text-[var(--color-brand-600)]/60 transition-colors hover:text-[var(--color-brand-600)]"
                   >
@@ -465,6 +469,7 @@ export function ListeningSheet({
                 )}
                 <button
                   type="button"
+                  data-testid="listening-mute-toggle-btn"
                   aria-label={isMuted ? 'Unmute' : 'Mute'}
                   onClick={onToggleMute}
                   className={`grid size-10 place-items-center rounded-full shadow-[var(--shadow-mute)] transition-colors ${

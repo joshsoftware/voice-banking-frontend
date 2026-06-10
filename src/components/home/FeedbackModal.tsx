@@ -102,6 +102,7 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
             <p className="text-sm text-gray-500">Thank you for helping us improve.</p>
             <button
               type="button"
+              data-testid="feedback-done-btn"
               onClick={onClose}
               className="mt-2 w-full rounded-xl bg-[var(--color-brand-900,#1a237e)] py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
@@ -114,6 +115,7 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
               <h2 className="text-lg font-semibold text-gray-900">Submit Feedback</h2>
               <button
                 type="button"
+                data-testid="feedback-close-btn"
                 aria-label="Close"
                 onClick={onClose}
                 className="grid size-8 place-items-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
@@ -137,6 +139,7 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
                 </label>
                 <input
                   id="fb-username"
+                  data-testid="feedback-username-input"
                   name="username"
                   type="text"
                   value={form.username}
@@ -152,6 +155,7 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
                 </label>
                 <input
                   id="fb-email"
+                  data-testid="feedback-email-input"
                   name="email"
                   type="email"
                   value={form.email}
@@ -167,6 +171,7 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
                 </label>
                 <textarea
                   id="fb-description"
+                  data-testid="feedback-description-textarea"
                   name="description"
                   rows={3}
                   value={form.description}
@@ -205,6 +210,7 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
                 </button>
                 <input
                   ref={fileInputRef}
+                  data-testid="feedback-screenshot-input"
                   type="file"
                   accept="image/*"
                   className="hidden"
@@ -218,6 +224,7 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
 
               <button
                 type="submit"
+                data-testid="feedback-submit-btn"
                 disabled={submitting}
                 className="mt-1 w-full rounded-xl bg-[var(--color-brand-900,#1a237e)] py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
               >

@@ -80,6 +80,7 @@ export default function AdminFeedback() {
             <p className="text-xs text-white/70 sm:text-sm">Customer feedback management</p>
           </div>
           <Button
+            data-testid="admin-logout-btn"
             onClick={handleLogout}
             className="bg-white/20 hover:bg-white/30 text-white border border-white/30 text-sm"
             size="sm"
@@ -135,6 +136,7 @@ export default function AdminFeedback() {
                 {feedback.image_url && (
                   <div className="mb-4">
                     <button
+                      data-testid="admin-feedback-image-btn"
                       onClick={() => setSelectedImage(feedback.image_url)}
                       className="group relative cursor-pointer block w-full"
                       type="button"
@@ -178,6 +180,7 @@ export default function AdminFeedback() {
         {feedbacks.length > 0 && (
           <div className="mt-8 flex items-center justify-center gap-6">
             <Button
+              data-testid="admin-feedback-prev-btn"
               onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
               className="bg-gradient-to-r from-[var(--color-brand-500)] to-[var(--color-brand-600)] text-white hover:from-[var(--color-brand-600)] hover:to-[var(--color-brand-700)] disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]"
@@ -190,6 +193,7 @@ export default function AdminFeedback() {
               </span>
             </div>
             <Button
+              data-testid="admin-feedback-next-btn"
               onClick={() => setCurrentPage((prev) => prev + 1)}
               disabled={feedbacks.length < itemsPerPage}
               className="bg-gradient-to-r from-[var(--color-brand-500)] to-[var(--color-brand-600)] text-white hover:from-[var(--color-brand-600)] hover:to-[var(--color-brand-700)] disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]"
