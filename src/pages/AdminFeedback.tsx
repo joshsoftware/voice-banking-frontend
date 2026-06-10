@@ -73,15 +73,15 @@ export default function AdminFeedback() {
   return (
     <div className="min-h-screen bg-[var(--color-surface-bg)]">
       {/* Header Bar */}
-      <header className="sticky top-0 z-10 border-b border-white/10 bg-gradient-to-r from-[var(--color-brand-500)] via-[var(--color-brand-700)] to-[var(--color-brand-800)] px-4 py-4 shadow-lg backdrop-blur-lg sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-white sm:text-2xl">Feedback Dashboard</h1>
-            <p className="text-xs text-white/70 sm:text-sm">Customer feedback management</p>
+      <header className="sticky top-0 z-10 border-b border-white/10 bg-gradient-to-r from-[var(--color-brand-500)] via-[var(--color-brand-700)] to-[var(--color-brand-800)] px-3 py-3 shadow-lg backdrop-blur-lg sm:px-6 sm:py-4 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-bold text-white sm:text-xl lg:text-2xl">Feedback Dashboard</h1>
+            <p className="text-xs text-white/70 sm:text-sm hidden xs:block">Customer feedback management</p>
           </div>
           <Button
             onClick={handleLogout}
-            className="bg-white/20 hover:bg-white/30 text-white border border-white/30 text-sm"
+            className="bg-white/20 hover:bg-white/30 text-white border border-white/30 text-xs sm:text-sm shrink-0"
             size="sm"
           >
             Logout
@@ -90,45 +90,45 @@ export default function AdminFeedback() {
       </header>
 
       {/* Main Content */}
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
         {/* Error Message */}
         {error && (
-          <div className="mb-6 rounded-lg bg-red-500/20 border border-red-500/30 p-4 text-center font-medium text-red-200">
+          <div className="mb-4 sm:mb-6 rounded-lg bg-red-500/20 border border-red-500/30 p-3 sm:p-4 text-center text-sm sm:text-base font-medium text-red-200">
             {error}
           </div>
         )}
 
         {/* Feedback Grid */}
         {feedbacks.length === 0 ? (
-          <div className="rounded-2xl bg-gradient-to-br from-[var(--color-brand-900)]/50 to-[var(--color-brand-800)]/50 p-12 text-center backdrop-blur-sm">
-            <p className="text-lg text-white/70">No feedback available</p>
+          <div className="rounded-2xl bg-gradient-to-br from-[var(--color-brand-900)]/50 to-[var(--color-brand-800)]/50 p-8 sm:p-12 text-center backdrop-blur-sm">
+            <p className="text-base sm:text-lg text-white/70">No feedback available</p>
           </div>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
             {feedbacks.map((feedback) => (
               <div
                 key={feedback.id}
-                className="rounded-xl bg-gradient-to-br from-[var(--color-brand-900)]/40 to-[var(--color-brand-800)]/40 p-6 backdrop-blur-sm transition-all hover:from-[var(--color-brand-900)]/60 hover:to-[var(--color-brand-800)]/60 border border-white/10"
+                className="rounded-xl bg-gradient-to-br from-[var(--color-brand-900)]/40 to-[var(--color-brand-800)]/40 p-4 sm:p-6 backdrop-blur-sm transition-all hover:from-[var(--color-brand-900)]/60 hover:to-[var(--color-brand-800)]/60 border border-white/10"
               >
                 {/* User Info */}
-                <div className="mb-4 flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-brand-500)] to-[var(--color-brand-600)] text-base font-bold text-white shadow-md">
+                <div className="mb-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-brand-500)] to-[var(--color-brand-600)] text-sm sm:text-base font-bold text-white shadow-md">
                       {feedback.username.charAt(0).toUpperCase()}
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-white text-base">{feedback.username}</h3>
-                      <p className="text-sm text-white/60">{feedback.email}</p>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-white text-sm sm:text-base truncate">{feedback.username}</h3>
+                      <p className="text-xs sm:text-sm text-white/60 truncate">{feedback.email}</p>
                     </div>
                   </div>
-                  <div className="text-sm text-white/60 whitespace-nowrap">
+                  <div className="text-xs sm:text-sm text-white/60 sm:whitespace-nowrap">
                     {formatDate(feedback.created_at)}
                   </div>
                 </div>
 
                 {/* Feedback Description */}
                 <div className="mb-4">
-                  <p className="text-base leading-relaxed text-white/90">{feedback.description}</p>
+                  <p className="text-sm sm:text-base leading-relaxed text-white/90 break-words">{feedback.description}</p>
                 </div>
 
                 {/* Image Section */}
@@ -145,27 +145,27 @@ export default function AdminFeedback() {
                         className="h-auto max-w-full rounded-lg border-2 border-white/20 transition-all hover:border-[var(--color-brand-400)] shadow-lg"
                       />
                       <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 transition-all group-hover:bg-black/50">
-                        <span className="text-sm font-semibold text-white opacity-0 transition-all group-hover:opacity-100">
+                        <span className="text-xs sm:text-sm font-semibold text-white opacity-0 transition-all group-hover:opacity-100 px-2 text-center">
                           Click to view full size
                         </span>
                       </div>
                     </button>
-                    <p className="mt-2 text-xs text-white/50">
+                    <p className="mt-2 text-xs text-white/50 break-all">
                       {feedback.image_content_type} • {formatFileSize(feedback.image_size)}
                     </p>
                   </div>
                 )}
 
                 {/* Metadata */}
-                <div className="flex flex-wrap gap-4 border-t border-white/10 pt-4 text-sm text-white/50">
-                  <div>
+                <div className="space-y-2 border-t border-white/10 pt-3 sm:pt-4 text-xs sm:text-sm text-white/50">
+                  <div className="break-all">
                     <span className="font-medium text-white/70">Session:</span>{' '}
-                    <span className="font-mono text-xs">{feedback.session_id}</span>
+                    <span className="font-mono text-[10px] sm:text-xs">{feedback.session_id}</span>
                   </div>
                   {feedback.device_id && (
-                    <div>
+                    <div className="break-all">
                       <span className="font-medium text-white/70">Device:</span>{' '}
-                      <span className="font-mono text-xs">{feedback.device_id}</span>
+                      <span className="font-mono text-[10px] sm:text-xs">{feedback.device_id}</span>
                     </div>
                   )}
                 </div>
@@ -176,25 +176,27 @@ export default function AdminFeedback() {
 
         {/* Pagination */}
         {feedbacks.length > 0 && (
-          <div className="mt-8 flex items-center justify-center gap-6">
+          <div className="mt-6 sm:mt-8 flex items-center justify-center gap-2 sm:gap-6">
             <Button
               onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="bg-gradient-to-r from-[var(--color-brand-500)] to-[var(--color-brand-600)] text-white hover:from-[var(--color-brand-600)] hover:to-[var(--color-brand-700)] disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]"
+              className="bg-gradient-to-r from-[var(--color-brand-500)] to-[var(--color-brand-600)] text-white hover:from-[var(--color-brand-600)] hover:to-[var(--color-brand-700)] disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm px-3 sm:px-4"
             >
-              ← Previous
+              <span className="hidden sm:inline">← Previous</span>
+              <span className="sm:hidden">←</span>
             </Button>
-            <div className="rounded-lg bg-gradient-to-br from-[var(--color-brand-900)]/60 to-[var(--color-brand-800)]/60 px-6 py-2 backdrop-blur-sm border border-white/20">
-              <span className="text-base font-semibold text-white">
+            <div className="rounded-lg bg-gradient-to-br from-[var(--color-brand-900)]/60 to-[var(--color-brand-800)]/60 px-3 sm:px-6 py-1.5 sm:py-2 backdrop-blur-sm border border-white/20">
+              <span className="text-sm sm:text-base font-semibold text-white">
                 Page {currentPage}
               </span>
             </div>
             <Button
               onClick={() => setCurrentPage((prev) => prev + 1)}
               disabled={feedbacks.length < itemsPerPage}
-              className="bg-gradient-to-r from-[var(--color-brand-500)] to-[var(--color-brand-600)] text-white hover:from-[var(--color-brand-600)] hover:to-[var(--color-brand-700)] disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]"
+              className="bg-gradient-to-r from-[var(--color-brand-500)] to-[var(--color-brand-600)] text-white hover:from-[var(--color-brand-600)] hover:to-[var(--color-brand-700)] disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm px-3 sm:px-4"
             >
-              Next →
+              <span className="hidden sm:inline">Next →</span>
+              <span className="sm:hidden">→</span>
             </Button>
           </div>
         )}
@@ -203,21 +205,22 @@ export default function AdminFeedback() {
       {/* Image Modal */}
       {selectedImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-2 sm:p-4 backdrop-blur-sm"
           onClick={() => setSelectedImage(null)}
         >
-          <div className="relative max-h-[90vh] max-w-6xl">
+          <div className="relative max-h-[90vh] w-full max-w-6xl">
             <button
               onClick={() => setSelectedImage(null)}
-              className="absolute -top-14 right-0 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-red-600 text-2xl font-bold text-white shadow-lg transition-all hover:from-red-600 hover:to-red-700 hover:scale-110"
+              className="absolute -top-12 sm:-top-14 right-0 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-red-600 text-xl sm:text-2xl font-bold text-white shadow-lg transition-all hover:from-red-600 hover:to-red-700 hover:scale-110"
               type="button"
+              aria-label="Close image"
             >
               ×
             </button>
             <img
               src={selectedImage}
               alt="Feedback screenshot enlarged"
-              className="max-h-[90vh] max-w-full rounded-xl object-contain shadow-2xl border-4 border-white/20"
+              className="max-h-[90vh] w-full max-w-full rounded-lg sm:rounded-xl object-contain shadow-2xl border-2 sm:border-4 border-white/20"
             />
           </div>
         </div>
