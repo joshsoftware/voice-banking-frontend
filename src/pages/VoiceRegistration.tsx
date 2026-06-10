@@ -49,6 +49,7 @@ export default function VoiceRegistration() {
   const rtcSessionIdRef = useRef<string | null>(null)
   const micStreamRef = useRef<MediaStream | null>(null)
   const connectingRtcRef = useRef(false)
+  const negotiatingRef = useRef(false)
   const imageFinalizeLockRef = useRef(false)
 
   const [imageIndex, setImageIndex] = useState(0)
@@ -101,8 +102,17 @@ export default function VoiceRegistration() {
     const enrollmentSid = enrollmentSessionIdRef.current
     const backendBase = getRegistrationBackendBase()
     if (!pc || !sid) return
-    const offer = await pc.createOffer()
-    await pc.setLocalDescription(offer)
+    
+    // Prevent concurrent negotiations
+    if (negotiatingRef.current) return
+    
+    // Only negotiate when connection is stable
+    if (pc.signalingState !== 'stable') return
+    
+    negotiatingRef.current = true
+    try {
+      const offer = await pc.createOffer()
+      await pc.setLocalDescription(offer)
     const accessToken = localStorage.getItem('voicebank.access_token')
     const offerRes = await fetch(`${backendBase}/sessions/${sid}/api/offer`, {
       method: 'POST',
@@ -129,6 +139,9 @@ export default function VoiceRegistration() {
       pcIdRef.current = answer.pc_id || answer.pcId
     }
     await pc.setRemoteDescription(new RTCSessionDescription(answer))
+    } finally {
+      negotiatingRef.current = false
+    }
   }, [])
 
   const startEnrollmentRealtime = useCallback(async () => {
@@ -276,7 +289,7 @@ export default function VoiceRegistration() {
       pc.onnegotiationneeded = () => {
         void negotiate().catch((e) => setMicError(e instanceof Error ? e.message : 'Negotiation failed'))
       }
-      await negotiate()
+      // Don't call negotiate() manually - it will be triggered automatically by negotiationneeded event
       setIsRtcReady(true)
     } catch (e) {
       disconnectRtc()
@@ -453,8 +466,10 @@ export default function VoiceRegistration() {
       }
       const data = await res.json()
       if (data.status === 'enrolled' || imageIndex >= VOICE_REGISTRATION_IMAGES.length - 1) {
+        setEnrollError(null)  // Clear any previous errors on success
         setPhase('success')
       } else {
+        setEnrollError(null)  // Clear errors when moving to next image
         setImageIndex((i) => i + 1)
       }
     } catch (e) {

@@ -1,6 +1,7 @@
 import './App.css'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { AdminProvider, useAdmin } from './contexts/AdminContext'
 import { LanguageProvider } from '@/i18n/LanguageProvider'
 import Welcome from './pages/Welcome'
 import OtpVerification from './pages/OtpVerification'
@@ -9,6 +10,8 @@ import LanguageSelect from './pages/LanguageSelect'
 import VoiceRegistration from './pages/VoiceRegistration'
 import Profile from './pages/Profile'
 import TermsAndConditions from './pages/TermsAndConditions'
+import AdminLogin from './pages/AdminLogin'
+import AdminFeedback from './pages/AdminFeedback'
 import { VoiceSessionProvider } from './contexts/VoiceSessionContext'
 import { PwaInstallPrompt } from './components/pwa/PwaInstallPrompt'
 
@@ -44,30 +47,50 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>
 }
 
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAdminAuthenticated, isLoading } = useAdmin()
+  
+  if (isLoading) {
+    return <div className="flex h-screen items-center justify-center text-white">Loading...</div>
+  }
+  
+  if (!isAdminAuthenticated) {
+    return <Navigate to="/admin/login" replace />
+  }
+
+  return <>{children}</>
+}
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <LanguageProvider>
-        <VoiceSessionProvider>
-          <PwaInstallPrompt />
-          <Routes>
-            <Route path="/" element={<PublicRoute><Navigate to="/welcome" replace /></PublicRoute>} />
-            <Route path="/welcome" element={<PublicRoute><Welcome /></PublicRoute>} />
-            <Route path="/verify-otp" element={<PublicRoute><OtpVerification /></PublicRoute>} />
-            <Route path="/terms" element={<TermsAndConditions />} />
-            
-            {/* Protected Routes */}
-            <Route path="/language" element={<ProtectedRoute><LanguageSelect /></ProtectedRoute>} />
-            <Route path="/home" element={<ProtectedRoute><Navigate to="/listening" replace /></ProtectedRoute>} />
-            <Route path="/listening" element={<ProtectedRoute><Listening /></ProtectedRoute>} />
-            <Route path="/voice-registration" element={<ProtectedRoute><VoiceRegistration /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            
-            <Route path="*" element={<Navigate to="/welcome" replace />} />
-          </Routes>
-        </VoiceSessionProvider>
-        </LanguageProvider>
+        <AdminProvider>
+          <LanguageProvider>
+            <VoiceSessionProvider>
+              <PwaInstallPrompt />
+              <Routes>
+                <Route path="/" element={<PublicRoute><Navigate to="/welcome" replace /></PublicRoute>} />
+                <Route path="/welcome" element={<PublicRoute><Welcome /></PublicRoute>} />
+                <Route path="/verify-otp" element={<PublicRoute><OtpVerification /></PublicRoute>} />
+                <Route path="/terms" element={<TermsAndConditions />} />
+                
+                {/* Protected Routes */}
+                <Route path="/language" element={<ProtectedRoute><LanguageSelect /></ProtectedRoute>} />
+                <Route path="/home" element={<ProtectedRoute><Navigate to="/listening" replace /></ProtectedRoute>} />
+                <Route path="/listening" element={<ProtectedRoute><Listening /></ProtectedRoute>} />
+                <Route path="/voice-registration" element={<ProtectedRoute><VoiceRegistration /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                
+                {/* Admin Routes */}
+                <Route path="/admin/login" element={<AdminLogin />} />
+                <Route path="/admin/feedback" element={<AdminRoute><AdminFeedback /></AdminRoute>} />
+                
+                <Route path="*" element={<Navigate to="/welcome" replace />} />
+              </Routes>
+            </VoiceSessionProvider>
+          </LanguageProvider>
+        </AdminProvider>
       </AuthProvider>
     </BrowserRouter>
   )

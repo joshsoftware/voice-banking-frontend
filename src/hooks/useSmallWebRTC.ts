@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { PipecatClient } from '@pipecat-ai/client-js'
 import { CustomSmallWebRTCTransport } from '@/lib/customTransport'
 import { API_BASE } from '@/lib/constants'
-import { getActiveCustomer, getPrimaryAccount, getPrimaryLoanAccount, isVoiceRegistered } from '@/lib/demoCustomer'
+import { getActiveCustomer, getLoanAccountForQuery, getPrimaryAccount, getPrimaryLoanAccount, isVoiceRegistered } from '@/lib/demoCustomer'
 import { getDeviceId } from '@/lib/device'
 import { useLanguage } from '@/i18n/LanguageHooks'
 import { LANGUAGE_IDS, type LanguageId } from '@/i18n/languages'
@@ -418,8 +418,9 @@ export function useSmallWebRTC() {
     return Array.isArray(list) ? list.slice(0, requestedSize) : []
   }, [primaryAccount?.account_id])
 
-  const fetchLoanTransactions = useCallback(async (): Promise<TransactionItem[]> => {
-    if (!primaryLoanAccount?.account_id) return []
+  const fetchLoanTransactions = useCallback(async (queryText: string): Promise<TransactionItem[]> => {
+    const loanAccount = (activeCustomerId ? getLoanAccountForQuery(activeCustomerId, queryText) : null) ?? primaryLoanAccount
+    if (!loanAccount?.account_id) return []
     const accessToken = localStorage.getItem('voicebank.access_token')
     const toDate = new Date().toISOString().slice(0, 10)
 
@@ -430,7 +431,7 @@ export function useSmallWebRTC() {
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify({
-        accountId: primaryLoanAccount.account_id,
+        accountId: loanAccount.account_id,
         fromDate: '2022-01-01',
         toDate,
         page: 0,
@@ -463,7 +464,7 @@ export function useSmallWebRTC() {
       }))
       .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
       .slice(0, 5)
-  }, [primaryLoanAccount?.account_id])
+  }, [activeCustomerId, primaryLoanAccount])
 
   const pushAssistantMessage = useCallback(
     async (text: string) => {
@@ -525,7 +526,7 @@ export function useSmallWebRTC() {
 
       try {
         if (needsLoanStatement) {
-          const loanTransactions = await fetchLoanTransactions()
+          const loanTransactions = await fetchLoanTransactions(userIntentText)
           // Table only in chat — bot audio/TTS continues unchanged.
           const displayText = loanTransactions.length ? '' : normalized
           pushMsg(
