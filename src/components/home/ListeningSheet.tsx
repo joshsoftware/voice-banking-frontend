@@ -40,6 +40,52 @@ function formatMessageTime(ts: number): string {
   }).format(new Date(ts))
 }
 
+function parseMarkdownLinks(text: string | undefined, isAssistant: boolean) {
+  if (!text) return ''
+  
+  const parts = []
+  const regex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g
+  let lastIndex = 0
+  let match
+
+  const linkClass = isAssistant 
+    ? 'text-white underline font-semibold hover:text-white/80 transition-colors' 
+    : 'text-[var(--color-brand-500)] underline font-semibold hover:text-[var(--color-brand-300)] transition-colors'
+
+  while ((match = regex.exec(text)) !== null) {
+    const matchIndex = match.index
+    
+    // Add text before the match
+    if (matchIndex > lastIndex) {
+      parts.push(text.substring(lastIndex, matchIndex))
+    }
+
+    // Add the link
+    const linkText = match[1]
+    const linkUrl = match[2]
+    parts.push(
+      <a
+        key={matchIndex}
+        href={linkUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={linkClass}
+      >
+        {linkText}
+      </a>
+    )
+
+    lastIndex = regex.lastIndex
+  }
+
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex))
+  }
+
+  return parts.length > 0 ? parts : text
+}
+
 // ─── Chat bubble ──────────────────────────────────────────────────────────────
 
 function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
@@ -50,7 +96,7 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
     return (
       <div className="max-w-[80%] rounded-2xl bg-[var(--color-brand-500)] px-4 py-2 text-sm leading-snug text-white shadow-sm">
         <div className="flex items-end justify-between gap-2">
-          <div className="flex-1 whitespace-pre-line">{msg.text}</div>
+          <div className="flex-1 whitespace-pre-line">{parseMarkdownLinks(msg.text, true)}</div>
           <div className="shrink-0 self-end text-[10px] text-white/60 leading-none">
             {formatMessageTime(msg.ts)}
           </div>
@@ -63,7 +109,7 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
     <div className="max-w-[85%] rounded-2xl bg-[var(--color-brand-500)] p-3 text-white shadow-sm">
       {msg.text ? (
         <div className="mb-2 whitespace-pre-line text-sm leading-snug text-white">
-          {msg.text}
+          {parseMarkdownLinks(msg.text, true)}
         </div>
       ) : null}
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/85">{heading}</div>
@@ -106,7 +152,7 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
       ) : (
         <div className="max-w-[80%] rounded-2xl bg-[var(--color-surface-app)] px-4 py-2 text-sm leading-snug text-[var(--color-brand-900)] shadow-sm">
           <div className="flex items-end justify-between gap-2">
-            <div className="flex-1 whitespace-pre-line">{msg.text}</div>
+            <div className="flex-1 whitespace-pre-line">{parseMarkdownLinks(msg.text, false)}</div>
             <div className="shrink-0 self-end text-[10px] text-gray-500/70 leading-none">
               {formatMessageTime(msg.ts)}
             </div>
