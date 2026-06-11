@@ -182,6 +182,7 @@ export function ListeningSheet({
   const MAX_VH = 72
   const DEFAULT_VH = 65
   const [sheetVh, setSheetVh] = useState(DEFAULT_VH)
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false)
   const dragStartY = useRef<number | null>(null)
   const dragStartVh = useRef<number>(DEFAULT_VH)
 
@@ -303,7 +304,7 @@ export function ListeningSheet({
         {onClose && (
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => setShowCloseConfirm(true)}
             className="absolute top-4 right-4 z-10 grid size-8 place-items-center rounded-full bg-black/5 hover:bg-black/10 active:bg-black/15 transition-colors"
             aria-label={t('close')}
           >
@@ -484,6 +485,48 @@ export function ListeningSheet({
           </div>
         </div>
       </div>
+      {showCloseConfirm && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowCloseConfirm(false)
+          }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-gray-100 flex flex-col items-center text-center transform scale-100 transition-all duration-300">
+            {/* Warning icon container */}
+            <div className="grid size-14 place-items-center rounded-full bg-red-50 text-red-500 mb-4">
+              <svg className="size-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+
+            <h3 className="text-lg font-bold text-gray-900 mb-2">{t('confirmEndSessionTitle')}</h3>
+            <p className="text-sm text-[var(--color-text-muted-1)] mb-6 leading-relaxed">
+              {t('confirmEndSessionMessage')}
+            </p>
+
+            <div className="flex w-full gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCloseConfirm(false)}
+                className="flex-1 py-3 text-sm font-semibold rounded-xl bg-[var(--color-surface-app)] text-[var(--color-brand-900)] hover:bg-gray-200 active:scale-[0.98] transition-all"
+              >
+                {t('confirmEndSessionCancel')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCloseConfirm(false)
+                  onClose?.()
+                }}
+                className="flex-1 py-3 text-sm font-semibold rounded-xl bg-red-600 text-white hover:bg-red-700 active:scale-[0.98] transition-all shadow-md shadow-red-600/20"
+              >
+                {t('confirmEndSessionConfirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
