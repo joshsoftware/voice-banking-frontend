@@ -315,6 +315,36 @@ export function getPrimaryLoanAccount(customerId: string): DemoLoanAccount | nul
   return loans.find((loan) => loan.account_status === 'ACTIVE') ?? loans[0] ?? null
 }
 
+// Maps spoken loan-type keywords to the loan_type values used in LOANS.
+const LOAN_TYPE_KEYWORDS: Record<string, RegExp> = {
+  HOME_LOAN: /\bhome\b/,
+  PERSONAL_LOAN: /\bpersonal\b/,
+  CAR_LOAN: /\bcar\b|\bauto\b|\bvehicle\b/,
+  EDUCATION_LOAN: /\beducation\b|\bstudy\b|\bstudent\b/,
+  BUSINESS_LOAN: /\bbusiness\b|\bsme\b/,
+}
+
+/**
+ * Picks the loan account matching a loan type mentioned in the user's query
+ * (e.g. "home loan statement"), so customers with multiple loans aren't always
+ * routed to their primary loan account. Falls back to the primary loan account
+ * when no loan type is mentioned or no matching loan exists.
+ */
+export function getLoanAccountForQuery(customerId: string, queryText: string): DemoLoanAccount | null {
+  const loans = getLoanAccountsForCustomer(customerId)
+  if (!loans.length) return null
+
+  const normalized = queryText.toLowerCase()
+  for (const [loanType, pattern] of Object.entries(LOAN_TYPE_KEYWORDS)) {
+    if (!pattern.test(normalized)) continue
+    const match = loans.find((loan) => loan.loan_type === loanType && loan.account_status === 'ACTIVE')
+      ?? loans.find((loan) => loan.loan_type === loanType)
+    if (match) return match
+  }
+
+  return getPrimaryLoanAccount(customerId)
+}
+
 export function setActiveCustomerByPhone(
   phone: string, 
   voice_customer_id?: string, 

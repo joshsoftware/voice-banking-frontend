@@ -40,6 +40,52 @@ function formatMessageTime(ts: number): string {
   }).format(new Date(ts))
 }
 
+function parseMarkdownLinks(text: string | undefined, isAssistant: boolean) {
+  if (!text) return ''
+  
+  const parts = []
+  const regex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g
+  let lastIndex = 0
+  let match
+
+  const linkClass = isAssistant 
+    ? 'text-white underline font-semibold hover:text-white/80 transition-colors' 
+    : 'text-[var(--color-brand-500)] underline font-semibold hover:text-[var(--color-brand-300)] transition-colors'
+
+  while ((match = regex.exec(text)) !== null) {
+    const matchIndex = match.index
+    
+    // Add text before the match
+    if (matchIndex > lastIndex) {
+      parts.push(text.substring(lastIndex, matchIndex))
+    }
+
+    // Add the link
+    const linkText = match[1]
+    const linkUrl = match[2]
+    parts.push(
+      <a
+        key={matchIndex}
+        href={linkUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={linkClass}
+      >
+        {linkText}
+      </a>
+    )
+
+    lastIndex = regex.lastIndex
+  }
+
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex))
+  }
+
+  return parts.length > 0 ? parts : text
+}
+
 // ─── Chat bubble ──────────────────────────────────────────────────────────────
 
 function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
@@ -50,7 +96,7 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
     return (
       <div className="max-w-[80%] rounded-2xl bg-[var(--color-brand-500)] px-4 py-2 text-sm leading-snug text-white shadow-sm">
         <div className="flex items-end justify-between gap-2">
-          <div className="flex-1 whitespace-pre-line">{msg.text}</div>
+          <div className="flex-1 whitespace-pre-line">{parseMarkdownLinks(msg.text, true)}</div>
           <div className="shrink-0 self-end text-[10px] text-white/60 leading-none">
             {formatMessageTime(msg.ts)}
           </div>
@@ -63,7 +109,7 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
     <div className="max-w-[85%] rounded-2xl bg-[var(--color-brand-500)] p-3 text-white shadow-sm">
       {msg.text ? (
         <div className="mb-2 whitespace-pre-line text-sm leading-snug text-white">
-          {msg.text}
+          {parseMarkdownLinks(msg.text, true)}
         </div>
       ) : null}
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/85">{heading}</div>
@@ -106,7 +152,7 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
       ) : (
         <div className="max-w-[80%] rounded-2xl bg-[var(--color-surface-app)] px-4 py-2 text-sm leading-snug text-[var(--color-brand-900)] shadow-sm">
           <div className="flex items-end justify-between gap-2">
-            <div className="flex-1 whitespace-pre-line">{msg.text}</div>
+            <div className="flex-1 whitespace-pre-line">{parseMarkdownLinks(msg.text, false)}</div>
             <div className="shrink-0 self-end text-[10px] text-gray-500/70 leading-none">
               {formatMessageTime(msg.ts)}
             </div>
@@ -182,6 +228,7 @@ export function ListeningSheet({
   const MAX_VH = 72
   const DEFAULT_VH = 65
   const [sheetVh, setSheetVh] = useState(DEFAULT_VH)
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false)
   const dragStartY = useRef<number | null>(null)
   const dragStartVh = useRef<number>(DEFAULT_VH)
 
@@ -304,7 +351,8 @@ export function ListeningSheet({
           <button
             type="button"
             data-testid="listening-close-btn"
-            onClick={onClose}
+            // onClick={onClose}
+            onClick={() => setShowCloseConfirm(true)}
             className="absolute top-4 right-4 z-10 grid size-8 place-items-center rounded-full bg-black/5 hover:bg-black/10 active:bg-black/15 transition-colors"
             aria-label={t('close')}
           >
@@ -489,6 +537,48 @@ export function ListeningSheet({
           </div>
         </div>
       </div>
+      {showCloseConfirm && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowCloseConfirm(false)
+          }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-gray-100 flex flex-col items-center text-center transform scale-100 transition-all duration-300">
+            {/* Warning icon container */}
+            <div className="grid size-14 place-items-center rounded-full bg-red-50 text-red-500 mb-4">
+              <svg className="size-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+
+            <h3 className="text-lg font-bold text-gray-900 mb-2">{t('confirmEndSessionTitle')}</h3>
+            <p className="text-sm text-[var(--color-text-muted-1)] mb-6 leading-relaxed">
+              {t('confirmEndSessionMessage')}
+            </p>
+
+            <div className="flex w-full gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCloseConfirm(false)}
+                className="flex-1 py-3 text-sm font-semibold rounded-xl bg-[var(--color-surface-app)] text-[var(--color-brand-900)] hover:bg-gray-200 active:scale-[0.98] transition-all"
+              >
+                {t('confirmEndSessionCancel')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCloseConfirm(false)
+                  onClose?.()
+                }}
+                className="flex-1 py-3 text-sm font-semibold rounded-xl bg-red-600 text-white hover:bg-red-700 active:scale-[0.98] transition-all shadow-md shadow-red-600/20"
+              >
+                {t('confirmEndSessionConfirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -440,6 +440,7 @@ export default function VoiceRegistration() {
   }
 
   const handleImageSubmit = async () => {
+    if (submitLoading) return
     if (!enrollmentSessionIdRef.current) {
       setEnrollError('Enrollment session is not active. Tap mic again to start.')
       return
@@ -555,6 +556,7 @@ export default function VoiceRegistration() {
               onTapMic={handleTapImageMic}
               onRerecord={handleRerecord}
               onSubmit={() => void handleImageSubmit()}
+              isSubmitting={submitLoading}
             />
             {micError ? (
               <div className="mx-auto mt-3 max-w-[320px] rounded-xl bg-red-50 px-4 py-3 text-center">

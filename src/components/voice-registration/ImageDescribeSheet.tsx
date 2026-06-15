@@ -12,6 +12,7 @@ interface ImageDescribeSheetProps {
   onTapMic: () => void
   onRerecord: () => void
   onSubmit: () => void
+  isSubmitting?: boolean
 }
 
 export function ImageDescribeSheet({
@@ -22,6 +23,7 @@ export function ImageDescribeSheet({
   onTapMic,
   onRerecord,
   onSubmit,
+  isSubmitting = false,
 }: ImageDescribeSheetProps) {
   const { t } = useTranslation()
 
@@ -81,18 +83,30 @@ export function ImageDescribeSheet({
               <button
                 type="button"
                 data-testid="voice-registration-rerecord-btn"
+                disabled={isSubmitting}
                 onClick={onRerecord}
-                className="h-12 flex-1 rounded-full border-2 border-[var(--color-brand-500)] bg-white text-sm font-semibold text-[var(--color-brand-500)] transition-colors hover:bg-[rgba(32,114,178,0.06)]"
+                className="h-12 flex-1 rounded-full border-2 border-[var(--color-brand-500)] bg-white text-sm font-semibold text-[var(--color-brand-500)] transition-colors hover:bg-[rgba(32,114,178,0.06)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t('voiceRegistrationRerecord')}
               </button>
               <button
                 type="button"
                 data-testid="voice-registration-submit-btn"
+                disabled={isSubmitting}
                 onClick={onSubmit}
-                className="h-12 flex-1 rounded-full bg-[var(--color-success-from)] text-sm font-semibold text-white shadow-md transition-colors hover:opacity-95"
+                className="h-12 flex-1 rounded-full bg-[var(--color-success-from)] text-sm font-semibold text-white shadow-md transition-colors hover:opacity-95 disabled:bg-[#c8d4e2] disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {t('voiceRegistrationSubmit')}
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>{t('voiceRegistrationSubmitting')}</span>
+                  </>
+                ) : (
+                  t('voiceRegistrationSubmit')
+                )}
               </button>
             </div>
           )}
