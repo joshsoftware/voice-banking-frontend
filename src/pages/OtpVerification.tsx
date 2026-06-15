@@ -94,6 +94,7 @@ export default function OtpVerification() {
         {/* Back Button */}
         <button
           type="button"
+          data-testid="otp-back-btn"
           onClick={() => navigate('/welcome')}
           className="inline-flex items-center gap-2 text-base font-medium transition-opacity hover:opacity-80"
         >
@@ -129,6 +130,7 @@ export default function OtpVerification() {
                   ref={(el) => {
                     inputRefs.current[index] = el
                   }}
+                  data-testid={`otp-digit-input-${index + 1}`}
                   type="tel"
                   inputMode="numeric"
                   maxLength={1}
@@ -154,7 +156,7 @@ export default function OtpVerification() {
 
           {/* Bottom Section */}
           <div className="w-full space-y-3">
-            <Button type="submit" variant="primary" className="w-full" disabled={isLoading}>
+            <Button type="submit" data-testid="otp-verify-btn" variant="primary" className="w-full" disabled={isLoading}>
               {isLoading ? 'Verifying...' : t('continue')}
             </Button>
             <p className="px-2 text-center text-sm leading-5 text-white/90">

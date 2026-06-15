@@ -19,6 +19,7 @@ export function VoiceSheet({ onStart }: VoiceSheetProps) {
               <div className="w-64 rounded-[52px] bg-[var(--color-surface-card)] px-4 py-3 shadow-[var(--shadow-voice-btn)]">
                 <button
                   type="button"
+                  data-testid="home-start-voice-btn"
                   aria-label={t('ariaStartVoiceConversation')}
                   onClick={onStart}
                   className="flex h-16 w-full items-center justify-center rounded-full [background:var(--gradient-mic)] shadow-[var(--shadow-mic)] transition-transform hover:scale-105 active:scale-95"

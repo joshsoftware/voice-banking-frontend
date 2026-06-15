@@ -65,6 +65,7 @@ export default function LanguageSelect() {
           {!isNewUser ? (
             <button
               type="button"
+              data-testid="language-back-btn"
               onClick={() => navigate('/home')}
               className="inline-flex items-center gap-2 text-base font-medium text-[var(--color-brand-900)] transition-opacity hover:opacity-80"
             >
@@ -89,6 +90,7 @@ export default function LanguageSelect() {
                 <button
                   key={opt.id}
                   type="button"
+                  data-testid={`language-select-btn-${opt.id}`}
                   onClick={() => {
                     setSelected(opt.id)
                     setLanguage(opt.id)
@@ -121,6 +123,7 @@ export default function LanguageSelect() {
         <div className="mt-auto pt-10 relative z-10">
           <Button
             type="button"
+            data-testid="language-continue-btn"
             variant="primary"
             className="h-16 w-full rounded-full bg-[var(--color-brand-500)] text-white shadow-[var(--shadow-card)] hover:bg-[var(--color-brand-400)] relative z-10"
             onClick={handleContinue}

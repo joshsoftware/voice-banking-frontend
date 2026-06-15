@@ -50,6 +50,7 @@ export default function AdminLogin() {
               </label>
               <Input
                 id="username"
+                data-testid="admin-username-input"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -66,6 +67,7 @@ export default function AdminLogin() {
               </label>
               <Input
                 id="password"
+                data-testid="admin-password-input"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -84,6 +86,7 @@ export default function AdminLogin() {
 
             <Button 
               type="submit" 
+              data-testid="admin-signin-btn"
               variant="primary" 
               className="w-full h-12 text-base font-semibold mt-6" 
               disabled={isLoading}

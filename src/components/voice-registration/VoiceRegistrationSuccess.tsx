@@ -66,6 +66,7 @@ export function VoiceRegistrationSuccess({
       <div className="mt-auto w-full max-w-[320px] pt-8">
         <Button
           type="button"
+          data-testid="voice-registration-start-banking-btn"
           variant="primary"
           disabled={isSubmitting}
           className="h-14 w-full rounded-full bg-[var(--color-brand-900)] text-base font-semibold text-white hover:opacity-95 disabled:opacity-60"

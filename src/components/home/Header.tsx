@@ -58,6 +58,7 @@ export function Header({
         {showMuteButton ? (
           <button
             type="button"
+            data-testid="home-mute-toggle-btn"
             aria-label={isMuted ? t('ariaUnmute') : t('ariaMute')}
             onClick={onToggleMute}
             className="grid size-10 place-items-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
@@ -71,6 +72,7 @@ export function Header({
         ) : (
           <button
             type="button"
+            data-testid="home-language-btn"
             aria-label={t('ariaOpenLanguageSettings')}
             className="grid size-10 place-items-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
             onClick={() => navigate('/language')}
@@ -82,6 +84,7 @@ export function Header({
         <div className="relative" ref={menuRef}>
           <button
             type="button"
+            data-testid="home-user-menu-btn"
             aria-label={t('ariaOpenUserActions')}
             onClick={() => setMenuOpen((v) => !v)}
             className="grid size-10 place-items-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
@@ -94,6 +97,7 @@ export function Header({
               {canUnregisterVoice && onUnregisterVoice ? (
                 <button
                   type="button"
+                  data-testid="home-menu-unregister-voice"
                   className="w-full px-4 py-2 text-left text-sm font-medium text-amber-700 hover:bg-gray-100"
                   onClick={() => {
                     setMenuOpen(false)
@@ -105,6 +109,7 @@ export function Header({
               ) : (
                 <button
                   type="button"
+                  data-testid="home-menu-register-voice"
                   className="w-full px-4 py-2 text-left text-sm font-medium hover:bg-gray-100"
                   onClick={() => {
                     setMenuOpen(false)
@@ -116,6 +121,7 @@ export function Header({
               )}
               <button
                 type="button"
+                data-testid="home-menu-view-profile"
                 className="w-full px-4 py-2 text-left text-sm font-medium hover:bg-gray-100"
                 onClick={() => {
                   setMenuOpen(false)
@@ -126,6 +132,7 @@ export function Header({
               </button>
               <button
                 type="button"
+                data-testid="home-menu-logout"
                 className="w-full px-4 py-2 text-left text-sm font-medium text-red-600 hover:bg-gray-100"
                 onClick={() => {
                   setMenuOpen(false)
