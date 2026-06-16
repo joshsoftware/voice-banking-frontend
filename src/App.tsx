@@ -29,19 +29,63 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>
 }
 
-const PublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isNewUser, preferredLanguage, isVoiceprintRegistered, isLoading, user } = useAuth()
+const OnboardingRoute = ({ 
+  children, 
+  requiresLanguage = false,
+  requiresVoice = false 
+}: { 
+  children: React.ReactNode
+  requiresLanguage?: boolean
+  requiresVoice?: boolean
+}) => {
+  const { isAuthenticated, preferredLanguage, isVoiceprintRegistered, isLoading, user } = useAuth()
   
   if (isLoading) return <div className="flex h-screen items-center justify-center text-white">Loading...</div>
   
-  if (isAuthenticated) {
-    if (isNewUser || !preferredLanguage) {
-      return <Navigate to="/language" replace />
-    } else if (!isVoiceprintRegistered && !(user?.customer_id && isVoiceSkipAllowed(user.customer_id))) {
+  if (!isAuthenticated) {
+    return <Navigate to="/welcome" replace />
+  }
+
+  // For /language: redirect forward if already has language
+  if (!requiresLanguage && !requiresVoice && preferredLanguage) {
+    // User is on /language but already has language, move forward
+    if (!isVoiceprintRegistered && !(user?.customer_id && isVoiceSkipAllowed(user.customer_id))) {
       return <Navigate to="/voice-registration" replace />
-    } else {
+    }
+    return <Navigate to="/listening" replace />
+  }
+
+  // For /voice-registration: redirect back if no language, forward if already registered
+  if (requiresLanguage && !requiresVoice) {
+    if (!preferredLanguage) {
+      return <Navigate to="/language" replace />
+    }
+    if (isVoiceprintRegistered || (user?.customer_id && isVoiceSkipAllowed(user.customer_id))) {
       return <Navigate to="/listening" replace />
     }
+  }
+
+  // For /listening: redirect back if onboarding incomplete
+  if (requiresLanguage && requiresVoice) {
+    if (!preferredLanguage) {
+      return <Navigate to="/language" replace />
+    }
+    if (!isVoiceprintRegistered && !(user?.customer_id && isVoiceSkipAllowed(user.customer_id))) {
+      return <Navigate to="/voice-registration" replace />
+    }
+  }
+
+  return <>{children}</>
+}
+
+const PublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, isLoading } = useAuth()
+  
+  if (isLoading) return <div className="flex h-screen items-center justify-center text-white">Loading...</div>
+  
+  // If authenticated, send to /language - OnboardingRoute will forward them if needed
+  if (isAuthenticated) {
+    return <Navigate to="/language" replace />
   }
 
   return <>{children}</>
@@ -75,11 +119,11 @@ function App() {
                 <Route path="/verify-otp" element={<PublicRoute><OtpVerification /></PublicRoute>} />
                 <Route path="/terms" element={<TermsAndConditions />} />
                 
-                {/* Protected Routes */}
-                <Route path="/language" element={<ProtectedRoute><LanguageSelect /></ProtectedRoute>} />
-                <Route path="/home" element={<ProtectedRoute><Navigate to="/listening" replace /></ProtectedRoute>} />
-                <Route path="/listening" element={<ProtectedRoute><Listening /></ProtectedRoute>} />
-                <Route path="/voice-registration" element={<ProtectedRoute><VoiceRegistration /></ProtectedRoute>} />
+                {/* Protected Routes - onboarding flow */}
+                <Route path="/language" element={<OnboardingRoute><LanguageSelect /></OnboardingRoute>} />
+                <Route path="/voice-registration" element={<OnboardingRoute requiresLanguage><VoiceRegistration /></OnboardingRoute>} />
+                <Route path="/listening" element={<OnboardingRoute requiresLanguage requiresVoice><Listening /></OnboardingRoute>} />
+                <Route path="/home" element={<OnboardingRoute requiresLanguage requiresVoice><Navigate to="/listening" replace /></OnboardingRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
                 
                 {/* Admin Routes */}
