@@ -723,7 +723,7 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     voiceSheetSayHeyFin: '“Hey, Fin” বলুন',
     voiceSheetToStartConversation: 'কথোপকথন শুরু করতে',
 
-    availableBalance: 'উপলব্ধ ব্যালেন্স',
+    availableBalance: 'উপলব্ধ জের',
     savingsAccount: 'সেভিংস অ্যাকাউন্ট',
     viewDetails: 'বিস্তারিত দেখুন',
     recentTransactions: 'সাম্প্রতিক লেনদেন',
