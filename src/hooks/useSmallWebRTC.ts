@@ -876,7 +876,7 @@ export function useSmallWebRTC() {
               return prev.filter(m => !(m.role === 'assistant' && m.ts >= cutoff))
             })
             // Push a single authoritative error message
-            pushMsg('assistant', 'Not authorised or Voice print not matched')
+            pushMsg('assistant', 'Not authorised')
           }
         } else if (data?.type === 'OTP_REQUIRED') {
           console.log('[SmallWebRTC] OTP Required:', data)
