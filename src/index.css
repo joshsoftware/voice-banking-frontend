@@ -89,3 +89,29 @@ body {
   overscroll-behavior: contain;
   touch-action: pan-x;
 }
+
+/* ─── Themed Scrollbar ────────────────────────────────────────── */
+.themed-scrollbar {
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-brand-500) rgba(255, 255, 255, 0.05);
+}
+
+.themed-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.themed-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.themed-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-brand-500);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.themed-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-400);
+}
