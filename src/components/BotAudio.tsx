@@ -3,13 +3,14 @@ import type { PipecatClient } from '@pipecat-ai/client-js'
 
 interface BotAudioProps {
   client: PipecatClient | null
+  isMuted?: boolean
 }
 
 /**
  * Component that plays bot audio from the PipecatClient
  * Must be rendered when a WebRTC connection is active
  */
-export function BotAudio({ client }: BotAudioProps) {
+export function BotAudio({ client, isMuted = false }: BotAudioProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const [hasSetup, setHasSetup] = useState(false)
 
@@ -52,20 +53,23 @@ export function BotAudio({ client }: BotAudioProps) {
           audioRef.current.volume = 1.0
           setHasSetup(true)
           
-          // CRITICAL: Ensure the element is unmuted and playing
-          audioRef.current.muted = false;
+          // Apply current mute state
+          audioRef.current.muted = isMuted
           
-          audioRef.current.play().then(() => {
-            console.log('[BotAudio] Audio playing successfully')
-          }).catch((err) => {
-            console.warn('[BotAudio] Autoplay prevented:', err.message)
-            // Fallback: simple global click listener to resume
-            const resume = () => {
-              audioRef.current?.play().catch(() => {});
-              document.removeEventListener('click', resume);
-            };
-            document.addEventListener('click', resume);
-          })
+          // Only play if not muted
+          if (!isMuted) {
+            audioRef.current.play().then(() => {
+              console.log('[BotAudio] Audio playing successfully')
+            }).catch((err) => {
+              console.warn('[BotAudio] Autoplay prevented:', err.message)
+              // Fallback: simple global click listener to resume
+              const resume = () => {
+                audioRef.current?.play().catch(() => {});
+                document.removeEventListener('click', resume);
+              };
+              document.addEventListener('click', resume);
+            })
+          }
         }
       } catch (err) {
         console.error('[BotAudio] Error accessing tracks:', err)
@@ -103,7 +107,27 @@ export function BotAudio({ client }: BotAudioProps) {
       }
       setHasSetup(false)
     }
-  }, [client, hasSetup])
+  }, [client, hasSetup, isMuted])
+
+  // Handle mute state changes
+  useEffect(() => {
+    if (!audioRef.current) return
+    
+    audioRef.current.muted = isMuted
+    
+    // CRITICAL FIX: Resume playback when unmuting
+    if (!isMuted && audioRef.current.srcObject) {
+      audioRef.current.play().catch((err) => {
+        console.warn('[BotAudio] Failed to resume audio on unmute:', err.message)
+        // Fallback: resume on next user interaction
+        const resume = () => {
+          audioRef.current?.play().catch(() => {})
+          document.removeEventListener('click', resume)
+        }
+        document.addEventListener('click', resume)
+      })
+    }
+  }, [isMuted])
 
   return <audio ref={audioRef} autoPlay playsInline />
 }

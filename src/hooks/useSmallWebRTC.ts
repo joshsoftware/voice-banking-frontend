@@ -766,17 +766,23 @@ export function useSmallWebRTC() {
         }
         const stream = new MediaStream([track])
         audioElRef.current.srcObject = stream
-        audioElRef.current.muted = false
         audioElRef.current.volume = 1.0
-        audioElRef.current.play().catch(err => {
-          console.warn('[SmallWebRTC] Bot audio autoplay blocked:', err.message)
-          // Resume on next user interaction
-          const resume = () => {
-            audioElRef.current?.play().catch(() => { })
-            document.removeEventListener('click', resume)
-          }
-          document.addEventListener('click', resume)
-        })
+        
+        // Apply current mute state (isMuted is managed by React state)
+        audioElRef.current.muted = isMuted
+        
+        // Only play if not muted
+        if (!isMuted) {
+          audioElRef.current.play().catch(err => {
+            console.warn('[SmallWebRTC] Bot audio autoplay blocked:', err.message)
+            // Resume on next user interaction
+            const resume = () => {
+              audioElRef.current?.play().catch(() => { })
+              document.removeEventListener('click', resume)
+            }
+            document.addEventListener('click', resume)
+          })
+        }
       })
 
       // Transcript events
@@ -1177,6 +1183,19 @@ export function useSmallWebRTC() {
     // The mic and WebRTC connection stay active so the bot can still hear and process.
     if (audioElRef.current) {
       audioElRef.current.muted = newMutedState
+      
+      // CRITICAL FIX: Resume playback when unmuting
+      if (!newMutedState && audioElRef.current.srcObject) {
+        audioElRef.current.play().catch((err) => {
+          console.warn('[SmallWebRTC] Failed to resume audio on unmute:', err.message)
+          // Fallback: resume on next user interaction
+          const resume = () => {
+            audioElRef.current?.play().catch(() => {})
+            document.removeEventListener('click', resume)
+          }
+          document.addEventListener('click', resume)
+        })
+      }
     }
 
     setIsMuted(newMutedState)
