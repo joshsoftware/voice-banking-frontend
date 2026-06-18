@@ -76,6 +76,7 @@ export default function Welcome() {
               </div>
               <Input
                 id="phone"
+                data-testid="welcome-phone-input"
                 type="tel"
                 inputMode="numeric"
                 maxLength={10}
@@ -95,7 +96,7 @@ export default function Welcome() {
 
           {/* Bottom Section */}
           <div className="mt-6 space-y-4">
-            <Button type="submit" variant="primary" className="w-full" disabled={isLoading}>
+            <Button type="submit" data-testid="welcome-send-otp-btn" variant="primary" className="w-full" disabled={isLoading}>
               {isLoading ? 'Sending...' : t('sendOtp')}
             </Button>
 
@@ -103,6 +104,7 @@ export default function Welcome() {
               {t('termsPrefix')}{' '}
               <Link
                 to="/terms"
+                data-testid="welcome-terms-link"
                 className="font-semibold underline decoration-solid [text-decoration-skip-ink:none]"
               >
                 {t('termsLink')}

@@ -10,6 +10,7 @@ export default function TermsAndConditions() {
       <div className="relative flex h-full min-h-screen flex-col px-6 pb-8 pt-6 text-white md:min-h-[var(--device-height)]">
         <button
           type="button"
+          data-testid="terms-back-btn"
           onClick={() => navigate(-1)}
           className="inline-flex items-center gap-2 text-base font-medium transition-opacity hover:opacity-80"
         >

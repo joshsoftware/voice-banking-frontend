@@ -38,6 +38,7 @@ export function ImageDescribeSheet({
               <div className="w-full rounded-[52px] bg-[var(--color-surface-card)] px-2 py-2 shadow-[var(--shadow-voice-btn)]">
                 <button
                   type="button"
+                  data-testid="voice-registration-mic-btn"
                   aria-label={t('voiceRegistrationStartSpeaking')}
                   onClick={onTapMic}
                   className="flex h-16 w-full items-center justify-center rounded-full [background:var(--gradient-mic)] shadow-[var(--shadow-mic)] transition-transform active:scale-95"
@@ -81,6 +82,7 @@ export function ImageDescribeSheet({
             <div className="flex w-full gap-3 pt-1">
               <button
                 type="button"
+                data-testid="voice-registration-rerecord-btn"
                 disabled={isSubmitting}
                 onClick={onRerecord}
                 className="h-12 flex-1 rounded-full border-2 border-[var(--color-brand-500)] bg-white text-sm font-semibold text-[var(--color-brand-500)] transition-colors hover:bg-[rgba(32,114,178,0.06)] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -89,6 +91,7 @@ export function ImageDescribeSheet({
               </button>
               <button
                 type="button"
+                data-testid="voice-registration-submit-btn"
                 disabled={isSubmitting}
                 onClick={onSubmit}
                 className="h-12 flex-1 rounded-full bg-[var(--color-success-from)] text-sm font-semibold text-white shadow-md transition-colors hover:opacity-95 disabled:bg-[#c8d4e2] disabled:cursor-not-allowed flex items-center justify-center gap-2"

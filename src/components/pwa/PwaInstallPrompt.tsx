@@ -124,6 +124,7 @@ export function PwaInstallPrompt() {
         <div className="mt-4 flex items-center justify-end gap-2">
           <button
             type="button"
+            data-testid="pwa-not-now-btn"
             onClick={handleClose}
             className="rounded-lg px-3 py-2 text-sm font-medium text-[var(--color-text-muted-2)] hover:bg-gray-100"
           >
@@ -132,6 +133,7 @@ export function PwaInstallPrompt() {
           {!isManualMode && (
             <button
               type="button"
+              data-testid="pwa-install-btn"
               onClick={() => void handleInstall()}
               disabled={isInstalling}
               className="rounded-lg bg-[var(--color-brand-300)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"

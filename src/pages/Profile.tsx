@@ -15,6 +15,7 @@ export default function Profile() {
       <div className="flex h-full min-h-screen flex-col overflow-y-auto mobile-scroll bg-[var(--color-surface-app)] px-6 pb-10 pt-6 text-[var(--color-brand-900)] md:h-[var(--device-height)] md:min-h-[var(--device-height)]">
         <button
           type="button"
+          data-testid="profile-back-btn"
           onClick={() => navigate('/home')}
           className="inline-flex items-center gap-2 text-base font-medium text-[var(--color-brand-900)]"
         >
@@ -44,6 +45,7 @@ export default function Profile() {
 
         <div className="mt-auto pt-6">
           <Button 
+            data-testid="profile-logout-btn"
             variant="primary" 
             className="w-full bg-red-500 hover:bg-red-600 border-none shadow-none"
             onClick={logout}
