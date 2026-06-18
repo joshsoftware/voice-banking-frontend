@@ -384,11 +384,13 @@ export function useSmallWebRTC() {
     return 5
   }, [])
 
-  const fetchRecentTransactions = useCallback(async (requestedSize: number): Promise<TransactionItem[]> => {
+  const fetchRecentTransactions = useCallback(async (
+    requestedSize: number,
+    fromDate?: string,
+    toDate?: string,
+  ): Promise<TransactionItem[]> => {
     if (!primaryAccount?.account_id) return []
     const accessToken = localStorage.getItem('voicebank.access_token')
-    const fromDate = new Date()
-    fromDate.setDate(fromDate.getDate() - 90)
 
     const response = await fetch(`${API_BASE}/api/transactions/recent`, {
       method: 'POST',
@@ -398,7 +400,8 @@ export function useSmallWebRTC() {
       },
       body: JSON.stringify({
         accountId: primaryAccount.account_id,
-        fromDate: fromDate.toISOString().slice(0, 10),
+        ...(fromDate ? { fromDate } : {}),
+        ...(toDate ? { toDate } : {}),
         page: 0,
         size: requestedSize,
       }),
@@ -418,11 +421,14 @@ export function useSmallWebRTC() {
     return Array.isArray(list) ? list.slice(0, requestedSize) : []
   }, [primaryAccount?.account_id])
 
-  const fetchLoanTransactions = useCallback(async (queryText: string): Promise<TransactionItem[]> => {
+  const fetchLoanTransactions = useCallback(async (
+    queryText: string,
+    fromDate?: string,
+    toDate?: string,
+  ): Promise<TransactionItem[]> => {
     const loanAccount = (activeCustomerId ? getLoanAccountForQuery(activeCustomerId, queryText) : null) ?? primaryLoanAccount
     if (!loanAccount?.account_id) return []
     const accessToken = localStorage.getItem('voicebank.access_token')
-    const toDate = new Date().toISOString().slice(0, 10)
 
     const response = await fetch(`${API_BASE}/api/loan_transaction`, {
       method: 'POST',
@@ -432,8 +438,8 @@ export function useSmallWebRTC() {
       },
       body: JSON.stringify({
         accountId: loanAccount.account_id,
-        fromDate: '2022-01-01',
-        toDate,
+        ...(fromDate ? { fromDate } : {}),
+        ...(toDate ? { toDate } : {}),
         page: 0,
         size: 5,
       }),
