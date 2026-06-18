@@ -146,13 +146,8 @@ export function BalanceCard({ account }: BalanceCardProps) {
     setTransactionsError(null)
     setShowTransactions(true)
 
-    const toDate = new Date()
-    const fromDate = new Date()
-    fromDate.setDate(toDate.getDate() - 90)
-
     const payload = {
       accountId: account.account_id,
-      fromDate: fromDate.toISOString().slice(0, 10),
       page: 0,
       size: 5,
     }
