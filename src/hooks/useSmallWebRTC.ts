@@ -4,7 +4,7 @@ import { CustomSmallWebRTCTransport } from '@/lib/customTransport'
 import { API_BASE } from '@/lib/constants'
 import { getActiveCustomer, getLoanAccountForQuery, getPrimaryAccount, getPrimaryLoanAccount, isVoiceRegistered } from '@/lib/demoCustomer'
 import { getDeviceId } from '@/lib/device'
-import { useLanguage } from '@/i18n/LanguageHooks'
+import { useTranslation } from '@/i18n/LanguageHooks'
 import { LANGUAGE_IDS, type LanguageId } from '@/i18n/languages'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -300,7 +300,7 @@ function clearPendingUserIntent(
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useSmallWebRTC() {
-  const { language } = useLanguage()
+  const { t, language } = useTranslation()
   const { preferredLanguage: authPreferredLanguage, isAuthenticated } = useAuth()
   const [state, setState] = useState<WebRTCState>('idle')
   const authSessionId = localStorage.getItem(AUTH_SESSION_ID_KEY)
@@ -876,7 +876,7 @@ export function useSmallWebRTC() {
               return prev.filter(m => !(m.role === 'assistant' && m.ts >= cutoff))
             })
             // Push a single authoritative error message
-            pushMsg('assistant', 'Not authorised')
+            pushMsg('assistant', t('errorNotAuthorized'))
           }
         } else if (data?.type === 'OTP_REQUIRED') {
           console.log('[SmallWebRTC] OTP Required:', data)

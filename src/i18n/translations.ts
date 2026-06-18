@@ -124,6 +124,7 @@ const EN = {
   micPermissionInstructions: 'Please allow microphone access in your browser settings to register your voice. Tap the microphone icon in the address bar and select "Allow".',
   micNotFound: 'No microphone found on this device',
   micAccessError: 'Could not access the microphone',
+  errorNotAuthorized: 'Not authorized',
 } as const
 
 export type TranslationKey = keyof typeof EN
@@ -247,6 +248,7 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     micPermissionInstructions: 'अपनी आवाज़ रजिस्टर करने के लिए कृपया अपनी ब्राउज़र सेटिंग में माइक्रोफ़ोन एक्सेस की अनुमति दें। एड्रेस बार में माइक्रोफ़ोन आइकन पर टैप करें और "अनुमति दें" चुनें।',
     micNotFound: 'इस डिवाइस पर कोई माइक्रोफ़ोन नहीं मिला',
     micAccessError: 'माइक्रोफ़ोन एक्सेस नहीं हो सका',
+    errorNotAuthorized: 'अनधिकृत',
   },
   ta: {
     headerGoodAfternoon: 'மதிய வணக்கம்',
@@ -356,6 +358,7 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     micPermissionInstructions: 'உங்கள் குரலைப் பதிவு செய்ய உலாவி அமைப்புகளில் ஒலிவாங்கி அணுகலை அனுமதிக்கவும். முகவரிப் பட்டியில் ஒலிவாங்கி ஐகானைத் தட்டி "அனுமதி" என்பதைத் தேர்ந்தெடுக்கவும்.',
     micNotFound: 'இந்தச் சாதனத்தில் ஒலிவாங்கி இல்லை',
     micAccessError: 'ஒலிவாங்கியை அணுக முடியவில்லை',
+    errorNotAuthorized: 'அங்கீகரிக்கப்படவில்லை',
   },
   kn: {
     headerGoodAfternoon: 'ಶುಭ ಮಧ್ಯಾಹ್ನ',
@@ -465,6 +468,7 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     micPermissionInstructions: 'ನಿಮ್ಮ ಧ್ವನಿಯನ್ನು ನೋಂದಾಯಿಸಲು ದಯವಿಟ್ಟು ನಿಮ್ಮ ಬ್ರೌಸರ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ ಮೈಕ್ರೋಫೋನ್ ಪ್ರವೇಶಕ್ಕೆ ಅನುಮತಿಸಿ. ವಿಳಾಸ ಪಟ್ಟಿಯಲ್ಲಿ ಮೈಕ್ರೋಫೋನ್ ಐಕಾನ್ ಅನ್ನು ಟ್ಯಾಪ್ ಮಾಡಿ ಮತ್ತು "ಅನುಮತಿಸು" ಆಯ್ಕೆಮಾಡಿ.',
     micNotFound: 'ಈ ಸಾಧನದಲ್ಲಿ ಯಾವುದೇ ಮೈಕ್ರೋಫೋನ್ ಕಂಡುಬಂದಿಲ್ಲ',
     micAccessError: 'ಮೈಕ್ರೋಫೋನ್ ಪ್ರವೇಶಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ',
+    errorNotAuthorized: 'ಅಧಿಕೃತವಾಗಿಲ್ಲ',
   },
   te: {
     headerGoodAfternoon: 'శుభ మధ్యాహ్నం',
@@ -574,6 +578,7 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     micPermissionInstructions: 'మీ వాయిస్‌ను నమోదు చేయడానికి దయచేసి మీ బ్రౌజర్ సెట్టింగ్‌లలో మైక్రోఫోన్ యాక్సెస్‌ను అనుమతించండి. చిరునామా బార్‌లోని మైక్రోఫోన్ చిహ్నాన్ని నొక్కి "అనుమతించు"ని ఎంచుకోండి.',
     micNotFound: 'ఈ పరికరంలో మైక్రోఫోన్ కనుగొనబడలేదు',
     micAccessError: 'మైక్రోఫోన్‌ను యాక్సెస్ చేయడం సాధ్యం కాలేదు',
+    errorNotAuthorized: 'అధికారం లేదు',
   },
   ml: {
     headerGoodAfternoon: 'ശുഭമധ്യാഹ്നം',
@@ -683,6 +688,7 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     micPermissionInstructions: 'നിങ്ങളുടെ ശബ്ദം രജിസ്റ്റർ ചെയ്യുന്നതിന് ബ്രൗസർ ക്രമീകരണങ്ങളിൽ മൈക്രോഫോൺ ആക്സസ് അനുവദിക്കുക. വിലാസ ബാറിലെ മൈക്രോഫോൺ ഐക്കണിൽ ടാപ്പുചെയ്ത് "അനുവദിക്കുക" തിരഞ്ഞെടുക്കുക.',
     micNotFound: 'ഈ ഉപകരണത്തിൽ മൈക്രോഫോൺ കണ്ടെത്തിയില്ല',
     micAccessError: 'മൈക്രോഫോൺ ആക്സസ് ചെയ്യാൻ കഴിഞ്ഞില്ല',
+    errorNotAuthorized: 'അനധികൃതം',
   },
   bn: {
     headerGoodAfternoon: 'শুভ অপরাহ্ন',
@@ -792,6 +798,7 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     micPermissionInstructions: 'আপনার ভয়েস রেজিস্টার করতে অনুগ্রহ করে আপনার ব্রাউজার সেটিংসে মাইক্রোফোন অ্যাক্সেসের অনুমতি দিন। অ্যাড্রেস বারে মাইক্রোফোন আইকনে ট্যাপ করুন এবং "অনুমতি দিন" নির্বাচন করুন।',
     micNotFound: 'এই ডিভাইসে কোনো মাইক্রোফোন পাওয়া যায়নি',
     micAccessError: 'মাইক্রোফোন অ্যাক্সেস করা যায়নি',
+    errorNotAuthorized: 'অনধিকৃত',
   },
   mr: {
     headerGoodAfternoon: 'शुभ दुपार',
@@ -901,6 +908,7 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     micPermissionInstructions: 'तुमचा आवाज नोंदणी करण्यासाठी कृपया तुमच्या ब्राउझर सेटिंग्जमध्ये मायक्रोफोन प्रवेशास परवानगी द्या. अॅड्रेस बारमधील मायक्रोफोन आयकॉनवर टॅप करा आणि "परवानगी द्या" निवडा.',
     micNotFound: 'या डिव्हाइसवर मायक्रोफोन सापडला नाही',
     micAccessError: 'मायक्रोफोन प्रवेश करू शकलो नाही',
+    errorNotAuthorized: 'अनधिकृत',
   },
   gu: {
     headerGoodAfternoon: 'શુભ બપોર',
@@ -1010,6 +1018,7 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     micPermissionInstructions: 'તમારી વાણી રજિસ્ટર કરવા માટે કૃપા કરીને તમારા બ્રાઉઝર સેટિંગ્સમાં માઇક્રોફોન ઍક્સેસની પરવાનગી આપો. એડ્રેસ બારમાં માઇક્રોફોન આઇકોન પર ટેપ કરો અને "મંજૂરી આપો" પસંદ કરો.',
     micNotFound: 'આ ડિવાઇસ પર કોઈ માઇક્રોફોન મળ્યો નથી',
     micAccessError: 'માઇક્રોફોન ઍક્સેસ કરી શકાયું નહીં',
+    errorNotAuthorized: 'અધિકૃત નથી',
   },
 }
 
