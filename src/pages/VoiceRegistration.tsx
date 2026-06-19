@@ -50,6 +50,7 @@ export default function VoiceRegistration() {
   const micStreamRef = useRef<MediaStream | null>(null)
   const connectingRtcRef = useRef(false)
   const negotiatingRef = useRef(false)
+  const hasNegotiatedRef = useRef(false)
   const imageFinalizeLockRef = useRef(false)
 
   const [imageIndex, setImageIndex] = useState(0)
@@ -86,6 +87,8 @@ export default function VoiceRegistration() {
       pcRef.current = null
     }
     pcIdRef.current = null
+    hasNegotiatedRef.current = false
+    negotiatingRef.current = false
     setIsRtcReady(false)
   }, [])
 
@@ -96,53 +99,80 @@ export default function VoiceRegistration() {
     }
   }, [disconnectRtc])
 
+  const waitForIceGathering = useCallback((pc: RTCPeerConnection) => {
+    if (pc.iceGatheringState === 'complete') return Promise.resolve()
+    return new Promise<void>((resolve) => {
+      let tid: ReturnType<typeof setTimeout>
+      const cleanup = () => {
+        clearTimeout(tid)
+        pc.removeEventListener('icegatheringstatechange', onStateChange)
+      }
+      const onStateChange = () => {
+        if (pc.iceGatheringState === 'complete') {
+          cleanup()
+          resolve()
+        }
+      }
+      pc.addEventListener('icegatheringstatechange', onStateChange)
+      tid = window.setTimeout(() => {
+        cleanup()
+        resolve()
+      }, 8000)
+      if (pc.iceGatheringState === 'complete') {
+        cleanup()
+        resolve()
+      }
+    })
+  }, [])
+
   const negotiate = useCallback(async () => {
     const pc = pcRef.current
     const sid = rtcSessionIdRef.current
     const enrollmentSid = enrollmentSessionIdRef.current
     const backendBase = getRegistrationBackendBase()
     if (!pc || !sid) return
-    
-    // Prevent concurrent negotiations
+
+    if (hasNegotiatedRef.current) return
     if (negotiatingRef.current) return
-    
-    // Only negotiate when connection is stable
     if (pc.signalingState !== 'stable') return
-    
+
     negotiatingRef.current = true
     try {
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
-    const accessToken = localStorage.getItem('voicebank.access_token')
-    const offerRes = await fetch(`${backendBase}/sessions/${sid}/api/offer`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-      },
-      body: JSON.stringify({
-        sdp: pc.localDescription?.sdp,
-        type: pc.localDescription?.type,
-        pc_id: pcIdRef.current,
-        config: { data_channel_enabled: true },
-        request_data: enrollmentSid
-          ? {
-              enrollment_session_id: enrollmentSid,
-              session_id: enrollmentSid,
-            }
-          : undefined,
-      }),
-    })
-    if (!offerRes.ok) throw new Error(`Offer failed: ${offerRes.status}`)
-    const answer = await offerRes.json()
-    if (answer.pc_id || answer.pcId) {
-      pcIdRef.current = answer.pc_id || answer.pcId
-    }
-    await pc.setRemoteDescription(new RTCSessionDescription(answer))
+      await waitForIceGathering(pc)
+      const accessToken = localStorage.getItem('voicebank.access_token')
+      const offerRes = await fetch(`${backendBase}/sessions/${sid}/api/offer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          sdp: pc.localDescription?.sdp,
+          type: pc.localDescription?.type,
+          pc_id: pcIdRef.current,
+          config: { data_channel_enabled: true },
+          request_data: enrollmentSid
+            ? {
+                enrollment_session_id: enrollmentSid,
+                session_id: enrollmentSid,
+              }
+            : undefined,
+        }),
+      })
+      if (!offerRes.ok) throw new Error(`Offer failed: ${offerRes.status}`)
+      const answer = await offerRes.json()
+      if (answer.pc_id || answer.pcId) {
+        pcIdRef.current = answer.pc_id || answer.pcId
+      }
+      if ((pc.signalingState as string) === 'closed') return
+      await pc.setRemoteDescription(new RTCSessionDescription(answer))
+      hasNegotiatedRef.current = true
     } finally {
       negotiatingRef.current = false
     }
-  }, [])
+  }, [waitForIceGathering])
 
   const startEnrollmentRealtime = useCallback(async () => {
     if (connectingRtcRef.current) return
@@ -256,29 +286,6 @@ export default function VoiceRegistration() {
       setMicStream(stream)
       stream.getTracks().forEach((t) => pc.addTrack(t, stream))
 
-      pc.onicecandidate = (ev) => {
-        if (!ev.candidate || !pcIdRef.current || !rtcSessionIdRef.current) return
-        const accessToken = localStorage.getItem('voicebank.access_token')
-        fetch(`${backendBase}/sessions/${rtcSessionIdRef.current}/api/offer`, {
-          method: 'PATCH',
-          headers: { 
-            'Content-Type': 'application/json',
-            ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-          },
-          body: JSON.stringify({
-            pc_id: pcIdRef.current,
-            candidates: [
-              {
-                candidate: ev.candidate.candidate,
-                sdpMid: ev.candidate.sdpMid,
-                sdpMLineIndex:
-                  ev.candidate.sdpMLineIndex !== null ? Number(ev.candidate.sdpMLineIndex) : null,
-              },
-            ],
-          }),
-        }).catch(() => {})
-      }
-
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'connected') setIsRtcReady(true)
         if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) {
@@ -289,8 +296,7 @@ export default function VoiceRegistration() {
       pc.onnegotiationneeded = () => {
         void negotiate().catch((e) => setMicError(e instanceof Error ? e.message : 'Negotiation failed'))
       }
-      // Don't call negotiate() manually - it will be triggered automatically by negotiationneeded event
-      setIsRtcReady(true)
+      // negotiate() runs from onnegotiationneeded after addTrack — do not call manually.
     } catch (e) {
       disconnectRtc()
       setMicError(e instanceof Error ? e.message : 'Could not initialize voice enrollment.')
