@@ -38,6 +38,18 @@ export default function Profile() {
               </div>
             </div>
           )}
+          
+          <div className="mt-4 border-b pb-4">
+            <button
+              type="button"
+              onClick={() => navigate('/language')}
+              className="w-full flex justify-between items-center text-left"
+            >
+              <span className="font-medium">{t('selectLanguage')}</span>
+              <span className="text-[20px] leading-none text-gray-400">›</span>
+            </button>
+          </div>
+
           <p className="mt-4 text-sm text-[var(--color-text-muted-2)]">
             {t('profilePlaceholder')}
           </p>
