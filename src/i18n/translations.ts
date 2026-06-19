@@ -248,7 +248,7 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     micPermissionInstructions: 'अपनी आवाज़ रजिस्टर करने के लिए कृपया अपनी ब्राउज़र सेटिंग में माइक्रोफ़ोन एक्सेस की अनुमति दें। एड्रेस बार में माइक्रोफ़ोन आइकन पर टैप करें और "अनुमति दें" चुनें।',
     micNotFound: 'इस डिवाइस पर कोई माइक्रोफ़ोन नहीं मिला',
     micAccessError: 'माइक्रोफ़ोन एक्सेस नहीं हो सका',
-    errorNotAuthorized: 'अनधिकृत',
+    errorNotAuthorized: 'अधिकृत नहीं',
   },
   ta: {
     headerGoodAfternoon: 'மதிய வணக்கம்',
@@ -358,7 +358,7 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     micPermissionInstructions: 'உங்கள் குரலைப் பதிவு செய்ய உலாவி அமைப்புகளில் ஒலிவாங்கி அணுகலை அனுமதிக்கவும். முகவரிப் பட்டியில் ஒலிவாங்கி ஐகானைத் தட்டி "அனுமதி" என்பதைத் தேர்ந்தெடுக்கவும்.',
     micNotFound: 'இந்தச் சாதனத்தில் ஒலிவாங்கி இல்லை',
     micAccessError: 'ஒலிவாங்கியை அணுக முடியவில்லை',
-    errorNotAuthorized: 'அங்கீகரிக்கப்படவில்லை',
+    errorNotAuthorized: 'அங்கீகரம் இல்லை',
   },
   kn: {
     headerGoodAfternoon: 'ಶುಭ ಮಧ್ಯಾಹ್ನ',
@@ -688,7 +688,7 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     micPermissionInstructions: 'നിങ്ങളുടെ ശബ്ദം രജിസ്റ്റർ ചെയ്യുന്നതിന് ബ്രൗസർ ക്രമീകരണങ്ങളിൽ മൈക്രോഫോൺ ആക്സസ് അനുവദിക്കുക. വിലാസ ബാറിലെ മൈക്രോഫോൺ ഐക്കണിൽ ടാപ്പുചെയ്ത് "അനുവദിക്കുക" തിരഞ്ഞെടുക്കുക.',
     micNotFound: 'ഈ ഉപകരണത്തിൽ മൈക്രോഫോൺ കണ്ടെത്തിയില്ല',
     micAccessError: 'മൈക്രോഫോൺ ആക്സസ് ചെയ്യാൻ കഴിഞ്ഞില്ല',
-    errorNotAuthorized: 'അനധികൃതം',
+    errorNotAuthorized: 'അധികാരമില്ല',
   },
   bn: {
     headerGoodAfternoon: 'শুভ অপরাহ্ন',
@@ -798,7 +798,7 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     micPermissionInstructions: 'আপনার ভয়েস রেজিস্টার করতে অনুগ্রহ করে আপনার ব্রাউজার সেটিংসে মাইক্রোফোন অ্যাক্সেসের অনুমতি দিন। অ্যাড্রেস বারে মাইক্রোফোন আইকনে ট্যাপ করুন এবং "অনুমতি দিন" নির্বাচন করুন।',
     micNotFound: 'এই ডিভাইসে কোনো মাইক্রোফোন পাওয়া যায়নি',
     micAccessError: 'মাইক্রোফোন অ্যাক্সেস করা যায়নি',
-    errorNotAuthorized: 'অনধিকৃত',
+    errorNotAuthorized: 'অনুমোদিত নয়',
   },
   mr: {
     headerGoodAfternoon: 'शुभ दुपार',
@@ -908,7 +908,7 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     micPermissionInstructions: 'तुमचा आवाज नोंदणी करण्यासाठी कृपया तुमच्या ब्राउझर सेटिंग्जमध्ये मायक्रोफोन प्रवेशास परवानगी द्या. अॅड्रेस बारमधील मायक्रोफोन आयकॉनवर टॅप करा आणि "परवानगी द्या" निवडा.',
     micNotFound: 'या डिव्हाइसवर मायक्रोफोन सापडला नाही',
     micAccessError: 'मायक्रोफोन प्रवेश करू शकलो नाही',
-    errorNotAuthorized: 'अनधिकृत',
+    errorNotAuthorized: 'अधिकृत नाही',
   },
   gu: {
     headerGoodAfternoon: 'શુભ બપોર',
