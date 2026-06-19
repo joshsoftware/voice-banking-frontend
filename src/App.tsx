@@ -46,23 +46,15 @@ const OnboardingRoute = ({
     return <Navigate to="/welcome" replace />
   }
 
-  // For /language: redirect forward if already has language
-  if (!requiresLanguage && !requiresVoice && preferredLanguage) {
-    // User is on /language but already has language, move forward
-    if (!isVoiceprintRegistered && !(user?.customer_id && isVoiceSkipAllowed(user.customer_id))) {
-      return <Navigate to="/voice-registration" replace />
-    }
-    return <Navigate to="/listening" replace />
-  }
+  // Allow users to revisit /language, so we don't automatically forward them here.
+
 
   // For /voice-registration: redirect back if no language, forward if already registered
   if (requiresLanguage && !requiresVoice) {
     if (!preferredLanguage) {
       return <Navigate to="/language" replace />
     }
-    if (isVoiceprintRegistered || (user?.customer_id && isVoiceSkipAllowed(user.customer_id))) {
-      return <Navigate to="/listening" replace />
-    }
+    // Allow users to revisit /voice-registration if they explicitly navigate here (e.g., from the menu)
   }
 
   // For /listening: redirect back if onboarding incomplete
@@ -79,13 +71,19 @@ const OnboardingRoute = ({
 }
 
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, preferredLanguage, isVoiceprintRegistered, user } = useAuth()
   
   if (isLoading) return <div className="flex h-screen items-center justify-center text-white">Loading...</div>
   
-  // If authenticated, send to /language - OnboardingRoute will forward them if needed
+  // If authenticated, send to appropriate onboarding step or home
   if (isAuthenticated) {
-    return <Navigate to="/language" replace />
+    if (!preferredLanguage) {
+      return <Navigate to="/language" replace />
+    }
+    if (!isVoiceprintRegistered && !(user?.customer_id && isVoiceSkipAllowed(user.customer_id))) {
+      return <Navigate to="/voice-registration" replace />
+    }
+    return <Navigate to="/listening" replace />
   }
 
   return <>{children}</>
