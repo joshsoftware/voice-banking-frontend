@@ -9,7 +9,11 @@ import { VoiceRegistrationSuccess } from '@/components/voice-registration/VoiceR
 import { useMicLevel } from '@/hooks/useMicLevel'
 import { API_BASE, VOICEPRINT_API_BASE } from '@/lib/constants'
 import { stopSpeech, speakText } from '@/lib/speech'
-import { VOICE_REGISTRATION_IMAGES } from '@/data/voiceRegistrationImages'
+import {
+  pickRandomRegistrationImages,
+  VOICE_REGISTRATION_STEP_COUNT,
+  type VoiceRegistrationImageItem,
+} from '@/data/voiceRegistrationImages'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
 import { allowVoiceSkip, disallowVoiceSkip, getActiveCustomer, markVoiceRegistered } from '@/lib/demoCustomer'
 import { useAuth } from '@/contexts/AuthContext'
@@ -52,7 +56,9 @@ export default function VoiceRegistration() {
   const negotiatingRef = useRef(false)
   const hasNegotiatedRef = useRef(false)
   const imageFinalizeLockRef = useRef(false)
+  const sessionImagesRef = useRef<VoiceRegistrationImageItem[]>([])
 
+  const [sessionImages, setSessionImages] = useState<VoiceRegistrationImageItem[]>([])
   const [imageIndex, setImageIndex] = useState(0)
   const [sheetState, setSheetState] = useState<ImageDescribeSheetState>('micIdle')
   const [countdown, setCountdown] = useState(3)
@@ -184,7 +190,7 @@ export default function VoiceRegistration() {
       const startPayload = {
         customer_id: activeCustomer?.voice_customer_id ?? activeCustomer?.customer_id ?? 'test-user',
         device_id: getDeviceId(),
-        total_steps: VOICE_REGISTRATION_IMAGES.length,
+        total_steps: sessionImagesRef.current.length || VOICE_REGISTRATION_STEP_COUNT,
       }
       // Support both backend mounting styles:
       // 1) <base>/start
@@ -383,7 +389,10 @@ export default function VoiceRegistration() {
     navigate('/home')
   }
 
-  const goToImageChallenge = () => {
+  const beginImageChallenge = useCallback(() => {
+    const picked = pickRandomRegistrationImages(VOICE_REGISTRATION_STEP_COUNT)
+    sessionImagesRef.current = picked
+    setSessionImages(picked)
     stopSpeech()
     setImageIndex(0)
     setSheetState('micIdle')
@@ -392,6 +401,10 @@ export default function VoiceRegistration() {
     countdownToRecordingRef.current = false
     setEnrollError(null)
     setPhase('imageChallenge')
+  }, [])
+
+  const goToImageChallenge = () => {
+    beginImageChallenge()
   }
 
   async function handleStartRegistration() {
@@ -403,8 +416,7 @@ export default function VoiceRegistration() {
       const testStream = await navigator.mediaDevices.getUserMedia({ audio: true })
       // Stop the test stream immediately since we just wanted to check permission
       stopMediaStream(testStream)
-      // If successful, proceed to image challenge phase
-      setPhase('imageChallenge')
+      beginImageChallenge()
     } catch (e) {
       if (e instanceof DOMException) {
         if (e.name === 'NotAllowedError') {
@@ -423,7 +435,7 @@ export default function VoiceRegistration() {
   }
 
   const playImageDescription = () => {
-    const item = VOICE_REGISTRATION_IMAGES[imageIndex]
+    const item = sessionImages[imageIndex]
     if (!item) return
     const localizedDescription = item.spokenDescriptions[language] || item.spokenDescriptions.en
     speakText(localizedDescription, language)
@@ -472,7 +484,7 @@ export default function VoiceRegistration() {
         throw new Error(detail || `Step submit failed (${res.status})`)
       }
       const data = await res.json()
-      if (data.status === 'enrolled' || imageIndex >= VOICE_REGISTRATION_IMAGES.length - 1) {
+      if (data.status === 'enrolled' || imageIndex >= sessionImages.length - 1) {
         setEnrollError(null)  // Clear any previous errors on success
         setPhase('success')
       } else {
@@ -497,7 +509,7 @@ export default function VoiceRegistration() {
     navigate('/home')
   }
 
-  const currentImage = VOICE_REGISTRATION_IMAGES[imageIndex]
+  const currentImage = sessionImages[imageIndex]
 
   return (
     <MobileContainer gradient={false}>
@@ -527,7 +539,7 @@ export default function VoiceRegistration() {
               <p className="mt-1 text-xs text-[var(--color-text-muted-3)]">
                 {t('voiceRegistrationImageXOfY', {
                   current: imageIndex + 1,
-                  total: VOICE_REGISTRATION_IMAGES.length,
+                  total: sessionImages.length,
                 })}
               </p>
             </div>
