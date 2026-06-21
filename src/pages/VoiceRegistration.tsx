@@ -15,7 +15,7 @@ import {
   type VoiceRegistrationImageItem,
 } from '@/data/voiceRegistrationImages'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
-import { allowVoiceSkip, disallowVoiceSkip, getActiveCustomer, markVoiceRegistered } from '@/lib/demoCustomer'
+import { allowVoiceSkip, disallowVoiceSkip, getActiveCustomer, markVoiceRegistered } from '@/lib/customerData'
 import { useAuth } from '@/contexts/AuthContext'
 import { getDeviceId } from '@/lib/device'
 
