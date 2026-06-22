@@ -18,5 +18,5 @@ export const JAVA_API_BASE = import.meta.env.DEV
 export const VOICEPRINT_API_BASE =
   import.meta.env.VITE_VOICEPRINT_API_BASE ?? 'https://voicebanking.joshsoftware.com'
 
-/** Customer fixture source: `demo` (default) or `esb` for Bandhan ESB test customers. */
-export const CUSTOMER_DATA_SOURCE = import.meta.env.VITE_CUSTOMER_DATA_SOURCE ?? 'demo'
+/** Customer fixture source for this branch. */
+export const CUSTOMER_DATA_SOURCE = 'esb'
