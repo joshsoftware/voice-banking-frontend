@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { EyeIcon, EyeOffIcon } from '@/components/ui/icons'
 import { useTranslation } from '@/i18n/LanguageHooks'
-import type { DemoAccount } from '@/lib/demoCustomer'
+import type { DemoAccount } from '@/lib/customerData'
 import { API_BASE } from '@/lib/constants'
 import { balanceApi } from '@/lib/balanceApi'
 import ArrowIcon from '@/assets/arrow.svg?react'
@@ -146,13 +146,8 @@ export function BalanceCard({ account }: BalanceCardProps) {
     setTransactionsError(null)
     setShowTransactions(true)
 
-    const toDate = new Date()
-    const fromDate = new Date()
-    fromDate.setDate(toDate.getDate() - 90)
-
     const payload = {
       accountId: account.account_id,
-      fromDate: fromDate.toISOString().slice(0, 10),
       page: 0,
       size: 5,
     }

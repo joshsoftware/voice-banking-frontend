@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authApi, type AuthResponse } from '@/lib/authApi';
-import { setActiveCustomerByPhone, clearActiveCustomer, getActiveCustomer, type DemoCustomer } from '@/lib/demoCustomer';
+import { setActiveCustomerByPhone, clearActiveCustomer, getActiveCustomer, type DemoCustomer } from '@/lib/customerData';
 import { registerSessionInvalidatedHandler } from '@/lib/httpClient';
 import {
   AUTH_PREFERRED_LANGUAGE_KEY,

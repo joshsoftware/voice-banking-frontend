@@ -70,11 +70,6 @@ export default function AdminFeedback() {
     })
   }
 
-  const truncateText = (text: string, maxLength: number = 120) => {
-    if (text.length <= maxLength) return text
-    return text.slice(0, maxLength) + '...'
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--color-surface-bg)] flex items-center justify-center">

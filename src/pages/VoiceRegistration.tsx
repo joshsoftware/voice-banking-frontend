@@ -9,9 +9,13 @@ import { VoiceRegistrationSuccess } from '@/components/voice-registration/VoiceR
 import { useMicLevel } from '@/hooks/useMicLevel'
 import { API_BASE, VOICEPRINT_API_BASE } from '@/lib/constants'
 import { stopSpeech, speakText } from '@/lib/speech'
-import { VOICE_REGISTRATION_IMAGES } from '@/data/voiceRegistrationImages'
+import {
+  pickRandomRegistrationImages,
+  VOICE_REGISTRATION_STEP_COUNT,
+  type VoiceRegistrationImageItem,
+} from '@/data/voiceRegistrationImages'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
-import { allowVoiceSkip, disallowVoiceSkip, getActiveCustomer, markVoiceRegistered } from '@/lib/demoCustomer'
+import { allowVoiceSkip, disallowVoiceSkip, getActiveCustomer, markVoiceRegistered } from '@/lib/customerData'
 import { useAuth } from '@/contexts/AuthContext'
 import { getDeviceId } from '@/lib/device'
 
@@ -50,8 +54,11 @@ export default function VoiceRegistration() {
   const micStreamRef = useRef<MediaStream | null>(null)
   const connectingRtcRef = useRef(false)
   const negotiatingRef = useRef(false)
+  const hasNegotiatedRef = useRef(false)
   const imageFinalizeLockRef = useRef(false)
+  const sessionImagesRef = useRef<VoiceRegistrationImageItem[]>([])
 
+  const [sessionImages, setSessionImages] = useState<VoiceRegistrationImageItem[]>([])
   const [imageIndex, setImageIndex] = useState(0)
   const [sheetState, setSheetState] = useState<ImageDescribeSheetState>('micIdle')
   const [countdown, setCountdown] = useState(3)
@@ -86,6 +93,8 @@ export default function VoiceRegistration() {
       pcRef.current = null
     }
     pcIdRef.current = null
+    hasNegotiatedRef.current = false
+    negotiatingRef.current = false
     setIsRtcReady(false)
   }, [])
 
@@ -96,53 +105,80 @@ export default function VoiceRegistration() {
     }
   }, [disconnectRtc])
 
+  const waitForIceGathering = useCallback((pc: RTCPeerConnection) => {
+    if (pc.iceGatheringState === 'complete') return Promise.resolve()
+    return new Promise<void>((resolve) => {
+      let tid: ReturnType<typeof setTimeout>
+      const cleanup = () => {
+        clearTimeout(tid)
+        pc.removeEventListener('icegatheringstatechange', onStateChange)
+      }
+      const onStateChange = () => {
+        if (pc.iceGatheringState === 'complete') {
+          cleanup()
+          resolve()
+        }
+      }
+      pc.addEventListener('icegatheringstatechange', onStateChange)
+      tid = window.setTimeout(() => {
+        cleanup()
+        resolve()
+      }, 8000)
+      if (pc.iceGatheringState === 'complete') {
+        cleanup()
+        resolve()
+      }
+    })
+  }, [])
+
   const negotiate = useCallback(async () => {
     const pc = pcRef.current
     const sid = rtcSessionIdRef.current
     const enrollmentSid = enrollmentSessionIdRef.current
     const backendBase = getRegistrationBackendBase()
     if (!pc || !sid) return
-    
-    // Prevent concurrent negotiations
+
+    if (hasNegotiatedRef.current) return
     if (negotiatingRef.current) return
-    
-    // Only negotiate when connection is stable
     if (pc.signalingState !== 'stable') return
-    
+
     negotiatingRef.current = true
     try {
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
-    const accessToken = localStorage.getItem('voicebank.access_token')
-    const offerRes = await fetch(`${backendBase}/sessions/${sid}/api/offer`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-      },
-      body: JSON.stringify({
-        sdp: pc.localDescription?.sdp,
-        type: pc.localDescription?.type,
-        pc_id: pcIdRef.current,
-        config: { data_channel_enabled: true },
-        request_data: enrollmentSid
-          ? {
-              enrollment_session_id: enrollmentSid,
-              session_id: enrollmentSid,
-            }
-          : undefined,
-      }),
-    })
-    if (!offerRes.ok) throw new Error(`Offer failed: ${offerRes.status}`)
-    const answer = await offerRes.json()
-    if (answer.pc_id || answer.pcId) {
-      pcIdRef.current = answer.pc_id || answer.pcId
-    }
-    await pc.setRemoteDescription(new RTCSessionDescription(answer))
+      await waitForIceGathering(pc)
+      const accessToken = localStorage.getItem('voicebank.access_token')
+      const offerRes = await fetch(`${backendBase}/sessions/${sid}/api/offer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          sdp: pc.localDescription?.sdp,
+          type: pc.localDescription?.type,
+          pc_id: pcIdRef.current,
+          config: { data_channel_enabled: true },
+          request_data: enrollmentSid
+            ? {
+                enrollment_session_id: enrollmentSid,
+                session_id: enrollmentSid,
+              }
+            : undefined,
+        }),
+      })
+      if (!offerRes.ok) throw new Error(`Offer failed: ${offerRes.status}`)
+      const answer = await offerRes.json()
+      if (answer.pc_id || answer.pcId) {
+        pcIdRef.current = answer.pc_id || answer.pcId
+      }
+      if ((pc.signalingState as string) === 'closed') return
+      await pc.setRemoteDescription(new RTCSessionDescription(answer))
+      hasNegotiatedRef.current = true
     } finally {
       negotiatingRef.current = false
     }
-  }, [])
+  }, [waitForIceGathering])
 
   const startEnrollmentRealtime = useCallback(async () => {
     if (connectingRtcRef.current) return
@@ -154,7 +190,7 @@ export default function VoiceRegistration() {
       const startPayload = {
         customer_id: activeCustomer?.voice_customer_id ?? activeCustomer?.customer_id ?? 'test-user',
         device_id: getDeviceId(),
-        total_steps: VOICE_REGISTRATION_IMAGES.length,
+        total_steps: sessionImagesRef.current.length || VOICE_REGISTRATION_STEP_COUNT,
       }
       // Support both backend mounting styles:
       // 1) <base>/start
@@ -256,29 +292,6 @@ export default function VoiceRegistration() {
       setMicStream(stream)
       stream.getTracks().forEach((t) => pc.addTrack(t, stream))
 
-      pc.onicecandidate = (ev) => {
-        if (!ev.candidate || !pcIdRef.current || !rtcSessionIdRef.current) return
-        const accessToken = localStorage.getItem('voicebank.access_token')
-        fetch(`${backendBase}/sessions/${rtcSessionIdRef.current}/api/offer`, {
-          method: 'PATCH',
-          headers: { 
-            'Content-Type': 'application/json',
-            ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-          },
-          body: JSON.stringify({
-            pc_id: pcIdRef.current,
-            candidates: [
-              {
-                candidate: ev.candidate.candidate,
-                sdpMid: ev.candidate.sdpMid,
-                sdpMLineIndex:
-                  ev.candidate.sdpMLineIndex !== null ? Number(ev.candidate.sdpMLineIndex) : null,
-              },
-            ],
-          }),
-        }).catch(() => {})
-      }
-
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'connected') setIsRtcReady(true)
         if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) {
@@ -289,8 +302,7 @@ export default function VoiceRegistration() {
       pc.onnegotiationneeded = () => {
         void negotiate().catch((e) => setMicError(e instanceof Error ? e.message : 'Negotiation failed'))
       }
-      // Don't call negotiate() manually - it will be triggered automatically by negotiationneeded event
-      setIsRtcReady(true)
+      // negotiate() runs from onnegotiationneeded after addTrack — do not call manually.
     } catch (e) {
       disconnectRtc()
       setMicError(e instanceof Error ? e.message : 'Could not initialize voice enrollment.')
@@ -377,7 +389,10 @@ export default function VoiceRegistration() {
     navigate('/home')
   }
 
-  const goToImageChallenge = () => {
+  const beginImageChallenge = useCallback(() => {
+    const picked = pickRandomRegistrationImages(VOICE_REGISTRATION_STEP_COUNT)
+    sessionImagesRef.current = picked
+    setSessionImages(picked)
     stopSpeech()
     setImageIndex(0)
     setSheetState('micIdle')
@@ -386,6 +401,10 @@ export default function VoiceRegistration() {
     countdownToRecordingRef.current = false
     setEnrollError(null)
     setPhase('imageChallenge')
+  }, [])
+
+  const goToImageChallenge = () => {
+    beginImageChallenge()
   }
 
   async function handleStartRegistration() {
@@ -397,8 +416,7 @@ export default function VoiceRegistration() {
       const testStream = await navigator.mediaDevices.getUserMedia({ audio: true })
       // Stop the test stream immediately since we just wanted to check permission
       stopMediaStream(testStream)
-      // If successful, proceed to image challenge phase
-      setPhase('imageChallenge')
+      beginImageChallenge()
     } catch (e) {
       if (e instanceof DOMException) {
         if (e.name === 'NotAllowedError') {
@@ -417,7 +435,7 @@ export default function VoiceRegistration() {
   }
 
   const playImageDescription = () => {
-    const item = VOICE_REGISTRATION_IMAGES[imageIndex]
+    const item = sessionImages[imageIndex]
     if (!item) return
     const localizedDescription = item.spokenDescriptions[language] || item.spokenDescriptions.en
     speakText(localizedDescription, language)
@@ -466,7 +484,7 @@ export default function VoiceRegistration() {
         throw new Error(detail || `Step submit failed (${res.status})`)
       }
       const data = await res.json()
-      if (data.status === 'enrolled' || imageIndex >= VOICE_REGISTRATION_IMAGES.length - 1) {
+      if (data.status === 'enrolled' || imageIndex >= sessionImages.length - 1) {
         setEnrollError(null)  // Clear any previous errors on success
         setPhase('success')
       } else {
@@ -491,7 +509,7 @@ export default function VoiceRegistration() {
     navigate('/home')
   }
 
-  const currentImage = VOICE_REGISTRATION_IMAGES[imageIndex]
+  const currentImage = sessionImages[imageIndex]
 
   return (
     <MobileContainer gradient={false}>
@@ -521,7 +539,7 @@ export default function VoiceRegistration() {
               <p className="mt-1 text-xs text-[var(--color-text-muted-3)]">
                 {t('voiceRegistrationImageXOfY', {
                   current: imageIndex + 1,
-                  total: VOICE_REGISTRATION_IMAGES.length,
+                  total: sessionImages.length,
                 })}
               </p>
             </div>

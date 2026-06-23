@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { PipecatClient } from '@pipecat-ai/client-js'
 import { CustomSmallWebRTCTransport } from '@/lib/customTransport'
 import { API_BASE } from '@/lib/constants'
-import { getActiveCustomer, getLoanAccountForQuery, getPrimaryAccount, getPrimaryLoanAccount, isVoiceRegistered } from '@/lib/demoCustomer'
+import { getActiveCustomer, getLoanAccountForQuery, getPrimaryAccount, getPrimaryLoanAccount, isVoiceRegistered } from '@/lib/customerData'
 import { getDeviceId } from '@/lib/device'
-import { useLanguage } from '@/i18n/LanguageHooks'
+import { useTranslation } from '@/i18n/LanguageHooks'
 import { LANGUAGE_IDS, type LanguageId } from '@/i18n/languages'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -300,7 +300,7 @@ function clearPendingUserIntent(
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useSmallWebRTC() {
-  const { language } = useLanguage()
+  const { t, language } = useTranslation()
   const { preferredLanguage: authPreferredLanguage, isAuthenticated } = useAuth()
   const [state, setState] = useState<WebRTCState>('idle')
   const authSessionId = localStorage.getItem(AUTH_SESSION_ID_KEY)
@@ -384,11 +384,13 @@ export function useSmallWebRTC() {
     return 5
   }, [])
 
-  const fetchRecentTransactions = useCallback(async (requestedSize: number): Promise<TransactionItem[]> => {
+  const fetchRecentTransactions = useCallback(async (
+    requestedSize: number,
+    fromDate?: string,
+    toDate?: string,
+  ): Promise<TransactionItem[]> => {
     if (!primaryAccount?.account_id) return []
     const accessToken = localStorage.getItem('voicebank.access_token')
-    const fromDate = new Date()
-    fromDate.setDate(fromDate.getDate() - 90)
 
     const response = await fetch(`${API_BASE}/api/transactions/recent`, {
       method: 'POST',
@@ -398,7 +400,8 @@ export function useSmallWebRTC() {
       },
       body: JSON.stringify({
         accountId: primaryAccount.account_id,
-        fromDate: fromDate.toISOString().slice(0, 10),
+        ...(fromDate ? { fromDate } : {}),
+        ...(toDate ? { toDate } : {}),
         page: 0,
         size: requestedSize,
       }),
@@ -418,11 +421,14 @@ export function useSmallWebRTC() {
     return Array.isArray(list) ? list.slice(0, requestedSize) : []
   }, [primaryAccount?.account_id])
 
-  const fetchLoanTransactions = useCallback(async (queryText: string): Promise<TransactionItem[]> => {
+  const fetchLoanTransactions = useCallback(async (
+    queryText: string,
+    fromDate?: string,
+    toDate?: string,
+  ): Promise<TransactionItem[]> => {
     const loanAccount = (activeCustomerId ? getLoanAccountForQuery(activeCustomerId, queryText) : null) ?? primaryLoanAccount
     if (!loanAccount?.account_id) return []
     const accessToken = localStorage.getItem('voicebank.access_token')
-    const toDate = new Date().toISOString().slice(0, 10)
 
     const response = await fetch(`${API_BASE}/api/loan_transaction`, {
       method: 'POST',
@@ -432,8 +438,8 @@ export function useSmallWebRTC() {
       },
       body: JSON.stringify({
         accountId: loanAccount.account_id,
-        fromDate: '2022-01-01',
-        toDate,
+        ...(fromDate ? { fromDate } : {}),
+        ...(toDate ? { toDate } : {}),
         page: 0,
         size: 5,
       }),
@@ -876,7 +882,7 @@ export function useSmallWebRTC() {
               return prev.filter(m => !(m.role === 'assistant' && m.ts >= cutoff))
             })
             // Push a single authoritative error message
-            pushMsg('assistant', 'Not authorised')
+            pushMsg('assistant', t('errorNotAuthorized'))
           }
         } else if (data?.type === 'OTP_REQUIRED') {
           console.log('[SmallWebRTC] OTP Required:', data)
