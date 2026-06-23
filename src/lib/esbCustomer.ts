@@ -13,7 +13,7 @@ const ESB_PLACEHOLDER_TS = '2026-06-19T00:00:00.000Z'
 
 const CUSTOMERS: DemoCustomer[] = [
   { customer_id: '329446538', email: 'sabir8994@gmail.com', kyc_status: 'VERIFIED', created_at: ESB_PLACEHOLDER_TS, date_of_birth: '', mobile_number: '6372559128', name: 'RAVINDRA KUMAR CHHAJ', status: 'ACTIVE' },
-  { customer_id: '325396985', email: 'archana.sonsurkar@bandhanbank.com', kyc_status: 'VERIFIED', created_at: ESB_PLACEHOLDER_TS, date_of_birth: '1990-08-19', mobile_number: '', name: 'SHAHEEN AFRIDI', status: 'ACTIVE' },
+  { customer_id: '325396985', email: 'archana.sonsurkar@bandhanbank.com', kyc_status: 'VERIFIED', created_at: ESB_PLACEHOLDER_TS, date_of_birth: '1990-08-19', mobile_number: '8923675423', name: 'SHAHEEN AFRIDI', status: 'ACTIVE' },
 ]
 
 const ACCOUNTS: DemoAccount[] = [
@@ -33,14 +33,35 @@ const LOANS: DemoLoanAccount[] = [
   { account_id: '90001022088399', account_status: 'ACTIVE', created_at: ESB_PLACEHOLDER_TS, emi: '0', interest_rate: 0, loan_amount: 0, loan_tenure: '0', loan_type: 'PERSONAL_LOAN', product_name: '6715-Personal Loan Non Salarie', sanction_date: '2020-01-01', sanction_loan_amount: '0', scheme_name: 'PERSONAL_LOAN_SCHEME', updated_at: ESB_PLACEHOLDER_TS, customer_id: '325396985' },
 ]
 
-const ELIGIBLE_CUSTOMER_IDS = CUSTOMERS.map((c) => c.customer_id)
-
-const PHONE_TO_CUSTOMER_ID: Record<string, string> = {
+export const ESB_PHONE_TO_CUSTOMER_ID: Record<string, string> = {
   '6372559128': '329446538',
+  '8923675423': '325396985',
 }
+
+export const ESB_CUSTOMER_IDS = new Set(Object.values(ESB_PHONE_TO_CUSTOMER_ID))
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, '').slice(-10)
+}
+
+export function isEsbPhone(phone: string): boolean {
+  return Object.hasOwn(ESB_PHONE_TO_CUSTOMER_ID, normalizePhone(phone))
+}
+
+export function isEsbCustomerId(customerId: string): boolean {
+  return ESB_CUSTOMER_IDS.has(customerId)
+}
+
+function persistPhoneCustomerMapping(phone: string, deviceId: string | undefined, customerId: string): void {
+  const normalized = normalizePhone(phone)
+  const dynamicMap = getDynamicPhoneToCustomerMap()
+  dynamicMap[buildDynamicMapKey(phone, deviceId)] = customerId
+  dynamicMap[normalized] = customerId
+  setDynamicPhoneToCustomerMap(dynamicMap)
+
+  const persistentUpdated = getPersistentPhoneToCustomerMap()
+  persistentUpdated[normalized] = customerId
+  setPersistentPhoneToCustomerMap(persistentUpdated)
 }
 
 function getPersistentPhoneToCustomerMap(): Record<string, string> {
@@ -69,22 +90,6 @@ function setPersistentPhoneToCustomerMap(map: Record<string, string>): void {
 function buildDynamicMapKey(phone: string, deviceId?: string): string {
   const normalizedPhone = normalizePhone(phone)
   return `${normalizedPhone}:${deviceId ?? ''}`
-}
-
-function hashString(input: string): number {
-  let hash = 2166136261
-  for (let i = 0; i < input.length; i += 1) {
-    hash ^= input.charCodeAt(i)
-    hash = Math.imul(hash, 16777619)
-  }
-  return hash >>> 0
-}
-
-function getDeterministicCustomerId(phone: string, deviceId: string | undefined, eligibleIds: string[]) {
-  if (!eligibleIds.length) return null
-  const key = buildDynamicMapKey(phone, deviceId)
-  const idx = hashString(key) % eligibleIds.length
-  return eligibleIds[idx] ?? null
 }
 
 function getDynamicPhoneToCustomerMap(): Record<string, string> {
@@ -116,41 +121,14 @@ function getCustomerById(customerId: string): DemoCustomer | null {
 
 export function findCustomerByPhone(phone: string, deviceId?: string): DemoCustomer | null {
   const normalized = normalizePhone(phone)
-  const mappedCustomerId = PHONE_TO_CUSTOMER_ID[normalized]
-  if (mappedCustomerId) {
-    return getCustomerById(mappedCustomerId)
+  const mappedCustomerId = ESB_PHONE_TO_CUSTOMER_ID[normalized]
+  if (!mappedCustomerId) return null
+
+  const mapped = getCustomerById(mappedCustomerId)
+  if (mapped) {
+    persistPhoneCustomerMapping(phone, deviceId, mappedCustomerId)
   }
-
-  const persistentMap = getPersistentPhoneToCustomerMap()
-  const persistentCustomerId = persistentMap[normalized]
-  if (persistentCustomerId) {
-    return getCustomerById(persistentCustomerId)
-  }
-
-  const dynamicMap = getDynamicPhoneToCustomerMap()
-  const compositeKey = buildDynamicMapKey(phone, deviceId)
-  const existingDynamicCustomerId = dynamicMap[compositeKey] ?? dynamicMap[normalized]
-  if (existingDynamicCustomerId) {
-    if (!dynamicMap[compositeKey]) {
-      dynamicMap[compositeKey] = existingDynamicCustomerId
-      setDynamicPhoneToCustomerMap(dynamicMap)
-    }
-    return getCustomerById(existingDynamicCustomerId)
-  }
-
-  const assignedCustomerId =
-    getDeterministicCustomerId(phone, deviceId, ELIGIBLE_CUSTOMER_IDS) ?? ELIGIBLE_CUSTOMER_IDS[0]
-  if (!assignedCustomerId) return CUSTOMERS[0] ?? null
-
-  dynamicMap[compositeKey] = assignedCustomerId
-  dynamicMap[normalized] = assignedCustomerId
-  setDynamicPhoneToCustomerMap(dynamicMap)
-
-  const persistentUpdated = getPersistentPhoneToCustomerMap()
-  persistentUpdated[normalized] = assignedCustomerId
-  setPersistentPhoneToCustomerMap(persistentUpdated)
-
-  return getCustomerById(assignedCustomerId)
+  return mapped
 }
 
 export function getAccountsForCustomer(customerId: string): DemoAccount[] {
@@ -203,28 +181,13 @@ export function setActiveCustomerByPhone(
 ): DemoCustomer | null {
   const deviceId = getDeviceId()
   const normalized = normalizePhone(phone)
-  let customer: DemoCustomer | null = null
+  const explicitCustomerId = ESB_PHONE_TO_CUSTOMER_ID[normalized]
+  if (!explicitCustomerId) return null
 
-  if (base_customer_id) {
-    const persistentMap = getPersistentPhoneToCustomerMap()
-    const persistedForPhone = persistentMap[normalized]
-    customer = getCustomerById(persistedForPhone || base_customer_id)
-    if (customer) {
-      const dynamicMap = getDynamicPhoneToCustomerMap()
-      dynamicMap[buildDynamicMapKey(phone, deviceId)] = customer.customer_id
-      dynamicMap[normalized] = customer.customer_id
-      setDynamicPhoneToCustomerMap(dynamicMap)
-
-      const persistentUpdated = getPersistentPhoneToCustomerMap()
-      persistentUpdated[normalized] = customer.customer_id
-      setPersistentPhoneToCustomerMap(persistentUpdated)
-    }
-  }
-
-  if (!customer) {
-    customer = findCustomerByPhone(phone, deviceId)
-  }
+  const customer = getCustomerById(explicitCustomerId)
   if (!customer) return null
+
+  persistPhoneCustomerMapping(phone, deviceId, customer.customer_id)
 
   if (voice_customer_id) customer.voice_customer_id = voice_customer_id
   if (is_voice_registered !== undefined) customer.is_voice_registered = is_voice_registered
