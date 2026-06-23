@@ -18,5 +18,5 @@ export const JAVA_API_BASE = import.meta.env.DEV
 export const VOICEPRINT_API_BASE =
   import.meta.env.VITE_VOICEPRINT_API_BASE ?? 'https://voicebanking.joshsoftware.com'
 
-/** User id for enrollment; replace with auth profile id when available. */
-// export const VOICE_ENROLL_USER_ID = 'test-user'
+/** Customer fixture source for this branch. */
+export const CUSTOMER_DATA_SOURCE = 'esb'

@@ -5,7 +5,7 @@ import { ListeningSheet } from '@/components/home/ListeningSheet'
 import { FeedbackModal } from '@/components/home/FeedbackModal'
 import { useVoiceSession } from '@/contexts/VoiceSessionContext'
 import { BotAudio } from '@/components/BotAudio'
-import { getActiveCustomer } from '@/lib/demoCustomer'
+import { getActiveCustomer } from '@/lib/customerData'
 import { MicIcon } from '@/components/ui/icons'
 
 export default function Listening() {

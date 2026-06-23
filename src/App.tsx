@@ -15,7 +15,7 @@ import AdminFeedback from './pages/AdminFeedback'
 import { VoiceSessionProvider } from './contexts/VoiceSessionContext'
 import { PwaInstallPrompt } from './components/pwa/PwaInstallPrompt'
 
-import { isVoiceSkipAllowed } from '@/lib/demoCustomer'
+import { isVoiceSkipAllowed } from '@/lib/customerData'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth()

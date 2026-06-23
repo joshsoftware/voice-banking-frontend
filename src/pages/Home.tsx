@@ -11,7 +11,7 @@ import {
   getPrimaryAccount,
   isVoiceRegistered,
   markVoiceUnregistered,
-} from '@/lib/demoCustomer'
+} from '@/lib/customerData'
 import { httpClient } from '@/lib/httpClient'
 
 interface HomeProps {
