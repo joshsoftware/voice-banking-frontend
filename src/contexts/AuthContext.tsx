@@ -55,8 +55,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   useEffect(() => {
-    // Initial sync
-    if (accessToken) {
+    // Initial sync and validate tokens on mount
+    const storedToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+    
+    // If state and storage are out of sync, clear state
+    if (accessToken && !storedToken) {
+      setAccessToken(null);
+      setRefreshToken(null);
+      setUser(null);
+      setMobileNumber(null);
+      setPreferredLanguageState(null);
+      setIsNewUser(false);
+      clearActiveCustomer();
+    } else if (accessToken) {
       const customer = getActiveCustomer();
       setUser(customer);
     }
@@ -118,6 +129,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [accessToken, handleSessionInvalidated]);
+
+  // Detect cache clear in the same tab (storage event doesn't fire for same-tab changes)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Re-validate auth state when tab becomes visible
+        const storedToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+        
+        // If we think we're authenticated but localStorage is empty, cache was cleared
+        if (accessToken && !storedToken) {
+          logout();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [accessToken, logout]);
 
   const clearSessionError = () => setSessionError(null);
 
