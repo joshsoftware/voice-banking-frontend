@@ -900,7 +900,6 @@ export function useSmallWebRTC() {
           setOtpSignal(null)
           const successText = signal.message?.trim()
             || 'Transfer successful. The amount has been debited from your account.'
-          pushMsg('assistant', successText)
         }
       })
 
