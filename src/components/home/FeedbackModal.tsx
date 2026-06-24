@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { API_BASE } from '@/lib/constants'
+import { useTranslation } from '@/i18n/LanguageHooks'
 
 interface FeedbackModalProps {
   username: string
@@ -10,6 +11,7 @@ interface FeedbackModalProps {
 }
 
 export function FeedbackModal({ username, email, sessionId, deviceId, onClose }: FeedbackModalProps) {
+  const { t } = useTranslation()
   const [form, setForm] = useState({
     username,
     email,
@@ -32,15 +34,15 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.description.trim()) {
-      setError('Description is required.')
+      setError(t('feedbackErrorDescription'))
       return
     }
     if (!sessionId) {
-      setError('No active session found. Please start a session and try again.')
+      setError(t('feedbackErrorSession'))
       return
     }
     if (!image) {
-      setError('A screenshot is required.')
+      setError(t('feedbackErrorScreenshot'))
       return
     }
 
@@ -98,21 +100,21 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-base font-semibold text-gray-900">Feedback submitted!</p>
-            <p className="text-sm text-gray-500">Thank you for helping us improve.</p>
+            <p className="text-base font-semibold text-gray-900">{t('feedbackSuccessTitle')}</p>
+            <p className="text-sm text-gray-500">{t('feedbackSuccessMessage')}</p>
             <button
               type="button"
               data-testid="feedback-done-btn"
               onClick={onClose}
               className="mt-2 w-full rounded-xl bg-[var(--color-brand-900,#1a237e)] py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
-              Done
+              {t('feedbackDone')}
             </button>
           </div>
         ) : (
           <>
             <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Submit Feedback</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('feedbackModalTitle')}</h2>
               <button
                 type="button"
                 data-testid="feedback-close-btn"
@@ -135,7 +137,7 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-600" htmlFor="fb-username">
-                  Name
+                  {t('feedbackNameLabel')}
                 </label>
                 <input
                   id="fb-username"
@@ -151,7 +153,7 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
 
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-600" htmlFor="fb-email">
-                  Email
+                  {t('feedbackEmailLabel')}
                 </label>
                 <input
                   id="fb-email"
@@ -167,7 +169,7 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
 
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-600" htmlFor="fb-description">
-                  Description
+                  {t('feedbackDescriptionLabel')}
                 </label>
                 <textarea
                   id="fb-description"
@@ -177,14 +179,14 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
                   value={form.description}
                   onChange={handleChange}
                   required
-                  placeholder="Describe your feedback…"
+                  placeholder={t('feedbackDescriptionPlaceholder')}
                   className="resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none ring-0 focus:border-[var(--color-brand-900,#1a237e)] focus:ring-1 focus:ring-[var(--color-brand-900,#1a237e)]"
                 />
               </div>
 
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-600">
-                  Screenshot <span className="text-red-500">*</span>
+                  {t('feedbackScreenshotLabel')} <span className="text-red-500">*</span>
                 </label>
                 <button
                   type="button"
@@ -205,7 +207,7 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
                     />
                   </svg>
                   <span className="truncate">
-                    {image ? image.name : 'Attach an image'}
+                    {image ? image.name : t('feedbackAttachImage')}
                   </span>
                 </button>
                 <input
@@ -228,7 +230,7 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
                 disabled={submitting}
                 className="mt-1 w-full rounded-xl bg-[var(--color-brand-900,#1a237e)] py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
               >
-                {submitting ? 'Submitting…' : 'Submit Feedback'}
+                {submitting ? t('feedbackSubmitting') : t('feedbackSubmitButton')}
               </button>
             </form>
           </>

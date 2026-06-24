@@ -7,7 +7,7 @@ import { LANGUAGES, type LanguageId } from '@/i18n/languages'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
 import { useAuth } from '@/contexts/AuthContext'
 import { authApi } from '@/lib/authApi'
-import { getActiveCustomer, isVoiceRegistered, isVoiceSkipAllowed } from '@/lib/demoCustomer'
+import { getActiveCustomer, isVoiceRegistered, isVoiceSkipAllowed } from '@/lib/customerData'
 
 
 export default function LanguageSelect() {
