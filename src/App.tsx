@@ -15,7 +15,7 @@ import AdminFeedback from './pages/AdminFeedback'
 import { VoiceSessionProvider } from './contexts/VoiceSessionContext'
 import { PwaInstallPrompt } from './components/pwa/PwaInstallPrompt'
 
-import { isVoiceSkipAllowed } from '@/lib/customerData'
+import { isVoiceSkipAllowed, getActiveCustomer, isVoiceRegistered } from '@/lib/demoCustomer'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth()
@@ -38,7 +38,7 @@ const OnboardingRoute = ({
   requiresLanguage?: boolean
   requiresVoice?: boolean
 }) => {
-  const { isAuthenticated, preferredLanguage, isVoiceprintRegistered, isLoading, user } = useAuth()
+  const { isAuthenticated, preferredLanguage, isLoading, user } = useAuth()
   
   if (isLoading) return <div className="flex h-screen items-center justify-center text-white">Loading...</div>
   
@@ -62,7 +62,13 @@ const OnboardingRoute = ({
     if (!preferredLanguage) {
       return <Navigate to="/language" replace />
     }
-    if (!isVoiceprintRegistered && !(user?.customer_id && isVoiceSkipAllowed(user.customer_id))) {
+    // Check localStorage directly to avoid React state timing issues
+    const activeCustomer = getActiveCustomer()
+    const customerId = user?.customer_id || activeCustomer?.customer_id
+    const voiceRegistered = customerId ? isVoiceRegistered(customerId) : false
+    const skipAllowed = customerId ? isVoiceSkipAllowed(customerId) : false
+    
+    if (!voiceRegistered && !skipAllowed) {
       return <Navigate to="/voice-registration" replace />
     }
   }

@@ -6,6 +6,7 @@ import { Header } from '@/components/home/Header'
 import { BalanceCard } from '@/components/home/BalanceCard'
 
 import {
+  allowVoiceSkip,
   disallowVoiceSkip,
   getActiveCustomer,
   getPrimaryAccount,
@@ -59,10 +60,9 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
       const voiceCustomerId = customer.voice_customer_id ?? customer.customer_id
       await httpClient.delete(`/voiceprint/${encodeURIComponent(voiceCustomerId)}`)
       markVoiceUnregistered(customer.customer_id)
-      disallowVoiceSkip(customer.customer_id)
+      allowVoiceSkip(customer.customer_id)
       refreshActiveCustomer()
       setShowVoiceUnregisteredToast(true)
-      navigate('/home', { replace: true })
     } catch (e: any) {
       const msg = e.message || 'Failed to unregister voice.'
       window.alert(msg)
