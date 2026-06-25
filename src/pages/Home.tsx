@@ -7,7 +7,6 @@ import { BalanceCard } from '@/components/home/BalanceCard'
 
 import {
   allowVoiceSkip,
-  disallowVoiceSkip,
   getActiveCustomer,
   getPrimaryAccount,
   isVoiceRegistered,
