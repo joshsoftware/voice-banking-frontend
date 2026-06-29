@@ -506,7 +506,10 @@ export default function VoiceRegistration() {
     disconnectRtc()
     stopSpeech()
     refreshActiveCustomer()
-    navigate('/home')
+    // Defer navigation to allow React state to update
+    setTimeout(() => {
+      navigate('/listening', { replace: true })
+    }, 100)
   }
 
   const currentImage = sessionImages[imageIndex]
