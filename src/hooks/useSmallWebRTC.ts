@@ -319,6 +319,10 @@ export function useSmallWebRTC() {
   const lastUserTranscriptRef = useRef<string>('')
   const pendingUserIntentRef = useRef<string>('')
   const pendingStructuredIntentRef = useRef<PendingStructuredIntent>(null)
+  const pendingTransactionTableRef = useRef<{
+    transactions: TransactionItem[]
+    tableTitle?: string
+  } | null>(null)
   const hasUserSpokenThisSessionRef = useRef(false)
   const hasDetectedUserVoiceRef = useRef(false)
   const voiceprintBlockedRef = useRef(false)
@@ -481,6 +485,15 @@ export function useSmallWebRTC() {
       if (isAssistantWelcomeMessage(normalized)) {
         clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
         pushMsg('assistant', normalized)
+        return
+      }
+
+      const pendingTable = pendingTransactionTableRef.current
+      if (pendingTable) {
+        pendingTransactionTableRef.current = null
+        // Table only in chat — bot audio/TTS continues unchanged.
+        pushMsg('assistant', '', pendingTable.transactions, pendingTable.tableTitle)
+        clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
         return
       }
 
@@ -651,6 +664,7 @@ export function useSmallWebRTC() {
     lastUserTranscriptRef.current = ''
     pendingUserIntentRef.current = ''
     pendingStructuredIntentRef.current = null
+    pendingTransactionTableRef.current = null
     hasUserSpokenThisSessionRef.current = false
     hasDetectedUserVoiceRef.current = false
     isMicInputEnabledRef.current = false
@@ -883,6 +897,14 @@ export function useSmallWebRTC() {
             })
             // Push a single authoritative error message
             pushMsg('assistant', t('errorNotAuthorized'))
+          }
+        } else if (data?.type === 'TRANSACTION_LIST') {
+          const list = data.transactions
+          if (Array.isArray(list) && list.length > 0) {
+            pendingTransactionTableRef.current = {
+              transactions: list as TransactionItem[],
+              tableTitle: typeof data.tableTitle === 'string' ? data.tableTitle : undefined,
+            }
           }
         } else if (data?.type === 'OTP_REQUIRED') {
           console.log('[SmallWebRTC] OTP Required:', data)
