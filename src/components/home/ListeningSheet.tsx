@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Waveform } from '@/components/ui/waveform'
 import type { WebRTCState, ChatMessage, VoiceprintStatus, OTPSignal } from '@/hooks/useSmallWebRTC'
 import { useTranslation } from '@/i18n/LanguageHooks'
+import { TypingIndicator } from '@/components/ui/TypingIndicator'
 
 // ─── Status chip ──────────────────────────────────────────────────────────────
 
@@ -255,7 +256,7 @@ export function ListeningSheet({
     connecting: t('statusConnecting'),
     connected: t('statusReady'),
     listening: t('statusListening'),
-    processing: t('statusProcessing'),
+    processing: '', // Handled via chat bubble TypingIndicator
     speaking: t('statusSpeaking'),
     error: t('statusConnectionError'),
     disconnected: t('statusSessionEnded'),
@@ -444,11 +445,12 @@ export function ListeningSheet({
             )}
 
             {/* Chat area */}
-            {visibleMessages.length > 0 && (
+            {(visibleMessages.length > 0 || state === 'processing') && (
               <div className="w-full flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto mobile-scroll px-1">
                 {visibleMessages.map((msg, i) => (
                   <ChatBubble key={i} msg={msg} />
                 ))}
+                {state === 'processing' && <TypingIndicator />}
                 <div ref={chatBottomRef} />
               </div>
             )}
