@@ -319,6 +319,10 @@ export function useSmallWebRTC() {
   const lastUserTranscriptRef = useRef<string>('')
   const pendingUserIntentRef = useRef<string>('')
   const pendingStructuredIntentRef = useRef<PendingStructuredIntent>(null)
+  const pendingTransactionTableRef = useRef<{
+    transactions: TransactionItem[]
+    tableTitle?: string
+  } | null>(null)
   const hasUserSpokenThisSessionRef = useRef(false)
   const hasDetectedUserVoiceRef = useRef(false)
   const voiceprintBlockedRef = useRef(false)
@@ -326,6 +330,9 @@ export function useSmallWebRTC() {
   const isBackgroundPausedRef = useRef(false)
   const wasMutedBeforeBackgroundRef = useRef(false)
   const isMicInputEnabledRef = useRef(false)
+  const isBotReadyRef = useRef(false)
+  const pendingHoldRequestRef = useRef(false)
+  const pendingUserBubbleTextRef = useRef<string>('')
   const activeCustomer = getActiveCustomer()
   const activeCustomerId = activeCustomer?.customer_id ?? null
   const activeCustomerName = activeCustomer?.name ?? 'User'
@@ -481,6 +488,15 @@ export function useSmallWebRTC() {
       if (isAssistantWelcomeMessage(normalized)) {
         clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
         pushMsg('assistant', normalized)
+        return
+      }
+
+      const pendingTable = pendingTransactionTableRef.current
+      if (pendingTable) {
+        pendingTransactionTableRef.current = null
+        // Table only in chat — bot audio/TTS continues unchanged.
+        pushMsg('assistant', '', pendingTable.transactions, pendingTable.tableTitle)
+        clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
         return
       }
 
@@ -651,9 +667,13 @@ export function useSmallWebRTC() {
     lastUserTranscriptRef.current = ''
     pendingUserIntentRef.current = ''
     pendingStructuredIntentRef.current = null
+    pendingTransactionTableRef.current = null
     hasUserSpokenThisSessionRef.current = false
     hasDetectedUserVoiceRef.current = false
     isMicInputEnabledRef.current = false
+    isBotReadyRef.current = false
+    pendingHoldRequestRef.current = false
+    pendingUserBubbleTextRef.current = ''
     setIsMicHeld(false)
     clearNoSoundTimer()
     llmTextBufferRef.current = ''
@@ -695,6 +715,7 @@ export function useSmallWebRTC() {
 
       client.on('botReady', () => {
         console.log('[SmallWebRTC] Bot ready — mic muted until hold-to-speak')
+        isBotReadyRef.current = true
         isMicInputEnabledRef.current = false
         setIsMicHeld(false)
         try {
@@ -703,6 +724,12 @@ export function useSmallWebRTC() {
           console.error('[SmallWebRTC] Failed to mute mic on bot ready:', err)
         }
         setState('listening')
+
+        if (pendingHoldRequestRef.current) {
+          console.log('[SmallWebRTC] Executing pending Hold & Speak request now that bot is ready')
+          pendingHoldRequestRef.current = false
+          setMicrophoneCapture(true)
+        }
       })
 
       client.on('userStartedSpeaking', () => {
@@ -728,13 +755,20 @@ export function useSmallWebRTC() {
           return
         }
         console.log('[SmallWebRTC] User stopped speaking')
-        setState('listening')
+        setState('processing')
       })
 
       client.on('botStartedSpeaking', () => {
         console.log('[SmallWebRTC] Bot started speaking')
-        // Never clear llmTextBufferRef here: English skips rewriter LLM so TTS can
-        // start before botLlmStopped; clearing would drop the buffered welcome text.
+        try {
+          const tracks = client.tracks()
+          if (tracks?.bot?.audio) tracks.bot.audio.enabled = true
+        } catch (e) {
+          console.warn('[SmallWebRTC] Could not enable bot audio track:', e)
+        }
+        if (audioElRef.current && audioElRef.current.paused) {
+          audioElRef.current.play().catch(() => {})
+        }
         setState('speaking')
       })
 
@@ -797,7 +831,14 @@ export function useSmallWebRTC() {
           hasUserSpokenThisSessionRef.current = true
           pendingUserIntentRef.current = text
           lastUserTranscriptRef.current = text
-          pushMsg('user', text)
+          if (isMicInputEnabledRef.current) {
+            // User is currently holding Push-to-Talk button. Buffer the transcript
+            // until the button is released and bot begins processing.
+            pendingUserBubbleTextRef.current = text
+          } else {
+            // User already released Push-to-Talk button and bot is processing.
+            pushMsg('user', text)
+          }
         }
       })
 
@@ -807,6 +848,7 @@ export function useSmallWebRTC() {
         const token = typeof data === 'string' ? data : (data?.text ?? '')
         console.log('[SmallWebRTC] Bot LLM text token:', token)
         llmTextBufferRef.current += token
+        setState(prev => prev === 'processing' ? 'speaking' : prev)
       })
 
       // botLlmStopped fires when the LLM finishes streaming — flush buffer immediately
@@ -883,6 +925,14 @@ export function useSmallWebRTC() {
             })
             // Push a single authoritative error message
             pushMsg('assistant', t('errorNotAuthorized'))
+          }
+        } else if (data?.type === 'TRANSACTION_LIST') {
+          const list = data.transactions
+          if (Array.isArray(list) && list.length > 0) {
+            pendingTransactionTableRef.current = {
+              transactions: list as TransactionItem[],
+              tableTitle: typeof data.tableTitle === 'string' ? data.tableTitle : undefined,
+            }
           }
         } else if (data?.type === 'OTP_REQUIRED') {
           console.log('[SmallWebRTC] OTP Required:', data)
@@ -1136,35 +1186,85 @@ export function useSmallWebRTC() {
     const client = clientRef.current
     if (!client) return
 
-    const sessionReady =
-      state === 'listening' ||
-      state === 'speaking' ||
-      state === 'processing' ||
-      state === 'connected'
-
-    if (enabled && !sessionReady) return
-
-    if (isMicInputEnabledRef.current === enabled) return
-
-    isMicInputEnabledRef.current = enabled
-    setIsMicHeld(enabled)
-
-    try {
-      void client.enableMic(enabled)
-      const tracks = client.tracks()
-      if (tracks?.local?.audio) tracks.local.audio.enabled = enabled
-    } catch (err) {
-      console.error('[SmallWebRTC] Failed to set mic capture:', err)
-    }
-
     if (enabled) {
+      // Requirement 1: Hold & Speak immediately interrupts the bot locally
+      if (state === 'speaking' || audioElRef.current?.srcObject) {
+        console.log('[SmallWebRTC] Hold & Speak interrupting bot playback locally')
+        if (audioElRef.current) {
+          audioElRef.current.pause()
+          audioElRef.current.currentTime = 0
+        }
+        try {
+          const tracks = client.tracks()
+          if (tracks?.bot?.audio) tracks.bot.audio.enabled = false
+        } catch (e) {
+          console.warn('[SmallWebRTC] Could not disable bot track on interruption:', e)
+        }
+        if (state === 'speaking') {
+          setState('listening')
+        }
+      }
+
+      // Requirement 2: Beep and mic capture should only activate when ALL conditions are true
+      let isReady = isBotReadyRef.current
+      try {
+        const transport = client.transport as any
+        const pc = transport?.pc || transport?._pc
+        if (pc && pc.connectionState !== 'connected') isReady = false
+        const dc = transport?.dataChannel || transport?._dataChannel || transport?.messageChannel
+        if (dc && dc.readyState !== 'open') isReady = false
+      } catch {
+        // Fallback if transport internals unavailable
+      }
+
+      if (!isReady) {
+        console.warn('[SmallWebRTC] Hold & Speak requested before readiness conditions met. Waiting...')
+        pendingHoldRequestRef.current = true
+        return
+      }
+
+      pendingHoldRequestRef.current = false
+      if (isMicInputEnabledRef.current) return
+
+      isMicInputEnabledRef.current = true
+      setIsMicHeld(true)
+
+      try {
+        void client.enableMic(true)
+        const tracks = client.tracks()
+        if (tracks?.local?.audio) tracks.local.audio.enabled = true
+      } catch (err) {
+        console.error('[SmallWebRTC] Failed to enable mic capture:', err)
+      }
+
       playBeep()
       startNoSoundTimer()
     } else {
+      pendingHoldRequestRef.current = false
+      if (!isMicInputEnabledRef.current) return
+
+      isMicInputEnabledRef.current = false
+      setIsMicHeld(false)
       clearNoSoundTimer()
       setInputSoundStatus(null)
+
+      try {
+        void client.enableMic(false)
+        const tracks = client.tracks()
+        if (tracks?.local?.audio) tracks.local.audio.enabled = false
+      } catch (err) {
+        console.error('[SmallWebRTC] Failed to disable mic capture:', err)
+      }
+
+      if (pendingUserBubbleTextRef.current) {
+        pushMsg('user', pendingUserBubbleTextRef.current)
+        pendingUserBubbleTextRef.current = ''
+      }
+
+      // Requirement 5: Transition to processing immediately after button release
+      setState(prev => (prev === 'listening' || prev === 'connected' || prev === 'speaking') ? 'processing' : prev)
     }
-  }, [clearNoSoundTimer, startNoSoundTimer, state])
+  }, [clearNoSoundTimer, startNoSoundTimer, state, pushMsg])
 
   const startPushToTalk = useCallback(() => {
     setMicrophoneCapture(true)
