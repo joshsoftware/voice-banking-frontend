@@ -256,7 +256,7 @@ export function ListeningSheet({
     connecting: t('statusConnecting'),
     connected: t('statusReady'),
     listening: t('statusListening'),
-    processing: '', // Handled via chat bubble TypingIndicator
+    processing: t('statusProcessing'),
     speaking: t('statusSpeaking'),
     error: t('statusConnectionError'),
     disconnected: t('statusSessionEnded'),

@@ -328,6 +328,7 @@ export function useSmallWebRTC() {
   const isMicInputEnabledRef = useRef(false)
   const isBotReadyRef = useRef(false)
   const pendingHoldRequestRef = useRef(false)
+  const pendingUserBubbleTextRef = useRef<string>('')
   const activeCustomer = getActiveCustomer()
   const activeCustomerId = activeCustomer?.customer_id ?? null
   const activeCustomerName = activeCustomer?.name ?? 'User'
@@ -658,6 +659,7 @@ export function useSmallWebRTC() {
     isMicInputEnabledRef.current = false
     isBotReadyRef.current = false
     pendingHoldRequestRef.current = false
+    pendingUserBubbleTextRef.current = ''
     setIsMicHeld(false)
     clearNoSoundTimer()
     llmTextBufferRef.current = ''
@@ -815,7 +817,14 @@ export function useSmallWebRTC() {
           hasUserSpokenThisSessionRef.current = true
           pendingUserIntentRef.current = text
           lastUserTranscriptRef.current = text
-          pushMsg('user', text)
+          if (isMicInputEnabledRef.current) {
+            // User is currently holding Push-to-Talk button. Buffer the transcript
+            // until the button is released and bot begins processing.
+            pendingUserBubbleTextRef.current = text
+          } else {
+            // User already released Push-to-Talk button and bot is processing.
+            pushMsg('user', text)
+          }
         }
       })
 
@@ -1225,10 +1234,15 @@ export function useSmallWebRTC() {
         console.error('[SmallWebRTC] Failed to disable mic capture:', err)
       }
 
+      if (pendingUserBubbleTextRef.current) {
+        pushMsg('user', pendingUserBubbleTextRef.current)
+        pendingUserBubbleTextRef.current = ''
+      }
+
       // Requirement 5: Transition to processing immediately after button release
       setState(prev => (prev === 'listening' || prev === 'connected' || prev === 'speaking') ? 'processing' : prev)
     }
-  }, [clearNoSoundTimer, startNoSoundTimer, state])
+  }, [clearNoSoundTimer, startNoSoundTimer, state, pushMsg])
 
   const startPushToTalk = useCallback(() => {
     setMicrophoneCapture(true)
