@@ -4,7 +4,11 @@
 export const API_BASE = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BASE ?? '')
 
 /** Auth / login API (OTP, verify, refresh, logout). */
-export const AUTH_API_BASE = import.meta.env.VITE_AUTH_API_BASE ?? 'https://voicebanking.joshsoftware.com'
+// In dev, use relative URLs so requests go through the Vite proxy and work
+// even when the UI is opened from another device on LAN.
+export const AUTH_API_BASE = import.meta.env.DEV
+  ? ''
+  : (import.meta.env.VITE_AUTH_API_BASE ?? 'https://voicebanking.joshsoftware.com')
 
 /** Java banking APIs (transactions, loans, transfers, etc). */
 export const JAVA_API_BASE = import.meta.env.DEV
