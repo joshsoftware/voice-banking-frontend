@@ -100,6 +100,7 @@ const EN = {
   voiceRegistrationTakesUnder30s: 'Takes under 30 seconds.',
   voiceRegistrationImageXOfY: 'Image {current} of {total}',
   voiceRegistrationPlayImageDescription: 'Play image description',
+  voiceRegistrationAudioLanguageUnsupported: 'Audio in the selected language is not supported by this browser. Playing English audio instead.',
   voiceRegistrationConnectingSession: 'Connecting voice session...',
   voiceRegistrationStartSpeaking: 'Start speaking',
   voiceRegistrationTapToStartSpeaking: 'Tap to start speaking',
