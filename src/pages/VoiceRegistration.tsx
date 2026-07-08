@@ -8,7 +8,7 @@ import { ImageDescribeSheet, type ImageDescribeSheetState } from '@/components/v
 import { VoiceRegistrationSuccess } from '@/components/voice-registration/VoiceRegistrationSuccess'
 import { useMicLevel } from '@/hooks/useMicLevel'
 import { API_BASE, VOICEPRINT_API_BASE } from '@/lib/constants'
-import { stopSpeech, speakText } from '@/lib/speech'
+import { ensureSpeechVoicesLoaded, isLanguageSupported, stopSpeech, speakText } from '@/lib/speech'
 import {
   pickRandomRegistrationImages,
   VOICE_REGISTRATION_STEP_COUNT,
@@ -46,6 +46,7 @@ export default function VoiceRegistration() {
   const [submitLoading, setSubmitLoading] = useState(false)
   const [enrollError, setEnrollError] = useState<string | null>(null)
   const [isRtcReady, setIsRtcReady] = useState(false)
+  const [audioSupportMessage, setAudioSupportMessage] = useState<string | null>(null)
 
   const pcRef = useRef<RTCPeerConnection | null>(null)
   const pcIdRef = useRef<string | null>(null)
@@ -104,6 +105,12 @@ export default function VoiceRegistration() {
       stopSpeech()
     }
   }, [disconnectRtc])
+
+  useEffect(() => {
+    if (!audioSupportMessage) return
+    const id = window.setTimeout(() => setAudioSupportMessage(null), 3200)
+    return () => window.clearTimeout(id)
+  }, [audioSupportMessage])
 
   const waitForIceGathering = useCallback((pc: RTCPeerConnection) => {
     if (pc.iceGatheringState === 'complete') return Promise.resolve()
@@ -434,10 +441,17 @@ export default function VoiceRegistration() {
     }
   }
 
-  const playImageDescription = () => {
+  const playImageDescription = async () => {
     const item = sessionImages[imageIndex]
     if (!item) return
+    await ensureSpeechVoicesLoaded()
     const localizedDescription = item.spokenDescriptions[language] || item.spokenDescriptions.en
+    if (language !== 'en' && !isLanguageSupported(language)) {
+      setAudioSupportMessage(t('voiceRegistrationAudioLanguageUnsupported'))
+      speakText(item.spokenDescriptions.en, 'en')
+      return
+    }
+    setAudioSupportMessage(null)
     speakText(localizedDescription, language)
   }
 
@@ -561,11 +575,16 @@ export default function VoiceRegistration() {
                   type="button"
                   data-testid="voice-registration-play-audio-btn"
                   aria-label={t('voiceRegistrationPlayImageDescription')}
-                  onClick={playImageDescription}
+                  onClick={() => void playImageDescription()}
                   className="absolute right-3 top-3 grid size-10 place-items-center rounded-full bg-white text-[var(--color-brand-500)] shadow-[var(--shadow-mute)] transition-transform active:scale-95"
                 >
                   <VolumeIcon className="size-5" />
                 </button>
+                {audioSupportMessage ? (
+                  <div className="absolute left-3 right-3 top-16 rounded-2xl bg-[var(--color-brand-900)]/92 px-4 py-3 text-center text-xs font-semibold leading-snug text-white shadow-lg">
+                    {audioSupportMessage}
+                  </div>
+                ) : null}
               </div>
             </div>
 
