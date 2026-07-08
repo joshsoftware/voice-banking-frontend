@@ -275,13 +275,51 @@ function mapTransactionListSignal(signal: TransactionListSignal): {
 function isAssistantRecentTransactionsProse(text: string) {
   const normalized = text.toLowerCase()
   if (/^recent transactions\b/.test(normalized)) return true
+  if (/\btransactions?\s+found\b/.test(normalized) && /\d{4}-\d{2}-\d{2}/.test(text)) return true
   // "recent/latest/last transactions … rupees" — original pattern
   if (/\b(?:recent|latest|last)\s+transactions?\b/.test(normalized) && /\brupees\b/.test(normalized)) return true
   // Bot listing transactions as prose: "debited on YYYY-MM-DD" or "credited on YYYY-MM-DD"
   if (/\b(?:debited?|credited?)\s+on\b/.test(normalized) && /\d{4}-\d{2}-\d{2}/.test(text)) return true
+  // "1000 on YYYY-MM-DD via Mobile Phone EMI | UPI" — UPI/account specific prose.
+  if (/\b\d[\d,]*(?:\.\d+)?\s+on\s+\d{4}-\d{2}-\d{2}\s+via\b/.test(normalized)) return true
   // "Transfer to/from X … on YYYY-MM-DD" — typical multi-row listing format
   if (/\btransfer\s+(?:to|from)\b/.test(normalized) && /\bon \d{4}-\d{2}-\d{2}\b/.test(text)) return true
   return false
+}
+
+function parseTransactionRowsFromAssistantProse(text: string): {
+  transactions: TransactionItem[]
+  tableTitle: string
+} | null {
+  const transactions: TransactionItem[] = []
+  const rowPattern =
+    /(?:^|[.:]\s*)(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d+)?)\s+(?:(debited|credited)\s+)?on\s+(\d{4}-\d{2}-\d{2})\s*,?\s*(?:via\s+)?(.+?)(?=(?:[.;]\s*)?(?:₹|rs\.?|inr)?\s*[\d,]+(?:\.\d+)?\s+(?:(?:debited|credited)\s+)?on\s+\d{4}-\d{2}-\d{2}|$)/gi
+
+  let match: RegExpExecArray | null
+  while ((match = rowPattern.exec(text)) !== null) {
+    const amount = Number(match[1].replace(/,/g, ''))
+    if (!Number.isFinite(amount)) continue
+
+    const transactionType = match[2]?.toLowerCase() === 'credited' ? 'CREDIT' : 'DEBIT'
+    const description = (match[4] ?? 'Transaction')
+      .replace(/\s*\|\s*/g, ' | ')
+      .replace(/[.;]\s*$/, '')
+      .trim()
+
+    transactions.push({
+      amount,
+      category: description.split('|').at(-1)?.trim(),
+      description,
+      transactionDate: match[3],
+      transactionId: `assistant-prose-${match[3]}-${transactions.length}`,
+      type: transactionType,
+    })
+  }
+
+  if (transactions.length === 0) return null
+
+  const tableTitle = /\bupi\b/i.test(text) ? 'UPI Transactions' : 'Transactions'
+  return { transactions, tableTitle }
 }
 
 /** Bot did not answer transaction request yet (fallback/help/repair response). */
@@ -622,21 +660,27 @@ export function useSmallWebRTC() {
           }
         }
 
-        const gotTxnSignal = Boolean(signalData)
         if (signalData) {
           transactions = signalData.transactions
           tableTitle = signalData.tableTitle
         } else {
-          console.warn('[SmallWebRTC] Missing TRANSACTION_LIST signal after wait; showing text only')
-          transactions = []
+          const parsedRows = parseTransactionRowsFromAssistantProse(normalized)
+          if (parsedRows) {
+            transactions = parsedRows.transactions
+            tableTitle = parsedRows.tableTitle
+          } else {
+            console.warn('[SmallWebRTC] Missing TRANSACTION_LIST signal after wait; showing text only')
+            transactions = []
+          }
         }
-        // Card list only in chat — bot audio/TTS continues unchanged.
-        const displayText = gotTxnSignal ? '' : normalized
+        // Table only in chat — bot audio/TTS continues unchanged.
+        const hasTransactions = transactions.length > 0
+        const displayText = hasTransactions ? '' : normalized
         pushMsg(
           'assistant',
           displayText,
-          gotTxnSignal ? transactions : undefined,
-          gotTxnSignal ? tableTitle : undefined
+          hasTransactions ? transactions : undefined,
+          hasTransactions ? tableTitle : undefined
         )
         clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
       } catch {
