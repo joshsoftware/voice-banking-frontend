@@ -641,14 +641,14 @@ export function useSmallWebRTC() {
             'assistant',
             displayText,
             loanTransactions.length ? loanTransactions : undefined,
-            'Loan Statement'
+            t('loanStatement')
           )
           clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
           return
         }
 
         let transactions: TransactionItem[] = []
-        let tableTitle = 'Recent Transactions'
+        let tableTitle = t('recentTransactions')
         let signalData = pendingTxnSignalRef.current
         if (signalData) {
           pendingTxnSignalRef.current = null
@@ -687,7 +687,7 @@ export function useSmallWebRTC() {
         pushMsg('assistant', normalized)
       }
     },
-    [fetchLoanTransactions, getRequestedTransactionCount, pushMsg, waitForTxnSignal]
+    [fetchLoanTransactions, getRequestedTransactionCount, pushMsg, t, waitForTxnSignal]
   )
 
   const clearNoSoundTimer = useCallback(() => {
