@@ -100,11 +100,28 @@ function parseMarkdownLinks(text: string | undefined, isAssistant: boolean) {
   return parts.length > 0 ? parts : text
 }
 
+function getLocalizedTableHeading(tableTitle: string | undefined, t: ReturnType<typeof useTranslation>['t']) {
+  const normalized = (tableTitle ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+
+  if (!normalized) return t('recentTransactions')
+  if (normalized.includes('loan') && normalized.includes('statement')) return t('loanStatement')
+  if (normalized.includes('upi') && normalized.includes('transaction')) return t('upiTransactions')
+  if (normalized.includes('recent') && normalized.includes('transaction')) return t('recentTransactions')
+  if (normalized === 'transaction' || normalized === 'transactions') return t('transactions')
+
+  return tableTitle
+}
+
 // ─── Chat bubble ──────────────────────────────────────────────────────────────
 
 function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
+  const { t } = useTranslation()
   const items = msg.transactions ?? []
-  const heading = msg.tableTitle ?? 'Recent Transactions'
+  const heading = getLocalizedTableHeading(msg.tableTitle, t)
 
   if (items.length === 0) {
     return (
