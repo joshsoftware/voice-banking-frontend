@@ -406,8 +406,13 @@ export function ListeningSheet({
           <button
             type="button"
             data-testid="listening-close-btn"
-            // onClick={onClose}
-            onClick={() => setShowCloseConfirm(true)}
+            onClick={() => {
+              if (isDisconnected) {
+                onClose()
+                return
+              }
+              setShowCloseConfirm(true)
+            }}
             className="absolute top-4 right-4 z-10 grid size-8 place-items-center rounded-full bg-black/5 hover:bg-black/10 active:bg-black/15 transition-colors"
             aria-label={t('close')}
           >
