@@ -446,6 +446,7 @@ export function useSmallWebRTC() {
       return prev
     })
   }, [])
+  const txnTableHandledThisTurnRef = useRef(false)
   const hasUserSpokenThisSessionRef = useRef(false)
   const hasDetectedUserVoiceRef = useRef(false)
   const voiceprintBlockedRef = useRef(false)
@@ -576,11 +577,19 @@ export function useSmallWebRTC() {
         return
       }
 
+      // Txn table already rendered this turn — skip duplicate plain-text / table bubbles.
+      if (txnTableHandledThisTurnRef.current) {
+        return
+      }
+
       const pendingTable = pendingTransactionTableRef.current
       if (pendingTable) {
         pendingTransactionTableRef.current = null
-        // Table only in chat — bot audio/TTS continues unchanged.
-        pushMsg('assistant', '', pendingTable.transactions, pendingTable.tableTitle)
+        if (!txnTableHandledThisTurnRef.current) {
+          // Table only in chat — bot audio/TTS continues unchanged.
+          pushMsg('assistant', '', pendingTable.transactions, pendingTable.tableTitle)
+          txnTableHandledThisTurnRef.current = true
+        }
         clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
         return
       }
@@ -603,6 +612,8 @@ export function useSmallWebRTC() {
           pendingStructuredIntentRef.current = 'loan'
         } else if (isRecentTransactionsQuery(userIntentText)) {
           pendingStructuredIntentRef.current = 'transactions'
+        } else if (!isAccountSelectionReply(userIntentText)) {
+          pendingStructuredIntentRef.current = null
         }
       }
 
@@ -628,11 +639,16 @@ export function useSmallWebRTC() {
       const needsRecentTransactions = !assistantFallback && (txnFromUserIntent || txnFromAssistantProse)
 
       if (!needsRecentTransactions && !needsLoanStatement) {
+        // Spoken txn responses are shown as a formatted table — skip plain-text duplicate.
+        if (isRecentTransactionsQuery(userIntentText) || isAssistantRecentTransactionsProse(normalized)) {
+          return
+        }
         pushMsg('assistant', normalized)
         return
       }
 
       try {
+        pendingTransactionTableRef.current = null
         if (needsLoanStatement) {
           const loanTransactions = await fetchLoanTransactions(userIntentText)
           // Table only in chat — bot audio/TTS continues unchanged.
@@ -643,6 +659,11 @@ export function useSmallWebRTC() {
             loanTransactions.length ? loanTransactions : undefined,
             t('loanStatement')
           )
+          clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
+          return
+        }
+
+        if (txnTableHandledThisTurnRef.current) {
           clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
           return
         }
@@ -682,12 +703,13 @@ export function useSmallWebRTC() {
           hasTransactions ? transactions : undefined,
           hasTransactions ? tableTitle : undefined
         )
+        if (transactions.length) txnTableHandledThisTurnRef.current = true
         clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
       } catch {
         pushMsg('assistant', normalized)
       }
     },
-    [fetchLoanTransactions, getRequestedTransactionCount, pushMsg, t, waitForTxnSignal]
+    [fetchLoanTransactions, pushMsg, t, waitForTxnSignal]
   )
 
   const clearNoSoundTimer = useCallback(() => {
@@ -780,6 +802,7 @@ export function useSmallWebRTC() {
     pendingStructuredIntentRef.current = null
     pendingTxnSignalRef.current = null
     pendingTransactionTableRef.current = null
+    txnTableHandledThisTurnRef.current = false
     hasUserSpokenThisSessionRef.current = false
     hasDetectedUserVoiceRef.current = false
     isMicInputEnabledRef.current = false
@@ -857,6 +880,8 @@ export function useSmallWebRTC() {
         clearNoSoundTimer()
         voiceprintBlockedRef.current = false  // Reset block flag for new turn
         llmFlushedRef.current = false  // Reset flush flag for new turn
+        pendingTransactionTableRef.current = null  // Drop stale txn table from previous turn
+        txnTableHandledThisTurnRef.current = false
         setOtpSignal(null)  // Reset OTP state for new turn
         setState('processing')
       })
@@ -941,6 +966,7 @@ export function useSmallWebRTC() {
         }
         if (text && data.final) {
           hasUserSpokenThisSessionRef.current = true
+          pendingTransactionTableRef.current = null
           pendingUserIntentRef.current = text
           lastUserTranscriptRef.current = text
           pendingTxnSignalRef.current = null
@@ -1040,10 +1066,17 @@ export function useSmallWebRTC() {
           }
         } else if (data?.type === 'TRANSACTION_LIST') {
           const list = data.transactions
-          if (Array.isArray(list) && list.length > 0) {
-            pendingTransactionTableRef.current = {
+          if (Array.isArray(list) && list.length > 0 && !txnTableHandledThisTurnRef.current) {
+            const tablePayload = {
               transactions: list as TransactionItem[],
               tableTitle: typeof data.tableTitle === 'string' ? data.tableTitle : undefined,
+            }
+            if (llmFlushedRef.current) {
+              pushMsg('assistant', '', tablePayload.transactions, tablePayload.tableTitle)
+              txnTableHandledThisTurnRef.current = true
+              clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
+            } else {
+              pendingTransactionTableRef.current = tablePayload
             }
           }
         } else if (data?.type === 'OTP_REQUIRED') {

@@ -137,34 +137,34 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
   }
 
   return (
-    <div className="max-w-[92%] rounded-2xl bg-[var(--color-brand-500)] p-3 text-white shadow-sm">
+    <div className="max-w-[85%] rounded-2xl bg-[var(--color-brand-500)] px-2.5 py-2 text-white shadow-sm">
       {msg.text ? (
-        <div className="mb-2 whitespace-pre-line text-sm leading-snug text-white">
+        <div className="mb-1.5 whitespace-pre-line text-xs leading-snug text-white">
           {parseMarkdownLinks(msg.text, true)}
         </div>
       ) : null}
-      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/90">
+      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/90">
         {heading}
       </div>
-      <div className="space-y-2">
+      <div className="space-y-1">
         {items.map((item, idx) => {
           const credit = isCreditTransaction(item.type)
           return (
             <div
               key={item.transactionId || `${item.transactionDate}-${idx}`}
-              className="rounded-lg bg-white px-2.5 py-2 text-[var(--color-brand-900)]"
+              className="rounded-md bg-white px-2 py-1.5 text-[var(--color-brand-900)]"
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1 font-semibold leading-snug">{item.description}</div>
+              <div className="flex items-start justify-between gap-1.5">
+                <div className="min-w-0 flex-1 text-xs font-medium leading-snug">{item.description}</div>
                 <div
-                  className={`shrink-0 font-semibold tabular-nums ${
+                  className={`shrink-0 text-xs font-semibold tabular-nums ${
                     credit ? 'text-emerald-700' : 'text-[var(--color-brand-900)]'
                   }`}
                 >
                   {formatTransactionAmount(item.amount, item.type)}
                 </div>
               </div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-text-muted-2)]">
+              <div className="mt-0.5 text-[9px] leading-tight text-[var(--color-text-muted-2)]">
                 {(item.type ?? 'DEBIT').toUpperCase()} • {formatTransactionDate(item.transactionDate)}
               </div>
             </div>
@@ -172,7 +172,7 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
         })}
       </div>
       <div className="mt-1 flex justify-end">
-        <div className="text-[10px] text-white/60">
+        <div className="text-[9px] text-white/60">
           {formatMessageTime(msg.ts)}
         </div>
       </div>
