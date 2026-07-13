@@ -86,23 +86,6 @@ export interface TransactionItem {
   type: 'DEBIT' | 'CREDIT' | string
 }
 
-const NUMBER_WORDS_TO_VALUE: Record<string, number> = {
-  one: 1,
-  two: 2,
-  three: 3,
-  four: 4,
-  five: 5,
-  six: 6,
-  seven: 7,
-  eight: 8,
-  nine: 9,
-  ten: 10,
-  eleven: 11,
-  twelve: 12,
-  fifteen: 15,
-  twenty: 20,
-}
-
 const CHAT_HISTORY_KEY_PREFIX = 'voicebank.chatHistory'
 const AUTH_SESSION_ID_KEY = 'voicebank.auth_session_id'
 
@@ -490,28 +473,6 @@ export function useSmallWebRTC() {
   ) => {
     const normalizedText = role === 'assistant' ? normalizeAssistantMessage(text) : text
     setMessages(prev => [...prev, { role, text: normalizedText, ts: Date.now(), transactions, tableTitle }])
-  }, [])
-
-  const getRequestedTransactionCount = useCallback(() => {
-    const text = (pendingUserIntentRef.current || lastUserTranscriptRef.current).toLowerCase()
-
-    if (/\b(?:latest|last|most recent)\s+transaction\b/.test(text)) {
-      return 1
-    }
-
-    const digitMatch = text.match(/(?:last|recent|latest|most recent)?\s*(\d{1,2})\s+transactions?/)
-    if (digitMatch) {
-      const count = Number(digitMatch[1])
-      return Number.isNaN(count) ? 5 : Math.max(1, Math.min(count, 20))
-    }
-
-    for (const [word, value] of Object.entries(NUMBER_WORDS_TO_VALUE)) {
-      if (new RegExp(`\\b${word}\\b\\s+transactions?`).test(text)) {
-        return value
-      }
-    }
-
-    return 5
   }, [])
 
   const fetchLoanTransactions = useCallback(async (
