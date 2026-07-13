@@ -552,7 +552,7 @@ export default function VoiceRegistration() {
               <h1 className="text-xl font-bold leading-snug text-[var(--color-brand-900)]">
                 <span className="text-[var(--color-brand-500)]">{t('voiceRegistrationSetupHighlight')}</span>
               </h1>
-              <p className="mt-2 text-sm text-[var(--color-text-muted-2)]">{t('voiceRegistrationTakesUnder30s')}</p>
+              <p className="mt-2 text-sm text-[var(--color-text-muted-2)]">{t('voiceRegistrationSpeakDurationInstruction')}</p>
               <p className="mt-1 text-xs text-[var(--color-text-muted-3)]">
                 {t('voiceRegistrationImageXOfY', {
                   current: imageIndex + 1,
