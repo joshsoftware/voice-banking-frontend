@@ -217,7 +217,6 @@ function isLoanStatementQuery(text: string) {
     /\btransactions?\b/.test(normalized) ||
     /\bhistory\b/.test(normalized) ||
     /\brecent\b/.test(normalized) ||
-    /\blast\b/.test(normalized) ||
     /\bdetails\b/.test(normalized)
 
   const asksForEmiPaymentList =
@@ -475,6 +474,14 @@ export function useSmallWebRTC() {
     setMessages(prev => [...prev, { role, text: normalizedText, ts: Date.now(), transactions, tableTitle }])
   }, [])
 
+  const hasCurrentTransactionIntent = useCallback(() => {
+    return (
+      pendingStructuredIntentRef.current === 'transactions' ||
+      isRecentTransactionsQuery(pendingUserIntentRef.current) ||
+      isRecentTransactionsQuery(lastUserTranscriptRef.current)
+    )
+  }, [])
+
   const fetchLoanTransactions = useCallback(async (
     queryText: string,
     fromDate?: string,
@@ -557,6 +564,17 @@ export function useSmallWebRTC() {
 
       // Bot is clarifying (e.g. "which account — CURRENT or SAVINGS?") — text only, keep intent for next turn.
       if (isAssistantClarifyingQuestion(normalized)) {
+        const hasRelevantClarifyingIntent =
+          pendingStructuredIntentRef.current !== null ||
+          isLoanStatementQuery(userIntentText) ||
+          isRecentTransactionsQuery(userIntentText) ||
+          isAccountSelectionReply(userIntentText)
+
+        if (!hasRelevantClarifyingIntent && /\btransaction(?:s)?\s+history\b/.test(normalized)) {
+          clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
+          return
+        }
+
         if (pendingStructuredIntentRef.current === null && userIntentText) {
           if (isLoanStatementQuery(userIntentText)) {
             pendingStructuredIntentRef.current = 'loan'
@@ -936,6 +954,8 @@ export function useSmallWebRTC() {
             pendingStructuredIntentRef.current = 'loan'
           } else if (isRecentTransactionsQuery(text)) {
             pendingStructuredIntentRef.current = 'transactions'
+          } else if (!isAccountSelectionReply(text)) {
+            pendingStructuredIntentRef.current = null
           }
           pushMsg('user', text)
         }
@@ -1027,7 +1047,12 @@ export function useSmallWebRTC() {
           }
         } else if (data?.type === 'TRANSACTION_LIST') {
           const list = data.transactions
-          if (Array.isArray(list) && list.length > 0 && !txnTableHandledThisTurnRef.current) {
+          if (
+            Array.isArray(list) &&
+            list.length > 0 &&
+            !txnTableHandledThisTurnRef.current &&
+            hasCurrentTransactionIntent()
+          ) {
             const tablePayload = {
               transactions: list as TransactionItem[],
               tableTitle: typeof data.tableTitle === 'string' ? data.tableTitle : undefined,
@@ -1067,8 +1092,10 @@ export function useSmallWebRTC() {
 
           if (signal) {
             const { transactions: mapped, tableTitle } = mapTransactionListSignal(signal)
-            pendingTxnSignalRef.current = { transactions: mapped, tableTitle }
-            attachTxnSignalToRecentAssistant(mapped, tableTitle)
+            if (hasCurrentTransactionIntent()) {
+              pendingTxnSignalRef.current = { transactions: mapped, tableTitle }
+              attachTxnSignalToRecentAssistant(mapped, tableTitle)
+            }
           }
         }
       })
@@ -1152,6 +1179,7 @@ export function useSmallWebRTC() {
     authPreferredLanguage,
     clearNoSoundTimer,
     forceTerminateLocalMedia,
+    hasCurrentTransactionIntent,
     language,
     attachTxnSignalToRecentAssistant,
     pushAssistantMessage,
