@@ -9,6 +9,7 @@ interface ImageDescribeSheetProps {
   countdown: number
   recordProgress: number
   micActive: boolean
+  noVoiceDetected?: boolean
   onTapMic: () => void
   onRerecord: () => void
   onSubmit: () => void
@@ -20,6 +21,7 @@ export function ImageDescribeSheet({
   countdown,
   recordProgress,
   micActive,
+  noVoiceDetected = false,
   onTapMic,
   onRerecord,
   onSubmit,
@@ -75,6 +77,11 @@ export function ImageDescribeSheet({
                 />
               </div>
               <Waveform active={micActive} className="scale-90" />
+              {noVoiceDetected ? (
+                <p className="text-center text-xs font-semibold text-red-600">
+                  {t('voiceRegistrationNoVoiceDetected')}
+                </p>
+              ) : null}
             </div>
           )}
 

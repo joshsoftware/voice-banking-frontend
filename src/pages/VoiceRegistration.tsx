@@ -21,6 +21,7 @@ import { getDeviceId } from '@/lib/device'
 
 type Phase = 'consent' | 'imageChallenge' | 'success'
 const FALLBACK_ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
+const NO_VOICE_WARNING_DELAY_MS = 2500
 const normalizeBase = (url: string) => url.replace(/\/+$/, '')
 // Voice registration must keep enrollment + WebRTC on the SAME backend host.
 // If VOICEPRINT_API_BASE is configured, use it as primary to avoid cross-host session mismatch.
@@ -47,6 +48,7 @@ export default function VoiceRegistration() {
   const [enrollError, setEnrollError] = useState<string | null>(null)
   const [isRtcReady, setIsRtcReady] = useState(false)
   const [audioSupportMessage, setAudioSupportMessage] = useState<string | null>(null)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   const pcRef = useRef<RTCPeerConnection | null>(null)
   const pcIdRef = useRef<string | null>(null)
@@ -64,6 +66,7 @@ export default function VoiceRegistration() {
   const [sheetState, setSheetState] = useState<ImageDescribeSheetState>('micIdle')
   const [countdown, setCountdown] = useState(3)
   const [recordProgress, setRecordProgress] = useState(0)
+  const [showNoVoiceDetected, setShowNoVoiceDetected] = useState(false)
   const countdownToRecordingRef = useRef(false)
   const speechDetectedDuringRecordingRef = useRef(false)
 
@@ -324,6 +327,7 @@ export default function VoiceRegistration() {
     setSheetState('micIdle')
     setCountdown(3)
     setRecordProgress(0)
+    setShowNoVoiceDetected(false)
     speechDetectedDuringRecordingRef.current = false
     imageFinalizeLockRef.current = false
     countdownToRecordingRef.current = false
@@ -339,6 +343,7 @@ export default function VoiceRegistration() {
           await startEnrollmentRealtime()
         }
         setRecordProgress(0)
+        setShowNoVoiceDetected(false)
         speechDetectedDuringRecordingRef.current = false
         imageFinalizeLockRef.current = false
         setSheetState('recording')
@@ -360,8 +365,22 @@ export default function VoiceRegistration() {
     if (sheetState !== 'recording') return
     if (micActiveImage) {
       speechDetectedDuringRecordingRef.current = true
+      setShowNoVoiceDetected(false)
     }
   }, [sheetState, micActiveImage])
+
+  useEffect(() => {
+    if (sheetState !== 'recording') {
+      setShowNoVoiceDetected(false)
+      return
+    }
+    const id = window.setTimeout(() => {
+      if (!speechDetectedDuringRecordingRef.current) {
+        setShowNoVoiceDetected(true)
+      }
+    }, NO_VOICE_WARNING_DELAY_MS)
+    return () => window.clearTimeout(id)
+  }, [sheetState])
 
   useEffect(() => {
     if (sheetState !== 'recording') return
@@ -372,7 +391,8 @@ export default function VoiceRegistration() {
         if (n >= 100 && !imageFinalizeLockRef.current) {
           imageFinalizeLockRef.current = true
           if (!speechDetectedDuringRecordingRef.current) {
-            setEnrollError('No voice detected. Try again.')
+            setEnrollError(t('voiceRegistrationNoVoiceDetected'))
+            setShowNoVoiceDetected(true)
             setSheetState('micIdle')
             setCountdown(3)
             countdownToRecordingRef.current = false
@@ -384,7 +404,7 @@ export default function VoiceRegistration() {
       })
     }, 110)
     return () => clearInterval(id)
-  }, [sheetState])
+  }, [sheetState, t])
 
   const skipForNow = () => {
     if (activeCustomer?.customer_id) {
@@ -396,6 +416,34 @@ export default function VoiceRegistration() {
     navigate('/home')
   }
 
+  const cancelRegistration = () => {
+    disconnectRtc()
+    stopSpeech()
+    setShowCancelConfirm(false)
+    setEnrollmentSessionId(null)
+    setRtcSessionId(null)
+    enrollmentSessionIdRef.current = null
+    rtcSessionIdRef.current = null
+    sessionImagesRef.current = []
+    setSessionImages([])
+    setImageIndex(0)
+    setSheetState('micIdle')
+    setCountdown(3)
+    setRecordProgress(0)
+    setShowNoVoiceDetected(false)
+    setEnrollError(null)
+    setMicError(null)
+    setAudioSupportMessage(null)
+    countdownToRecordingRef.current = false
+    imageFinalizeLockRef.current = false
+    speechDetectedDuringRecordingRef.current = false
+    if (activeCustomer?.customer_id) {
+      allowVoiceSkip(activeCustomer.customer_id)
+    }
+    refreshActiveCustomer()
+    navigate('/home', { replace: true })
+  }
+
   const beginImageChallenge = useCallback(() => {
     const picked = pickRandomRegistrationImages(VOICE_REGISTRATION_STEP_COUNT)
     sessionImagesRef.current = picked
@@ -405,6 +453,7 @@ export default function VoiceRegistration() {
     setSheetState('micIdle')
     setCountdown(3)
     setRecordProgress(0)
+    setShowNoVoiceDetected(false)
     countdownToRecordingRef.current = false
     setEnrollError(null)
     setPhase('imageChallenge')
@@ -458,6 +507,7 @@ export default function VoiceRegistration() {
   const handleTapImageMic = () => {
     stopSpeech()
     setEnrollError(null)
+    setShowNoVoiceDetected(false)
     countdownToRecordingRef.current = false
     setCountdown(3)
     setSheetState('countdown')
@@ -466,6 +516,7 @@ export default function VoiceRegistration() {
   const handleRerecord = () => {
     imageFinalizeLockRef.current = false
     setRecordProgress(0)
+    setShowNoVoiceDetected(false)
     countdownToRecordingRef.current = false
     setSheetState('micIdle')
     setCountdown(3)
@@ -545,6 +596,14 @@ export default function VoiceRegistration() {
           </div>
         ) : phase === 'imageChallenge' ? (
           <div className="relative flex min-h-0 flex-1 flex-col px-5 pt-4">
+            <button
+              type="button"
+              data-testid="voice-registration-cancel-btn"
+              onClick={() => setShowCancelConfirm(true)}
+              className="absolute left-5 top-4 z-10 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-[var(--color-brand-600)] shadow-[var(--shadow-mute)] transition-colors hover:bg-white"
+            >
+              {t('voiceRegistrationCancel')}
+            </button>
             <div className="shrink-0 text-center">
               <h1 className="text-xl font-bold leading-snug text-[var(--color-brand-900)]">
                 {t('voiceRegistrationSetupPrefix')}{' '}
@@ -593,6 +652,7 @@ export default function VoiceRegistration() {
               countdown={countdown}
               recordProgress={recordProgress}
               micActive={micActiveImage}
+              noVoiceDetected={showNoVoiceDetected}
               onTapMic={handleTapImageMic}
               onRerecord={handleRerecord}
               onSubmit={() => void handleImageSubmit()}
@@ -740,6 +800,42 @@ export default function VoiceRegistration() {
             </div>
           </>
         )}
+        {showCancelConfirm ? (
+          <div
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 px-6 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="voice-registration-cancel-title"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowCancelConfirm(false)
+            }}
+          >
+            <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-[0_24px_60px_rgba(0,0,0,0.28)]">
+              <h2 id="voice-registration-cancel-title" className="text-lg font-bold text-[var(--color-brand-900)]">
+                {t('voiceRegistrationCancelConfirmTitle')}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-muted-2)]">
+                {t('voiceRegistrationCancelConfirmMessage')}
+              </p>
+              <div className="mt-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelConfirm(false)}
+                  className="h-12 flex-1 rounded-full bg-[var(--color-surface-app)] text-sm font-semibold text-[var(--color-brand-900)] transition-colors hover:bg-gray-200"
+                >
+                  {t('voiceRegistrationCancelConfirmContinue')}
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelRegistration}
+                  className="h-12 flex-1 rounded-full bg-red-600 text-sm font-semibold text-white shadow-md transition-colors hover:bg-red-700"
+                >
+                  {t('voiceRegistrationCancelConfirmQuit')}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </MobileContainer>
   )
