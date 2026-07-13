@@ -260,7 +260,7 @@ export function ListeningSheet({
   const isConnecting = state === 'connecting'
   const showPushToTalk = !isDisconnected && !isError
   const isPushToTalkDisabled = state === 'idle' || isConnecting
-  const showHoldHint = showPushToTalk && !isMicHeld && !isPushToTalkDisabled
+  const showHoldHint = showPushToTalk && state !== 'processing' && !isMicHeld && !isPushToTalkDisabled
   const { t } = useTranslation()
 
   const handlePushToTalkPointerDown = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
