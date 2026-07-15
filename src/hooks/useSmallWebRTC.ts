@@ -642,6 +642,12 @@ export function useSmallWebRTC() {
           }
         }
 
+        // TRANSACTION_LIST handler may have already rendered the table while we waited.
+        if (txnTableHandledThisTurnRef.current) {
+          clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
+          return
+        }
+
         if (signalData) {
           transactions = signalData.transactions
           tableTitle = signalData.tableTitle
