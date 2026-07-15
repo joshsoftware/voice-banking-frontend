@@ -2,13 +2,15 @@ import { useNavigate } from 'react-router-dom'
 import { MobileContainer } from '@/components/ui/mobile-container'
 import { ArrowLeftIcon } from '@/components/ui/icons'
 import { useTranslation } from '@/i18n/LanguageHooks'
+import { DEFAULT_LANGUAGE, LANGUAGES } from '@/i18n/languages'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 
 export default function Profile() {
   const navigate = useNavigate()
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const { logout, user } = useAuth()
+  const selectedLanguage = LANGUAGES.find((option) => option.id === (language || DEFAULT_LANGUAGE)) ?? LANGUAGES[0]
 
   return (
     <MobileContainer gradient={false}>
@@ -43,10 +45,16 @@ export default function Profile() {
             <button
               type="button"
               onClick={() => navigate('/language')}
-              className="w-full flex justify-between items-center text-left"
+              className="w-full flex items-center justify-between gap-4 text-left"
             >
-              <span className="font-medium">{t('selectLanguage')}</span>
-              <span className="text-[20px] leading-none text-gray-400">›</span>
+              <span className="font-medium">{t('profileSelectedLanguage')}</span>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-sm font-medium text-[var(--color-brand-900)]">
+                  {selectedLanguage.label}
+                  {selectedLanguage.subtitle !== selectedLanguage.label ? ` (${selectedLanguage.subtitle})` : ''}
+                </span>
+                <span className="text-[20px] leading-none text-gray-400">›</span>
+              </span>
             </button>
           </div>
 

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Waveform } from '@/components/ui/waveform'
 import type { WebRTCState, ChatMessage, VoiceprintStatus, OTPSignal } from '@/hooks/useSmallWebRTC'
 import { useTranslation } from '@/i18n/LanguageHooks'
+import { TypingIndicator } from '@/components/ui/TypingIndicator'
 
 // ─── Status chip ──────────────────────────────────────────────────────────────
 
@@ -20,16 +21,29 @@ const STATUS_COLORS: Record<WebRTCState, string> = {
 
 function formatTransactionDate(value?: string) {
   if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
+  const parsed = new Date(value.includes('T') ? value : `${value.split('T')[0]}T00:00:00`)
+  if (Number.isNaN(parsed.getTime())) return value
+  return new Intl.DateTimeFormat('en-IN', {
     day: '2-digit',
+    month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
-  }).format(date)
+  }).format(parsed)
+}
+
+function formatTransactionAmount(amount: number, type?: string) {
+  const formatted = new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2,
+  }).format(Math.abs(amount))
+  return type?.toUpperCase() === 'CREDIT' ? `+${formatted}` : `-${formatted}`
+}
+
+function isCreditTransaction(type?: string) {
+  return type?.toUpperCase() === 'CREDIT'
 }
 
 function formatMessageTime(ts: number): string {
@@ -86,11 +100,28 @@ function parseMarkdownLinks(text: string | undefined, isAssistant: boolean) {
   return parts.length > 0 ? parts : text
 }
 
+function getLocalizedTableHeading(tableTitle: string | undefined, t: ReturnType<typeof useTranslation>['t']) {
+  const normalized = (tableTitle ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+
+  if (!normalized) return t('recentTransactions')
+  if (normalized.includes('loan') && normalized.includes('statement')) return t('loanStatement')
+  if (normalized.includes('upi') && normalized.includes('transaction')) return t('upiTransactions')
+  if (normalized.includes('recent') && normalized.includes('transaction')) return t('recentTransactions')
+  if (normalized === 'transaction' || normalized === 'transactions') return t('transactions')
+
+  return tableTitle
+}
+
 // ─── Chat bubble ──────────────────────────────────────────────────────────────
 
 function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
+  const { t } = useTranslation()
   const items = msg.transactions ?? []
-  const heading = msg.tableTitle ?? 'Recent Transactions'
+  const heading = getLocalizedTableHeading(msg.tableTitle, t)
 
   if (items.length === 0) {
     return (
@@ -106,30 +137,42 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
   }
 
   return (
-    <div className="max-w-[85%] rounded-2xl bg-[var(--color-brand-500)] p-3 text-white shadow-sm">
+    <div className="max-w-[85%] rounded-2xl bg-[var(--color-brand-500)] px-2.5 py-2 text-white shadow-sm">
       {msg.text ? (
-        <div className="mb-2 whitespace-pre-line text-sm leading-snug text-white">
+        <div className="mb-1.5 whitespace-pre-line text-xs leading-snug text-white">
           {parseMarkdownLinks(msg.text, true)}
         </div>
       ) : null}
-      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/85">{heading}</div>
-      <div className="space-y-2">
-        {items.map((item, idx) => (
-          <div key={`${item.type}-${item.amount}-${idx}`} className="rounded-lg bg-white px-2 py-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-medium text-[var(--color-brand-900)]">{item.description}</div>
-                <div className="text-[10px] text-[var(--color-text-muted-2)]">
-                  {item.type} • {formatTransactionDate(item.transactionDate)}
+      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/90">
+        {heading}
+      </div>
+      <div className="space-y-1">
+        {items.map((item, idx) => {
+          const credit = isCreditTransaction(item.type)
+          return (
+            <div
+              key={item.transactionId || `${item.transactionDate}-${idx}`}
+              className="rounded-md bg-white px-2 py-1.5 text-[var(--color-brand-900)]"
+            >
+              <div className="flex items-start justify-between gap-1.5">
+                <div className="min-w-0 flex-1 text-xs font-medium leading-snug">{item.description}</div>
+                <div
+                  className={`shrink-0 text-xs font-semibold tabular-nums ${
+                    credit ? 'text-emerald-700' : 'text-[var(--color-brand-900)]'
+                  }`}
+                >
+                  {formatTransactionAmount(item.amount, item.type)}
                 </div>
               </div>
-              <div className="shrink-0 text-xs font-semibold text-[var(--color-brand-900)]">₹{item.amount.toFixed(2)}</div>
+              <div className="mt-0.5 text-[9px] leading-tight text-[var(--color-text-muted-2)]">
+                {(item.type ?? 'DEBIT').toUpperCase()} • {formatTransactionDate(item.transactionDate)}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
       <div className="mt-1 flex justify-end">
-        <div className="text-[10px] text-white/60">
+        <div className="text-[9px] text-white/60">
           {formatMessageTime(msg.ts)}
         </div>
       </div>
@@ -145,10 +188,22 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
       </div>
     )
   }
+  const showTransactionCards =
+    msg.role === 'assistant' &&
+    ((msg.transactions?.length ?? 0) > 0 || Boolean(msg.tableTitle))
   return (
     <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-      {msg.role === 'assistant' ? (
+      {showTransactionCards ? (
         <RecentTransactionsBubble msg={msg} />
+      ) : msg.role === 'assistant' ? (
+        <div className="max-w-[80%] rounded-2xl bg-[var(--color-brand-500)] px-4 py-2 text-sm leading-snug text-white shadow-sm">
+          <div className="flex items-end justify-between gap-2">
+            <div className="flex-1 whitespace-pre-line">{parseMarkdownLinks(msg.text, true)}</div>
+            <div className="shrink-0 self-end text-[10px] text-white/60 leading-none">
+              {formatMessageTime(msg.ts)}
+            </div>
+          </div>
+        </div>
       ) : (
         <div className="max-w-[80%] rounded-2xl bg-[var(--color-surface-app)] px-4 py-2 text-sm leading-snug text-[var(--color-brand-900)] shadow-sm">
           <div className="flex items-end justify-between gap-2">
@@ -205,7 +260,7 @@ export function ListeningSheet({
   const isConnecting = state === 'connecting'
   const showPushToTalk = !isDisconnected && !isError
   const isPushToTalkDisabled = state === 'idle' || isConnecting
-  const showHoldHint = showPushToTalk && !isMicHeld && !isPushToTalkDisabled
+  const showHoldHint = showPushToTalk && state !== 'processing' && !isMicHeld && !isPushToTalkDisabled
   const { t } = useTranslation()
 
   const handlePushToTalkPointerDown = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
@@ -351,8 +406,13 @@ export function ListeningSheet({
           <button
             type="button"
             data-testid="listening-close-btn"
-            // onClick={onClose}
-            onClick={() => setShowCloseConfirm(true)}
+            onClick={() => {
+              if (isDisconnected) {
+                onClose()
+                return
+              }
+              setShowCloseConfirm(true)
+            }}
             className="absolute top-4 right-4 z-10 grid size-8 place-items-center rounded-full bg-black/5 hover:bg-black/10 active:bg-black/15 transition-colors"
             aria-label={t('close')}
           >
@@ -444,11 +504,12 @@ export function ListeningSheet({
             )}
 
             {/* Chat area */}
-            {visibleMessages.length > 0 && (
+            {(visibleMessages.length > 0 || state === 'processing') && (
               <div className="w-full flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto mobile-scroll px-1">
                 {visibleMessages.map((msg, i) => (
                   <ChatBubble key={i} msg={msg} />
                 ))}
+                {state === 'processing' && <TypingIndicator />}
                 <div ref={chatBottomRef} />
               </div>
             )}

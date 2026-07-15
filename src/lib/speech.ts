@@ -1,6 +1,6 @@
 import type { LanguageId } from '@/i18n/languages'
 
-const SPEECH_LOCALE_BY_LANGUAGE: Record<LanguageId, string> = {
+export const SPEECH_LOCALE_BY_LANGUAGE: Record<LanguageId, string> = {
   en: 'en-IN',
   hi: 'hi-IN',
   ta: 'ta-IN',
@@ -12,12 +12,57 @@ const SPEECH_LOCALE_BY_LANGUAGE: Record<LanguageId, string> = {
   gu: 'gu-IN',
 }
 
-function pickBestVoice(language: LanguageId): SpeechSynthesisVoice | null {
+const VOICE_LOAD_TIMEOUT_MS = 800
+
+function getSpeechSynthesis(): SpeechSynthesis | null {
   if (typeof window === 'undefined' || !window.speechSynthesis) return null
+  return window.speechSynthesis
+}
+
+export function ensureSpeechVoicesLoaded(): Promise<SpeechSynthesisVoice[]> {
+  const synth = getSpeechSynthesis()
+  if (!synth) return Promise.resolve([])
+
+  const voices = synth.getVoices()
+  if (voices.length > 0) return Promise.resolve(voices)
+
+  return new Promise((resolve) => {
+    const previousHandler = synth.onvoiceschanged
+    let settled = false
+
+    const finish = () => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timeoutId)
+      synth.onvoiceschanged = previousHandler
+      resolve(synth.getVoices())
+    }
+
+    const timeoutId = window.setTimeout(finish, VOICE_LOAD_TIMEOUT_MS)
+    synth.onvoiceschanged = (event) => {
+      previousHandler?.call(synth, event)
+      finish()
+    }
+  })
+}
+
+export function isLanguageSupported(language: LanguageId): boolean {
+  const synth = getSpeechSynthesis()
+  if (!synth) return false
+
+  const voices = synth.getVoices()
+  const target = SPEECH_LOCALE_BY_LANGUAGE[language].toLowerCase()
+
+  return voices.some((v) => v.lang.toLowerCase() === target)
+}
+
+function pickBestVoice(language: LanguageId): SpeechSynthesisVoice | null {
+  const synth = getSpeechSynthesis()
+  if (!synth) return null
 
   const targetLocale = (SPEECH_LOCALE_BY_LANGUAGE[language] || SPEECH_LOCALE_BY_LANGUAGE.en).toLowerCase()
   const languagePrefix = targetLocale.split('-')[0]
-  const voices = window.speechSynthesis.getVoices()
+  const voices = synth.getVoices()
   if (!voices.length) return null
 
   const exact = voices.find((v) => v.lang.toLowerCase() === targetLocale)
@@ -39,8 +84,9 @@ function pickBestVoice(language: LanguageId): SpeechSynthesisVoice | null {
  * Browser text-to-speech for image descriptions. Backend audio can replace this later.
  */
 export function speakText(text: string, language: LanguageId = 'en', onEnd?: () => void): void {
-  if (typeof window === 'undefined' || !window.speechSynthesis) return
-  window.speechSynthesis.cancel()
+  const synth = getSpeechSynthesis()
+  if (!synth) return
+  synth.cancel()
   const utterance = new SpeechSynthesisUtterance(text)
   utterance.lang = SPEECH_LOCALE_BY_LANGUAGE[language] || SPEECH_LOCALE_BY_LANGUAGE.en
   const selectedVoice = pickBestVoice(language)
@@ -50,10 +96,11 @@ export function speakText(text: string, language: LanguageId = 'en', onEnd?: () 
   }
   utterance.rate = 0.95
   if (onEnd) utterance.onend = onEnd
-  window.speechSynthesis.speak(utterance)
+  synth.speak(utterance)
 }
 
 export function stopSpeech(): void {
-  if (typeof window === 'undefined' || !window.speechSynthesis) return
-  window.speechSynthesis.cancel()
+  const synth = getSpeechSynthesis()
+  if (!synth) return
+  synth.cancel()
 }

@@ -25,6 +25,9 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+    if (e.target.name === 'description' && error === t('feedbackErrorDescription')) {
+      setError(null)
+    }
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -169,7 +172,7 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
 
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-600" htmlFor="fb-description">
-                  {t('feedbackDescriptionLabel')}
+                  {t('feedbackDescriptionLabel')} <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   id="fb-description"
@@ -179,6 +182,8 @@ export function FeedbackModal({ username, email, sessionId, deviceId, onClose }:
                   value={form.description}
                   onChange={handleChange}
                   required
+                  aria-required="true"
+                  aria-invalid={error === t('feedbackErrorDescription')}
                   placeholder={t('feedbackDescriptionPlaceholder')}
                   className="resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none ring-0 focus:border-[var(--color-brand-900,#1a237e)] focus:ring-1 focus:ring-[var(--color-brand-900,#1a237e)]"
                 />

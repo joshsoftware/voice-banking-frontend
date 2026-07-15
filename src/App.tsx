@@ -42,6 +42,7 @@ const OnboardingRoute = ({
   
   if (isLoading) return <div className="flex h-screen items-center justify-center text-white">Loading...</div>
   
+  // Early return - don't render anything if not authenticated
   if (!isAuthenticated) {
     return <Navigate to="/welcome" replace />
   }
