@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { PipecatClient } from '@pipecat-ai/client-js'
 import { CustomSmallWebRTCTransport } from '@/lib/customTransport'
 import { API_BASE } from '@/lib/constants'
-import { getActiveCustomer, getLoanAccountForQuery, getPrimaryLoanAccount, isVoiceRegistered } from '@/lib/demoCustomer'
+import { getActiveCustomer, isVoiceRegistered } from '@/lib/demoCustomer'
 import { getDeviceId } from '@/lib/device'
 import { useTranslation } from '@/i18n/LanguageHooks'
 import { LANGUAGE_IDS, type LanguageId } from '@/i18n/languages'
@@ -196,38 +196,7 @@ function isAssistantWelcomeMessage(text: string) {
   return false
 }
 
-function isLoanStatementQuery(text: string) {
-  const normalized = text.toLowerCase()
-  const hasLoanContext = /\bloan\b/.test(normalized) || /\bemi\b/.test(normalized)
-  if (!hasLoanContext) return false
-
-  // Common short voice commands (no extra verb required).
-  if (/\bloan\s+statement\b/.test(normalized)) return true
-  if (/\b(?:last|recent)\s+emi\s+payments?\b/.test(normalized)) return true
-
-  const hasUserRequestVerb =
-    /\b(?:show|get|see|check|tell|give|display|want|need|fetch|view|pull|send|list)\b/.test(normalized) ||
-    /\b(?:what are|what were|what is)\b/.test(normalized) ||
-    /\bmy\s+(?:loan|emi)\b/.test(normalized)
-
-  if (!hasUserRequestVerb) return false
-
-  const asksForStatementLikeData =
-    /\bstatement\b/.test(normalized) ||
-    /\btransactions?\b/.test(normalized) ||
-    /\bhistory\b/.test(normalized) ||
-    /\brecent\b/.test(normalized) ||
-    /\blast\b/.test(normalized) ||
-    /\bdetails\b/.test(normalized)
-
-  const asksForEmiPaymentList =
-    /\bemi\b/.test(normalized) &&
-    (/\bpayments?\b/.test(normalized) || /\bpaid\b/.test(normalized) || /\btransactions?\b/.test(normalized))
-
-  return asksForStatementLikeData || asksForEmiPaymentList
-}
-
-/** Backend sometimes returns spoken loan rows as prose — still render the structured table. */
+/** Backend sometimes returns spoken loan rows as prose — wait for TRANSACTION_LIST signal. */
 function isAssistantLoanStatementProse(text: string) {
   const normalized = text.toLowerCase()
   return (
@@ -340,7 +309,7 @@ function isAccountSelectionReply(text: string) {
   return /\b(savings?|current)\b/.test(normalized)
 }
 
-type PendingStructuredIntent = 'loan' | 'transactions' | null
+type PendingStructuredIntent = 'transactions' | null
 
 function clearPendingUserIntent(
   pendingUserIntentRef: { current: string },
@@ -404,7 +373,8 @@ export function useSmallWebRTC() {
     transactions: TransactionItem[],
     tableTitle: string,
   ) => {
-    const hadTxnUserIntent = isRecentTransactionsQuery(lastUserTranscriptRef.current)
+    const userIntent = lastUserTranscriptRef.current
+    const hadTxnUserIntent = isRecentTransactionsQuery(userIntent)
     setMessages((prev) => {
       const cutoff = Date.now() - 15000
       for (let i = prev.length - 1; i >= 0; i--) {
@@ -414,7 +384,8 @@ export function useSmallWebRTC() {
         const proseMatch =
           isAssistantRecentTransactionsProse(msg.text) ||
           msg.text.toLowerCase().startsWith('recent transactions') ||
-          /\bhere are your recent transactions\b/i.test(msg.text)
+          /\bhere are your recent transactions\b/i.test(msg.text) ||
+          isAssistantLoanStatementProse(msg.text)
         if (!proseMatch && !hadTxnUserIntent) continue
         const next = [...prev]
         next[i] = {
@@ -444,7 +415,6 @@ export function useSmallWebRTC() {
   const activeCustomerId = activeCustomer?.customer_id ?? null
   const activeCustomerName = activeCustomer?.name ?? 'User'
 
-  const primaryLoanAccount = activeCustomerId ? getPrimaryLoanAccount(activeCustomerId) : null
   const shouldVerifyVoice = activeCustomerId ? isVoiceRegistered(activeCustomerId) : false
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadChatHistory(activeCustomerId, authSessionId))
@@ -474,57 +444,6 @@ export function useSmallWebRTC() {
     const normalizedText = role === 'assistant' ? normalizeAssistantMessage(text) : text
     setMessages(prev => [...prev, { role, text: normalizedText, ts: Date.now(), transactions, tableTitle }])
   }, [])
-
-  const fetchLoanTransactions = useCallback(async (
-    queryText: string,
-    fromDate?: string,
-    toDate?: string,
-  ): Promise<TransactionItem[]> => {
-    const loanAccount = (activeCustomerId ? getLoanAccountForQuery(activeCustomerId, queryText) : null) ?? primaryLoanAccount
-    if (!loanAccount?.account_id) return []
-    const accessToken = localStorage.getItem('voicebank.access_token')
-
-    const response = await fetch(`${API_BASE}/api/loan_transaction`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      },
-      body: JSON.stringify({
-        accountId: loanAccount.account_id,
-        ...(fromDate ? { fromDate } : {}),
-        ...(toDate ? { toDate } : {}),
-        page: 0,
-        size: 5,
-      }),
-    })
-
-    if (response.status === 401) {
-      forceLogoutOnUnauthorized()
-      return []
-    }
-    if (!response.ok) return []
-
-    const data = (await response.json().catch(() => ({}))) as {
-      data?: { loanTransactionList?: Array<{ amount?: number; date?: string; description?: string }> }
-      loanTransactionList?: Array<{ amount?: number; date?: string; description?: string }>
-    }
-
-    const list = data.data?.loanTransactionList ?? data.loanTransactionList ?? []
-    if (!Array.isArray(list)) return []
-
-    return list
-      .map((item, index) => ({
-        amount: Number(item.amount ?? 0),
-        category: 'EMI',
-        description: item.description ?? 'EMI Payment',
-        transactionDate: item.date ?? '',
-        transactionId: `loan-${index}-${item.date ?? 'na'}`,
-        type: 'DEBIT',
-      }))
-      .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
-      .slice(0, 5)
-  }, [activeCustomerId, primaryLoanAccount])
 
   const pushAssistantMessage = useCallback(
     async (text: string) => {
@@ -557,34 +476,22 @@ export function useSmallWebRTC() {
 
       // Bot is clarifying (e.g. "which account — CURRENT or SAVINGS?") — text only, keep intent for next turn.
       if (isAssistantClarifyingQuestion(normalized)) {
-        if (pendingStructuredIntentRef.current === null && userIntentText) {
-          if (isLoanStatementQuery(userIntentText)) {
-            pendingStructuredIntentRef.current = 'loan'
-          } else if (isRecentTransactionsQuery(userIntentText)) {
-            pendingStructuredIntentRef.current = 'transactions'
-          }
+        if (pendingStructuredIntentRef.current === null && userIntentText && isRecentTransactionsQuery(userIntentText)) {
+          pendingStructuredIntentRef.current = 'transactions'
         }
         pushMsg('assistant', normalized)
         return
       }
 
       if (hasUserSpokenThisSessionRef.current && userIntentText) {
-        if (isLoanStatementQuery(userIntentText)) {
-          pendingStructuredIntentRef.current = 'loan'
-        } else if (isRecentTransactionsQuery(userIntentText)) {
+        if (isRecentTransactionsQuery(userIntentText)) {
           pendingStructuredIntentRef.current = 'transactions'
         } else if (!isAccountSelectionReply(userIntentText)) {
           pendingStructuredIntentRef.current = null
         }
       }
 
-      const loanFromUserIntent =
-        pendingStructuredIntentRef.current === 'loan' &&
-        hasUserSpokenThisSessionRef.current &&
-        Boolean(userIntentText) &&
-        (isLoanStatementQuery(userIntentText) || isAccountSelectionReply(userIntentText))
-      const loanFromAssistantProse = isAssistantLoanStatementProse(normalized)
-      const needsLoanStatement = loanFromUserIntent || loanFromAssistantProse
+      const needsLoanStatement = isAssistantLoanStatementProse(normalized)
 
       const txnFromUserIntent =
         pendingStructuredIntentRef.current === 'transactions' &&
@@ -598,10 +505,15 @@ export function useSmallWebRTC() {
       // if the bot's response clearly contains a transaction list, show the table regardless of
       // whether the user's phrase matched our intent patterns.
       const needsRecentTransactions = !assistantFallback && (txnFromUserIntent || txnFromAssistantProse)
+      const needsStructuredTable = needsRecentTransactions || needsLoanStatement
 
-      if (!needsRecentTransactions && !needsLoanStatement) {
-        // Spoken txn responses are shown as a formatted table — skip plain-text duplicate.
-        if (isRecentTransactionsQuery(userIntentText) || isAssistantRecentTransactionsProse(normalized)) {
+      if (!needsStructuredTable) {
+        // Spoken list responses are shown as a formatted table — skip plain-text duplicate.
+        if (
+          isRecentTransactionsQuery(userIntentText) ||
+          isAssistantRecentTransactionsProse(normalized) ||
+          isAssistantLoanStatementProse(normalized)
+        ) {
           return
         }
         pushMsg('assistant', normalized)
@@ -610,19 +522,6 @@ export function useSmallWebRTC() {
 
       try {
         pendingTransactionTableRef.current = null
-        if (needsLoanStatement) {
-          const loanTransactions = await fetchLoanTransactions(userIntentText)
-          // Table only in chat — bot audio/TTS continues unchanged.
-          const displayText = loanTransactions.length ? '' : normalized
-          pushMsg(
-            'assistant',
-            displayText,
-            loanTransactions.length ? loanTransactions : undefined,
-            t('loanStatement')
-          )
-          clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
-          return
-        }
 
         if (txnTableHandledThisTurnRef.current) {
           clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
@@ -651,7 +550,7 @@ export function useSmallWebRTC() {
         if (signalData) {
           transactions = signalData.transactions
           tableTitle = signalData.tableTitle
-        } else {
+        } else if (needsRecentTransactions) {
           const parsedRows = parseTransactionRowsFromAssistantProse(normalized)
           if (parsedRows) {
             transactions = parsedRows.transactions
@@ -660,6 +559,9 @@ export function useSmallWebRTC() {
             console.warn('[SmallWebRTC] Missing TRANSACTION_LIST signal after wait; showing text only')
             transactions = []
           }
+        } else {
+          console.warn('[SmallWebRTC] Missing TRANSACTION_LIST signal after wait; showing text only')
+          transactions = []
         }
         // Table only in chat — bot audio/TTS continues unchanged.
         const hasTransactions = transactions.length > 0
@@ -676,7 +578,7 @@ export function useSmallWebRTC() {
         pushMsg('assistant', normalized)
       }
     },
-    [fetchLoanTransactions, pushMsg, t, waitForTxnSignal]
+    [pushMsg, t, waitForTxnSignal]
   )
 
   const clearNoSoundTimer = useCallback(() => {
@@ -938,9 +840,7 @@ export function useSmallWebRTC() {
           lastUserTranscriptRef.current = text
           pendingTxnSignalRef.current = null
           pendingTransactionTableRef.current = null
-          if (isLoanStatementQuery(text)) {
-            pendingStructuredIntentRef.current = 'loan'
-          } else if (isRecentTransactionsQuery(text)) {
+          if (isRecentTransactionsQuery(text)) {
             pendingStructuredIntentRef.current = 'transactions'
           }
           pushMsg('user', text)
@@ -1064,15 +964,15 @@ export function useSmallWebRTC() {
             || 'Transfer successful. The amount has been debited from your account.'
           pushMsg('assistant', successText)
         } else {
-          const directSignal =
+          const directTxnSignal =
             data?.type === 'TRANSACTION_LIST' ? (data as TransactionListSignal) : null
-          const nestedSignal = Array.isArray(data?.signals)
+          const nestedTxnSignal = Array.isArray(data?.signals)
             ? (data.signals.find((sig: any) => sig?.type === 'TRANSACTION_LIST') as TransactionListSignal | undefined)
             : undefined
-          const signal = directSignal ?? nestedSignal
+          const txnSignal = directTxnSignal ?? nestedTxnSignal
 
-          if (signal) {
-            const { transactions: mapped, tableTitle } = mapTransactionListSignal(signal)
+          if (txnSignal) {
+            const { transactions: mapped, tableTitle } = mapTransactionListSignal(txnSignal)
             pendingTxnSignalRef.current = { transactions: mapped, tableTitle }
             attachTxnSignalToRecentAssistant(mapped, tableTitle)
           }
