@@ -110,6 +110,9 @@ const EN = {
   voiceRegistrationCancelConfirmMessage: 'Your current recording progress will be lost. You can start registration again anytime.',
   voiceRegistrationCancelConfirmContinue: 'Continue',
   voiceRegistrationCancelConfirmQuit: 'Quit',
+  voiceRegistrationAudioFailedTitle: 'Recording not accepted',
+  voiceRegistrationAudioFailedMessage:
+    'The audio did not pass the required checks. Please record it again and try once more.',
   voiceRegistrationSetupPrefix: 'Set up your voice by',
   voiceRegistrationSetupHighlight: 'describing the image.',
   voiceRegistrationTakesUnder30s: 'Takes under 30 seconds.',
@@ -272,6 +275,9 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     voiceRegistrationCancelConfirmMessage: 'आपकी मौजूदा रिकॉर्डिंग प्रगति खो जाएगी। आप कभी भी रजिस्ट्रेशन फिर से शुरू कर सकते हैं।',
     voiceRegistrationCancelConfirmContinue: 'जारी रखें',
     voiceRegistrationCancelConfirmQuit: 'बाहर निकलें',
+    voiceRegistrationAudioFailedTitle: 'रिकॉर्डिंग स्वीकार नहीं हुई',
+    voiceRegistrationAudioFailedMessage:
+      'ऑडियो आवश्यक जाँचों में पास नहीं हुआ। कृपया इसे फिर से रिकॉर्ड करें और एक बार और प्रयास करें।',
     voiceRegistrationSetupPrefix: 'अपनी आवाज़ सेट करें',
     voiceRegistrationSetupHighlight: 'चित्र का वर्णन करके।',
     voiceRegistrationTakesUnder30s: '30 सेकंड से कम समय लगता है।',
@@ -421,6 +427,9 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     voiceRegistrationCancelConfirmMessage: 'உங்கள் தற்போதைய பதிவு முன்னேற்றம் இழக்கப்படும். நீங்கள் எப்போது வேண்டுமானாலும் பதிவை மீண்டும் தொடங்கலாம்.',
     voiceRegistrationCancelConfirmContinue: 'தொடரவும்',
     voiceRegistrationCancelConfirmQuit: 'வெளியேறு',
+    voiceRegistrationAudioFailedTitle: 'பதிவு ஏற்கப்படவில்லை',
+    voiceRegistrationAudioFailedMessage:
+      'ஆடியோ தேவையான சரிபார்ப்புகளை கடக்கவில்லை. தயவுசெய்து மீண்டும் பதிவு செய்து மீண்டும் முயற்சிக்கவும்.',
     voiceRegistrationSetupPrefix: 'உங்கள் குரலை அமைக்க',
     voiceRegistrationSetupHighlight: 'படத்தை விவரிக்கவும்.',
     voiceRegistrationTakesUnder30s: '30 விநாடிகளுக்குள் முடியும்.',
@@ -570,6 +579,9 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     voiceRegistrationCancelConfirmMessage: 'ನಿಮ್ಮ ಪ್ರಸ್ತುತ ರೆಕಾರ್ಡಿಂಗ್ ಪ್ರಗತಿ ಕಳೆದುಹೋಗುತ್ತದೆ. ನೀವು ಯಾವಾಗ ಬೇಕಾದರೂ ನೋಂದಣಿಯನ್ನು ಮತ್ತೆ ಪ್ರಾರಂಭಿಸಬಹುದು.',
     voiceRegistrationCancelConfirmContinue: 'ಮುಂದುವರಿಸಿ',
     voiceRegistrationCancelConfirmQuit: 'ಹೊರಗೆ ಹೋಗಿ',
+    voiceRegistrationAudioFailedTitle: 'ರೆಕಾರ್ಡಿಂಗ್ ಸ್ವೀಕರಿಸಲಾಗಿಲ್ಲ',
+    voiceRegistrationAudioFailedMessage:
+      'ಆಡಿಯೋ ಅಗತ್ಯವಿರುವ ಪರಿಶೀಲನೆಗಳನ್ನು ಉತ್ತೀರ್ಣವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಅದನ್ನು ಮತ್ತೆ ರೆಕಾರ್ಡ್ ಮಾಡಿ ಮತ್ತು ಮತ್ತೊಮ್ಮೆ ಪ್ರಯತ್ನಿಸಿ.',
     voiceRegistrationSetupPrefix: 'ನಿಮ್ಮ ಧ್ವನಿಯನ್ನು ಹೊಂದಿಸಿ',
     voiceRegistrationSetupHighlight: 'ಚಿತ್ರವನ್ನು ವಿವರಿಸುವ ಮೂಲಕ.',
     voiceRegistrationTakesUnder30s: '30 ಸೆಕೆಂಡಿಗಿಂತ ಕಡಿಮೆ ಸಮಯ ಬೇಕಾಗುತ್ತದೆ.',
@@ -719,6 +731,9 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     voiceRegistrationCancelConfirmMessage: 'మీ ప్రస్తుత రికార్డింగ్ పురోగతి పోతుంది. మీరు ఎప్పుడైనా రిజిస్ట్రేషన్‌ను మళ్లీ ప్రారంభించవచ్చు.',
     voiceRegistrationCancelConfirmContinue: 'కొనసాగించండి',
     voiceRegistrationCancelConfirmQuit: 'నిష్క్రమించండి',
+    voiceRegistrationAudioFailedTitle: 'రికార్డింగ్ ఆమోదించబడలేదు',
+    voiceRegistrationAudioFailedMessage:
+      'ఆడియో అవసరమైన తనిఖీలను పాస్ కాలేదు. దయచేసి మళ్లీ రికార్డ్ చేసి మరోసారి ప్రయత్నించండి.',
     voiceRegistrationSetupPrefix: 'మీ వాయిస్ సెటప్ చేయండి',
     voiceRegistrationSetupHighlight: 'చిత్రాన్ని వివరించడం ద్వారా.',
     voiceRegistrationTakesUnder30s: '30 సెకండ్లలోపు పూర్తి అవుతుంది.',
@@ -868,6 +883,9 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     voiceRegistrationCancelConfirmMessage: 'നിങ്ങളുടെ നിലവിലെ റെക്കോർഡിംഗ് പുരോഗതി നഷ്ടപ്പെടും. നിങ്ങൾക്ക് എപ്പോൾ വേണമെങ്കിലും രജിസ്ട്രേഷൻ വീണ്ടും തുടങ്ങാം.',
     voiceRegistrationCancelConfirmContinue: 'തുടരുക',
     voiceRegistrationCancelConfirmQuit: 'പുറത്തുകടക്കുക',
+    voiceRegistrationAudioFailedTitle: 'റെക്കോർഡിംഗ് അംഗീകരിച്ചില്ല',
+    voiceRegistrationAudioFailedMessage:
+      'ഓഡിയോ ആവശ്യമായ പരിശോധനകൾ പാസായില്ല. ദയവായി വീണ്ടും റെക്കോർഡ് ചെയ്ത് ഒരിക്കൽ കൂടി ശ്രമിക്കുക.',
     voiceRegistrationSetupPrefix: 'നിങ്ങളുടെ ശബ്ദം സജ്ജമാക്കുക',
     voiceRegistrationSetupHighlight: 'ചിത്രം വിവരിച്ച്.',
     voiceRegistrationTakesUnder30s: '30 സെക്കൻഡിനകം പൂർത്തിയാകും.',
@@ -1017,6 +1035,9 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     voiceRegistrationCancelConfirmMessage: 'আপনার বর্তমান রেকর্ডিং অগ্রগতি হারিয়ে যাবে। আপনি যেকোনো সময় আবার রেজিস্ট্রেশন শুরু করতে পারবেন।',
     voiceRegistrationCancelConfirmContinue: 'চালিয়ে যান',
     voiceRegistrationCancelConfirmQuit: 'বেরিয়ে যান',
+    voiceRegistrationAudioFailedTitle: 'রেকর্ডিং গ্রহণ করা হয়নি',
+    voiceRegistrationAudioFailedMessage:
+      'অডিও প্রয়োজনীয় পরীক্ষায় উত্তীর্ণ হয়নি। অনুগ্রহ করে আবার রেকর্ড করে আর একবার চেষ্টা করুন।',
     voiceRegistrationSetupPrefix: 'আপনার ভয়েস সেট করুন',
     voiceRegistrationSetupHighlight: 'ছবি বর্ণনা করে।',
     voiceRegistrationTakesUnder30s: '৩০ সেকেন্ডের কম সময় লাগে।',
@@ -1166,6 +1187,9 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     voiceRegistrationCancelConfirmMessage: 'तुमची सध्याची रेकॉर्डिंग प्रगती गमावली जाईल. तुम्ही कधीही नोंदणी पुन्हा सुरू करू शकता.',
     voiceRegistrationCancelConfirmContinue: 'पुढे सुरू ठेवा',
     voiceRegistrationCancelConfirmQuit: 'बाहेर पडा',
+    voiceRegistrationAudioFailedTitle: 'रेकॉर्डिंग स्वीकार झाली नाही',
+    voiceRegistrationAudioFailedMessage:
+      'ऑडिओ आवश्यक तपासण्यांमध्ये उत्तीर्ण झाला नाही. कृपया पुन्हा रेकॉर्ड करा आणि पुन्हा प्रयत्न करा.',
     voiceRegistrationSetupPrefix: 'तुमचा आवाज सेट करा',
     voiceRegistrationSetupHighlight: 'चित्राचे वर्णन करून.',
     voiceRegistrationTakesUnder30s: '30 सेकंदांपेक्षा कमी वेळ लागतो.',
@@ -1315,6 +1339,9 @@ const dict: Record<LanguageId, Partial<Record<TranslationKey, string>>> = {
     voiceRegistrationCancelConfirmMessage: 'તમારી હાલની રેકોર્ડિંગ પ્રગતિ ગુમાશે. તમે ક્યારે પણ રજિસ્ટ્રેશન ફરીથી શરૂ કરી શકો છો.',
     voiceRegistrationCancelConfirmContinue: 'ચાલુ રાખો',
     voiceRegistrationCancelConfirmQuit: 'બહાર નીકળો',
+    voiceRegistrationAudioFailedTitle: 'રેકોર્ડિંગ સ્વીકારવામાં આવી નથી',
+    voiceRegistrationAudioFailedMessage:
+      'ઓડિયો જરૂરી તપાસોમાં પાસ થયો નથી. કૃપા કરીને ફરી રેકોર્ડ કરો અને ફરી એકવાર પ્રયાસ કરો.',
     voiceRegistrationSetupPrefix: 'તમારો અવાજ સેટ કરો',
     voiceRegistrationSetupHighlight: 'ચિત્રનું વર્ણન કરીને.',
     voiceRegistrationTakesUnder30s: '30 સેકન્ડથી ઓછો સમય લાગે છે.',
