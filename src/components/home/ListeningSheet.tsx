@@ -319,7 +319,7 @@ export function ListeningSheet({
   // Auto-scroll chat to bottom
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, state])
 
   // Voiceprint badge visibility with auto-fade
   const [showVpBadge, setShowVpBadge] = useState(false)
