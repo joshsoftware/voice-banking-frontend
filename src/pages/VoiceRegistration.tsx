@@ -49,6 +49,7 @@ export default function VoiceRegistration() {
   const [isRtcReady, setIsRtcReady] = useState(false)
   const [audioSupportMessage, setAudioSupportMessage] = useState<string | null>(null)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [showAudioFailedPopup, setShowAudioFailedPopup] = useState(false)
 
   const pcRef = useRef<RTCPeerConnection | null>(null)
   const pcIdRef = useRef<string | null>(null)
@@ -391,8 +392,7 @@ export default function VoiceRegistration() {
         if (n >= 100 && !imageFinalizeLockRef.current) {
           imageFinalizeLockRef.current = true
           if (!speechDetectedDuringRecordingRef.current) {
-            setEnrollError(t('voiceRegistrationNoVoiceDetected'))
-            setShowNoVoiceDetected(true)
+            setShowAudioFailedPopup(true)
             setSheetState('micIdle')
             setCountdown(3)
             countdownToRecordingRef.current = false
@@ -402,7 +402,7 @@ export default function VoiceRegistration() {
         }
         return n
       })
-    }, 110)
+    }, 150) // 100 ticks × 150ms = 15s (matches copy + backend capture)
     return () => clearInterval(id)
   }, [sheetState, t])
 
@@ -517,6 +517,8 @@ export default function VoiceRegistration() {
     imageFinalizeLockRef.current = false
     setRecordProgress(0)
     setShowNoVoiceDetected(false)
+    setShowAudioFailedPopup(false)
+    setEnrollError(null)
     countdownToRecordingRef.current = false
     setSheetState('micIdle')
     setCountdown(3)
@@ -537,16 +539,18 @@ export default function VoiceRegistration() {
       const accessToken = localStorage.getItem('voicebank.access_token')
       const res = await fetch(`${backendBase}/enrollment/${sid}/submit-step`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({ step_index: imageIndex + 1 }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         const detail = (err as { detail?: string }).detail
-        throw new Error(detail || `Step submit failed (${res.status})`)
+        console.warn('Enrollment submit-step failed:', detail || res.status)
+        setShowAudioFailedPopup(true)
+        return
       }
       const data = await res.json()
       if (data.status === 'enrolled' || imageIndex >= sessionImages.length - 1) {
@@ -557,7 +561,8 @@ export default function VoiceRegistration() {
         setImageIndex((i) => i + 1)
       }
     } catch (e) {
-      setEnrollError(e instanceof Error ? e.message : 'Could not submit this step.')
+      console.warn('Enrollment submit-step error:', e)
+      setShowAudioFailedPopup(true)
     } finally {
       setSubmitLoading(false)
     }
@@ -658,9 +663,9 @@ export default function VoiceRegistration() {
               onSubmit={() => void handleImageSubmit()}
               isSubmitting={submitLoading}
             />
-            {micError ? (
+            {micError || enrollError ? (
               <div className="mx-auto mt-3 max-w-[320px] rounded-xl bg-red-50 px-4 py-3 text-center">
-                <p className="text-sm font-semibold leading-snug text-red-700">{micError}</p>
+                <p className="text-sm font-semibold leading-snug text-red-700">{micError || enrollError}</p>
               </div>
             ) : null}
             {!isRtcReady && enrollmentSessionId ? (
@@ -800,6 +805,37 @@ export default function VoiceRegistration() {
             </div>
           </>
         )}
+        {showAudioFailedPopup ? (
+          <div
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 px-6 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="voice-registration-audio-failed-title"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) handleRerecord()
+            }}
+          >
+            <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-[0_24px_60px_rgba(0,0,0,0.28)]">
+              <h2
+                id="voice-registration-audio-failed-title"
+                className="text-lg font-bold text-[var(--color-brand-900)]"
+              >
+                {t('voiceRegistrationAudioFailedTitle')}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-muted-2)]">
+                {t('voiceRegistrationAudioFailedMessage')}
+              </p>
+              <button
+                type="button"
+                data-testid="voice-registration-audio-failed-rerecord"
+                onClick={handleRerecord}
+                className="mt-6 h-12 w-full rounded-full bg-[var(--color-brand-500)] text-sm font-semibold text-white shadow-md transition-colors hover:opacity-95"
+              >
+                {t('voiceRegistrationRerecord')}
+              </button>
+            </div>
+          </div>
+        ) : null}
         {showCancelConfirm ? (
           <div
             className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 px-6 backdrop-blur-sm"
