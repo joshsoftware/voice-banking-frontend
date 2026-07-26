@@ -75,6 +75,9 @@ const CUSTOMERS: DemoCustomer[] = [
   { customer_id: 'CIF202602260023', email: 'siddharth.jain@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1997-02-11', mobile_number: '9700000023', name: 'Siddharth Jain', status: 'ACTIVE' },
   { customer_id: 'CIF202602260024', email: 'aarti.mishra@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1997-10-09', mobile_number: '9700000024', name: 'Aarti Mishra', status: 'ACTIVE' },
   { customer_id: 'CIF202602260025', email: 'pranav.kulshreshtha@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1998-06-06', mobile_number: '9700000025', name: 'Pranav Kulshreshtha', status: 'ACTIVE' },
+  { customer_id: 'CIF202602260031', email: 'gautam.rege@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-03-31T12:45:16.424Z', date_of_birth: '1985-09-11', mobile_number: '9881395656', name: 'Gautam Rege', status: 'ACTIVE' },
+  { customer_id: 'CIF202602260032', email: 'anshumant.dhawan@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-03-31T12:45:16.424Z', date_of_birth: '1992-03-14', mobile_number: '7974933860', name: 'Anshumant Dhawan', status: 'ACTIVE' },
+  { customer_id: 'CIF202602260033', email: 'vinayak.behere@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-03-31T12:45:16.424Z', date_of_birth: '1980-03-14', mobile_number: '8459875361', name: 'Vinayak Behere', status: 'ACTIVE' },
 ]
 
 const ACCOUNTS: DemoAccount[] = [
@@ -108,6 +111,11 @@ const ACCOUNTS: DemoAccount[] = [
   { account_type: 'SAVINGS', account_id: 'ACC202602260028', balance: 65250, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260023' },
   { account_type: 'SAVINGS', account_id: 'ACC202602260029', balance: 67000, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260024' },
   { account_type: 'SAVINGS', account_id: 'ACC202602260030', balance: 68750, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260025' },
+  { account_type: 'SAVINGS', account_id: 'ACC202602260036', balance: 550000, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260031' },
+  { account_type: 'CURRENT', account_id: 'ACC202602260037', balance: 3567, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 0, minimum_balance: 10000, customer_id: 'CIF202602260031' },
+  { account_type: 'SAVINGS', account_id: 'ACC202602260038', balance: 134256, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260032' },
+  { account_type: 'CURRENT', account_id: 'ACC202602260039', balance: 63799, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 0, minimum_balance: 10000, customer_id: 'CIF202602260032' },
+  { account_type: 'SAVINGS', account_id: 'ACC202602260040', balance: 200050, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260033' },
 ]
 
 const LOANS: DemoLoanAccount[] = [
@@ -171,6 +179,9 @@ const PHONE_TO_CUSTOMER_ID: Record<string, string> = {
   '9988776655': 'CIF202602260003',
   '9081219596': 'CIF202602260012',
   '9081219597': 'CIF202602260013',
+  '9881395656': 'CIF202602260031',
+  '7974933860': 'CIF202602260032',
+  '8459875361': 'CIF202602260033',
 }
 
 function normalizePhone(phone: string): string {
