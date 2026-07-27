@@ -47,6 +47,7 @@ export interface ChatMessage {
   ts: number
   transactions?: TransactionItem[]
   tableTitle?: string
+  totalSpent?: number
 }
 
 export type InputSoundStatus = 'voice_detected' | 'no_sound'
@@ -75,6 +76,7 @@ interface TransactionListSignal {
   type: 'TRANSACTION_LIST'
   transactions?: unknown[]
   tableTitle?: string
+  totalSpent?: number
 }
 
 export interface TransactionItem {
@@ -106,7 +108,8 @@ function loadChatHistory(customerId: string | null, authSessionId: string | null
         typeof msg.text === 'string' &&
         typeof msg.ts === 'number' &&
         (msg.transactions === undefined || Array.isArray(msg.transactions)) &&
-        (msg.tableTitle === undefined || typeof msg.tableTitle === 'string')
+        (msg.tableTitle === undefined || typeof msg.tableTitle === 'string') &&
+        (msg.totalSpent === undefined || typeof msg.totalSpent === 'number')
     )
   } catch {
     return []
@@ -208,6 +211,7 @@ function isAssistantLoanStatementProse(text: string) {
 function mapTransactionListSignal(signal: TransactionListSignal): {
   transactions: TransactionItem[]
   tableTitle: string
+  totalSpent?: number
 } {
   const rawList = Array.isArray(signal.transactions) ? signal.transactions : []
   const transactions: TransactionItem[] = rawList.map((item: any, index) => ({
@@ -218,14 +222,20 @@ function mapTransactionListSignal(signal: TransactionListSignal): {
     transactionId: item?.transactionId ?? `txn-${index}`,
     type: item?.type ?? 'DEBIT',
   }))
+  const totalSpent =
+    typeof signal.totalSpent === 'number' && Number.isFinite(signal.totalSpent)
+      ? signal.totalSpent
+      : undefined
   return {
     transactions,
     tableTitle: signal.tableTitle ?? 'Recent Transactions',
+    totalSpent,
   }
 }
 
 function isAssistantRecentTransactionsProse(text: string) {
   const normalized = text.toLowerCase()
+  if (/^total spent on\b/.test(normalized)) return true
   if (/^recent transactions\b/.test(normalized)) return true
   if (/\btransactions?\s+found\b/.test(normalized) && /\d{4}-\d{2}-\d{2}/.test(text)) return true
   // "recent/latest/last transactions … rupees" — original pattern
@@ -348,10 +358,12 @@ export function useSmallWebRTC() {
   const pendingTxnSignalRef = useRef<{
     transactions: TransactionItem[]
     tableTitle: string
+    totalSpent?: number
   } | null>(null)
   const pendingTransactionTableRef = useRef<{
     transactions: TransactionItem[]
     tableTitle?: string
+    totalSpent?: number
   } | null>(null)
 
   const waitForTxnSignal = useCallback(async (timeoutMs = 3000) => {
@@ -372,6 +384,7 @@ export function useSmallWebRTC() {
   const attachTxnSignalToRecentAssistant = useCallback((
     transactions: TransactionItem[],
     tableTitle: string,
+    totalSpent?: number,
   ) => {
     const userIntent = lastUserTranscriptRef.current
     const hadTxnUserIntent = isRecentTransactionsQuery(userIntent)
@@ -384,6 +397,7 @@ export function useSmallWebRTC() {
         const proseMatch =
           isAssistantRecentTransactionsProse(msg.text) ||
           msg.text.toLowerCase().startsWith('recent transactions') ||
+          /^total spent on\b/i.test(msg.text) ||
           /\bhere are your recent transactions\b/i.test(msg.text) ||
           isAssistantLoanStatementProse(msg.text)
         if (!proseMatch && !hadTxnUserIntent) continue
@@ -393,6 +407,7 @@ export function useSmallWebRTC() {
           text: '',
           transactions,
           tableTitle,
+          totalSpent,
         }
         pendingTxnSignalRef.current = null
         return next
@@ -439,10 +454,11 @@ export function useSmallWebRTC() {
     role: ChatMessage['role'],
     text: string,
     transactions?: TransactionItem[],
-    tableTitle?: string
+    tableTitle?: string,
+    totalSpent?: number,
   ) => {
     const normalizedText = role === 'assistant' ? normalizeAssistantMessage(text) : text
-    setMessages(prev => [...prev, { role, text: normalizedText, ts: Date.now(), transactions, tableTitle }])
+    setMessages(prev => [...prev, { role, text: normalizedText, ts: Date.now(), transactions, tableTitle, totalSpent }])
   }, [])
 
   const pushAssistantMessage = useCallback(
@@ -467,7 +483,7 @@ export function useSmallWebRTC() {
         pendingTransactionTableRef.current = null
         if (!txnTableHandledThisTurnRef.current) {
           // Table only in chat — bot audio/TTS continues unchanged.
-          pushMsg('assistant', '', pendingTable.transactions, pendingTable.tableTitle)
+          pushMsg('assistant', '', pendingTable.transactions, pendingTable.tableTitle, pendingTable.totalSpent)
           txnTableHandledThisTurnRef.current = true
         }
         clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
@@ -530,6 +546,7 @@ export function useSmallWebRTC() {
 
         let transactions: TransactionItem[] = []
         let tableTitle = t('recentTransactions')
+        let totalSpent: number | undefined
         let signalData = pendingTxnSignalRef.current
         if (signalData) {
           pendingTxnSignalRef.current = null
@@ -550,6 +567,7 @@ export function useSmallWebRTC() {
         if (signalData) {
           transactions = signalData.transactions
           tableTitle = signalData.tableTitle
+          totalSpent = signalData.totalSpent
         } else if (needsRecentTransactions) {
           const parsedRows = parseTransactionRowsFromAssistantProse(normalized)
           if (parsedRows) {
@@ -570,7 +588,8 @@ export function useSmallWebRTC() {
           'assistant',
           displayText,
           hasTransactions ? transactions : undefined,
-          hasTransactions ? tableTitle : undefined
+          hasTransactions ? tableTitle : undefined,
+          hasTransactions ? totalSpent : undefined,
         )
         if (transactions.length) txnTableHandledThisTurnRef.current = true
         clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
@@ -937,9 +956,13 @@ export function useSmallWebRTC() {
             const tablePayload = {
               transactions: list as TransactionItem[],
               tableTitle: typeof data.tableTitle === 'string' ? data.tableTitle : undefined,
+              totalSpent:
+                typeof data.totalSpent === 'number' && Number.isFinite(data.totalSpent)
+                  ? data.totalSpent
+                  : undefined,
             }
             if (llmFlushedRef.current) {
-              pushMsg('assistant', '', tablePayload.transactions, tablePayload.tableTitle)
+              pushMsg('assistant', '', tablePayload.transactions, tablePayload.tableTitle, tablePayload.totalSpent)
               txnTableHandledThisTurnRef.current = true
               clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
             } else {
@@ -972,9 +995,9 @@ export function useSmallWebRTC() {
           const txnSignal = directTxnSignal ?? nestedTxnSignal
 
           if (txnSignal) {
-            const { transactions: mapped, tableTitle } = mapTransactionListSignal(txnSignal)
-            pendingTxnSignalRef.current = { transactions: mapped, tableTitle }
-            attachTxnSignalToRecentAssistant(mapped, tableTitle)
+            const { transactions: mapped, tableTitle, totalSpent } = mapTransactionListSignal(txnSignal)
+            pendingTxnSignalRef.current = { transactions: mapped, tableTitle, totalSpent }
+            attachTxnSignalToRecentAssistant(mapped, tableTitle, totalSpent)
           }
         }
       })
