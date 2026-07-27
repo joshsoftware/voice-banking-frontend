@@ -122,6 +122,7 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
   const { t } = useTranslation()
   const items = msg.transactions ?? []
   const heading = getLocalizedTableHeading(msg.tableTitle, t)
+  const showTotalSpent = typeof msg.totalSpent === 'number' && Number.isFinite(msg.totalSpent)
 
   if (items.length === 0) {
     return (
@@ -146,6 +147,20 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
       <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/90">
         {heading}
       </div>
+      {showTotalSpent ? (
+        <div className="mb-1.5 flex items-center justify-between rounded-md bg-white/15 px-2 py-1.5">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-white/90">
+            {t('totalSpent')}
+          </span>
+          <span className="text-sm font-semibold tabular-nums text-white">
+            {new Intl.NumberFormat('en-IN', {
+              style: 'currency',
+              currency: 'INR',
+              maximumFractionDigits: 2,
+            }).format(msg.totalSpent!)}
+          </span>
+        </div>
+      ) : null}
       <div className="space-y-1">
         {items.map((item, idx) => {
           const credit = isCreditTransaction(item.type)
