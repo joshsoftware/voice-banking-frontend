@@ -184,8 +184,19 @@ const PHONE_TO_CUSTOMER_ID: Record<string, string> = {
   '8459875361': 'CIF202602260033',
 }
 
+const EXACT_PHONE_ONLY_CUSTOMER_IDS = new Set([
+  'CIF202602260031',
+  'CIF202602260032',
+  'CIF202602260033',
+])
+
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, '').slice(-10)
+}
+
+function canUseCustomerForPhone(customerId: string, normalizedPhone: string): boolean {
+  if (!EXACT_PHONE_ONLY_CUSTOMER_IDS.has(customerId)) return true
+  return PHONE_TO_CUSTOMER_ID[normalizedPhone] === customerId
 }
 
 function getPersistentPhoneToCustomerMap(): Record<string, string> {
@@ -308,24 +319,37 @@ export function findCustomerByPhone(phone: string, deviceId?: string): DemoCusto
   const persistentMap = getPersistentPhoneToCustomerMap()
   const persistentCustomerId = persistentMap[normalized]
   if (persistentCustomerId) {
-    return getCustomerById(persistentCustomerId)
+    if (canUseCustomerForPhone(persistentCustomerId, normalized)) {
+      return getCustomerById(persistentCustomerId)
+    }
+    delete persistentMap[normalized]
+    setPersistentPhoneToCustomerMap(persistentMap)
   }
 
   // For any other phone number, dynamically assign customers in shuffled order
-  // (excluding the top-3 explicitly mapped customers).
-  const eligibleCustomers = CUSTOMERS.filter((c) => !TOP_3_CUSTOMER_IDS.includes(c.customer_id))
+  // (excluding the top-3 and exact-phone-only explicitly mapped customers).
+  const eligibleCustomers = CUSTOMERS.filter((c) =>
+    !TOP_3_CUSTOMER_IDS.includes(c.customer_id) &&
+    canUseCustomerForPhone(c.customer_id, normalized)
+  )
   if (!eligibleCustomers.length) return CUSTOMERS[0] ?? null
 
   const dynamicMap = getDynamicPhoneToCustomerMap()
   const compositeKey = buildDynamicMapKey(phone, deviceId)
   const existingDynamicCustomerId = dynamicMap[compositeKey] ?? dynamicMap[normalized]
   if (existingDynamicCustomerId) {
-    // Backfill composite key for older phone-only entries.
-    if (!dynamicMap[compositeKey]) {
-      dynamicMap[compositeKey] = existingDynamicCustomerId
+    if (!canUseCustomerForPhone(existingDynamicCustomerId, normalized)) {
+      delete dynamicMap[compositeKey]
+      delete dynamicMap[normalized]
       setDynamicPhoneToCustomerMap(dynamicMap)
+    } else {
+      // Backfill composite key for older phone-only entries.
+      if (!dynamicMap[compositeKey]) {
+        dynamicMap[compositeKey] = existingDynamicCustomerId
+        setDynamicPhoneToCustomerMap(dynamicMap)
+      }
+      return getCustomerById(existingDynamicCustomerId)
     }
-    return getCustomerById(existingDynamicCustomerId)
   }
 
   const eligibleIds = eligibleCustomers.map((c) => c.customer_id)
@@ -414,7 +438,13 @@ export function setActiveCustomerByPhone(
     // Respect existing persisted mapping for this phone.
     const persistentMap = getPersistentPhoneToCustomerMap()
     const persistedForPhone = persistentMap[normalized]
-    customer = getCustomerById(persistedForPhone || base_customer_id)
+    const preferredCustomerId = persistedForPhone || base_customer_id
+    if (canUseCustomerForPhone(preferredCustomerId, normalized)) {
+      customer = getCustomerById(preferredCustomerId)
+    } else if (persistedForPhone) {
+      delete persistentMap[normalized]
+      setPersistentPhoneToCustomerMap(persistentMap)
+    }
     if (customer) {
       // Persist strict mapping for this phone+device combination.
       const dynamicMap = getDynamicPhoneToCustomerMap()
