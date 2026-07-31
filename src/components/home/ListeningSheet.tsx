@@ -63,8 +63,8 @@ function parseMarkdownLinks(text: string | undefined, isAssistant: boolean) {
   let match
 
   const linkClass = isAssistant 
-    ? 'text-white underline font-semibold hover:text-white/80 transition-colors' 
-    : 'text-[var(--color-brand-500)] underline font-semibold hover:text-[var(--color-brand-300)] transition-colors'
+    ? 'break-all text-white underline font-semibold hover:text-white/80 transition-colors' 
+    : 'break-all text-[var(--color-brand-500)] underline font-semibold hover:text-[var(--color-brand-300)] transition-colors'
 
   while ((match = regex.exec(text)) !== null) {
     const matchIndex = match.index
@@ -128,7 +128,7 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
     return (
       <div className="max-w-[80%] rounded-2xl bg-[var(--color-brand-500)] px-4 py-2 text-sm leading-snug text-white shadow-sm">
         <div className="flex items-end justify-between gap-2">
-          <div className="flex-1 whitespace-pre-line">{parseMarkdownLinks(msg.text, true)}</div>
+          <div className="min-w-0 flex-1 break-words whitespace-pre-line">{parseMarkdownLinks(msg.text, true)}</div>
           <div className="shrink-0 self-end text-[10px] text-white/60 leading-none">
             {formatMessageTime(msg.ts)}
           </div>
@@ -140,7 +140,7 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
   return (
     <div className="max-w-[85%] rounded-2xl bg-[var(--color-brand-500)] px-2.5 py-2 text-white shadow-sm">
       {msg.text ? (
-        <div className="mb-1.5 whitespace-pre-line text-xs leading-snug text-white">
+        <div className="mb-1.5 break-words whitespace-pre-line text-xs leading-snug text-white">
           {parseMarkdownLinks(msg.text, true)}
         </div>
       ) : null}
@@ -207,13 +207,13 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
     msg.role === 'assistant' &&
     ((msg.transactions?.length ?? 0) > 0 || Boolean(msg.tableTitle))
   return (
-    <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
       {showTransactionCards ? (
         <RecentTransactionsBubble msg={msg} />
       ) : msg.role === 'assistant' ? (
         <div className="max-w-[80%] rounded-2xl bg-[var(--color-brand-500)] px-4 py-2 text-sm leading-snug text-white shadow-sm">
           <div className="flex items-end justify-between gap-2">
-            <div className="flex-1 whitespace-pre-line">{parseMarkdownLinks(msg.text, true)}</div>
+            <div className="min-w-0 flex-1 break-words whitespace-pre-line">{parseMarkdownLinks(msg.text, true)}</div>
             <div className="shrink-0 self-end text-[10px] text-white/60 leading-none">
               {formatMessageTime(msg.ts)}
             </div>
@@ -222,7 +222,7 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
       ) : (
         <div className="max-w-[80%] rounded-2xl bg-[var(--color-surface-app)] px-4 py-2 text-sm leading-snug text-[var(--color-brand-900)] shadow-sm">
           <div className="flex items-end justify-between gap-2">
-            <div className="flex-1 whitespace-pre-line">{parseMarkdownLinks(msg.text, false)}</div>
+            <div className="min-w-0 flex-1 break-words whitespace-pre-line">{parseMarkdownLinks(msg.text, false)}</div>
             <div className="shrink-0 self-end text-[10px] text-gray-500/70 leading-none">
               {formatMessageTime(msg.ts)}
             </div>
