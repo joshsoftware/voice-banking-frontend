@@ -1,4 +1,5 @@
-import { defineConfig, loadEnv } from 'vite'
+import { loadEnv } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import svgr from 'vite-plugin-svgr'
@@ -31,6 +32,16 @@ export default defineConfig(({ mode }) => {
         '/api/transactions': { target: webrtcBackend, changeOrigin: true, secure: false },
         '/api/loan_transaction': { target: webrtcBackend, changeOrigin: true, secure: false },
         '/api/v1': { target: javaBackend, changeOrigin: true, secure: false },
+      },
+    },
+    test: {
+      environment: 'jsdom',
+      setupFiles: './src/test/setup.ts',
+      globals: false,
+      environmentOptions: {
+        jsdom: {
+          url: 'http://localhost/',
+        },
       },
     },
   }
