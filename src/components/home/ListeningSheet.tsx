@@ -307,10 +307,10 @@ export function ListeningSheet({
   const chatBottomRef = useRef<HTMLDivElement>(null)
   const isActive = state === 'listening' || state === 'speaking'
   const isError = state === 'error'
-  const isDisconnected = state === 'disconnected'
   const isConnecting = state === 'connecting'
-  const showPushToTalk = !isDisconnected && !isError
-  const isPushToTalkDisabled = state === 'idle' || isConnecting
+  const needsReconnect = state === 'disconnected' || (state === 'idle' && messages.length > 0)
+  const showPushToTalk = !needsReconnect && !isError
+  const isPushToTalkDisabled = isConnecting || state === 'idle'
   const showHoldHint = showPushToTalk && state !== 'processing' && !isMicHeld && !isPushToTalkDisabled
   const { t } = useTranslation()
 
@@ -357,7 +357,7 @@ export function ListeningSheet({
   }, [])
 
   const statusLabels: Record<WebRTCState, string> = {
-    idle: '',
+    idle: t('statusConnecting'),
     connecting: t('statusConnecting'),
     connected: t('statusReady'),
     listening: t('statusListening'),
@@ -458,7 +458,7 @@ export function ListeningSheet({
             type="button"
             data-testid="listening-close-btn"
             onClick={() => {
-              if (isDisconnected) {
+              if (needsReconnect) {
                 onClose()
                 return
               }
@@ -486,9 +486,13 @@ export function ListeningSheet({
           <div className="flex flex-col flex-1 min-h-0 items-center gap-4 overflow-hidden">
             {/* Status label */}
             <div
-              className={`leading-5 transition-colors duration-300 ${isDisconnected ? 'text-base' : 'text-sm font-medium'} ${STATUS_COLORS[state]}`}
+              className={`leading-5 transition-colors duration-300 ${needsReconnect ? 'text-base' : 'text-sm font-medium'} ${needsReconnect ? STATUS_COLORS.disconnected : STATUS_COLORS[state]}`}
             >
-              {showHoldHint ? t('statusHoldToSpeak') : statusLabels[state]}
+              {showHoldHint
+                ? t('statusHoldToSpeak')
+                : needsReconnect && state === 'idle'
+                  ? t('statusSessionEnded')
+                  : statusLabels[state]}
             </div>
 
             {/* Voiceprint verification badge */}
@@ -568,7 +572,7 @@ export function ListeningSheet({
 
           {/* Pinned bottom actions */}
           <div className="flex flex-col items-center gap-2 pt-3 pb-3 border-t border-black/5 mt-2">
-            {isDisconnected ? (
+            {needsReconnect ? (
               onReconnect && (
                 <button
                   type="button"
@@ -585,7 +589,7 @@ export function ListeningSheet({
                   onPointerCancel={() => {}}
                   className="h-16 w-full max-w-[280px] touch-none select-none rounded-full bg-[var(--color-surface-card)] font-semibold text-[var(--color-brand-900)] ring-2 ring-[var(--color-brand-500)]/30 shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98]"
                 >
-                  {t('holdToSpeak')}
+                  {t('holdToReconnect')}
                 </button>
               )
             ) : (
@@ -607,7 +611,7 @@ export function ListeningSheet({
                   }`}
                 >
                   <MicIcon width="20" height="20" className="shrink-0" />
-                  <span>{isPushToTalkDisabled ? t('statusConnecting') : isMicHeld ? t('releaseToMute') : t('holdToSpeak')}</span>
+                  <span>{isConnecting ? t('statusConnecting') : isMicHeld ? t('releaseToMute') : t('holdToSpeak')}</span>
                 </button>
               )
             )}
