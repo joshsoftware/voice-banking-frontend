@@ -54,47 +54,83 @@ function formatMessageTime(ts: number): string {
   }).format(new Date(ts))
 }
 
+function chatLink(url: string, label: string, key: string | number, linkClass: string) {
+  return (
+    <a
+      key={key}
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={linkClass}
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      {label}
+    </a>
+  )
+}
+
+function linkifyPlainText(text: string, linkClass: string, keyPrefix: string) {
+  const parts: (string | ReturnType<typeof chatLink>)[] = []
+  const regex = /https?:\/\/[^\s<>\]"')]+/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.substring(lastIndex, match.index))
+    }
+
+    let url = match[0]
+    let trailing = ''
+    while (url.length > 0 && /[.,;:!?)]$/.test(url)) {
+      trailing = url.slice(-1) + trailing
+      url = url.slice(0, -1)
+    }
+
+    if (url) {
+      parts.push(chatLink(url, url, `${keyPrefix}-${match.index}`, linkClass))
+    }
+    if (trailing) {
+      parts.push(trailing)
+    }
+
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex))
+  }
+
+  return parts.length > 0 ? parts : [text]
+}
+
 function parseMarkdownLinks(text: string | undefined, isAssistant: boolean) {
   if (!text) return ''
-  
-  const parts = []
+
+  const parts: (string | ReturnType<typeof chatLink>)[] = []
   const regex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g
   let lastIndex = 0
-  let match
+  let match: RegExpExecArray | null
 
-  const linkClass = isAssistant 
-    ? 'text-white underline font-semibold hover:text-white/80 transition-colors' 
-    : 'text-[var(--color-brand-500)] underline font-semibold hover:text-[var(--color-brand-300)] transition-colors'
+  const linkClass = isAssistant
+    ? 'break-all text-white underline font-semibold hover:text-white/80 transition-colors'
+    : 'break-all text-[var(--color-brand-500)] underline font-semibold hover:text-[var(--color-brand-300)] transition-colors'
 
   while ((match = regex.exec(text)) !== null) {
     const matchIndex = match.index
-    
-    // Add text before the match
+
     if (matchIndex > lastIndex) {
-      parts.push(text.substring(lastIndex, matchIndex))
+      parts.push(...linkifyPlainText(text.substring(lastIndex, matchIndex), linkClass, `t${lastIndex}`))
     }
 
-    // Add the link
-    const linkText = match[1]
-    const linkUrl = match[2]
-    parts.push(
-      <a
-        key={matchIndex}
-        href={linkUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={linkClass}
-      >
-        {linkText}
-      </a>
-    )
+    parts.push(chatLink(match[2], match[1], matchIndex, linkClass))
 
     lastIndex = regex.lastIndex
   }
 
-  // Add remaining text
   if (lastIndex < text.length) {
-    parts.push(text.substring(lastIndex))
+    parts.push(...linkifyPlainText(text.substring(lastIndex), linkClass, `t${lastIndex}`))
   }
 
   return parts.length > 0 ? parts : text
@@ -128,7 +164,7 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
     return (
       <div className="max-w-[80%] rounded-2xl bg-[var(--color-brand-500)] px-4 py-2 text-sm leading-snug text-white shadow-sm">
         <div className="flex items-end justify-between gap-2">
-          <div className="flex-1 whitespace-pre-line">{parseMarkdownLinks(msg.text, true)}</div>
+          <div className="min-w-0 flex-1 break-words whitespace-pre-line">{parseMarkdownLinks(msg.text, true)}</div>
           <div className="shrink-0 self-end text-[10px] text-white/60 leading-none">
             {formatMessageTime(msg.ts)}
           </div>
@@ -140,7 +176,7 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
   return (
     <div className="max-w-[85%] rounded-2xl bg-[var(--color-brand-500)] px-2.5 py-2 text-white shadow-sm">
       {msg.text ? (
-        <div className="mb-1.5 whitespace-pre-line text-xs leading-snug text-white">
+        <div className="mb-1.5 break-words whitespace-pre-line text-xs leading-snug text-white">
           {parseMarkdownLinks(msg.text, true)}
         </div>
       ) : null}
@@ -207,13 +243,13 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
     msg.role === 'assistant' &&
     ((msg.transactions?.length ?? 0) > 0 || Boolean(msg.tableTitle))
   return (
-    <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
       {showTransactionCards ? (
         <RecentTransactionsBubble msg={msg} />
       ) : msg.role === 'assistant' ? (
         <div className="max-w-[80%] rounded-2xl bg-[var(--color-brand-500)] px-4 py-2 text-sm leading-snug text-white shadow-sm">
           <div className="flex items-end justify-between gap-2">
-            <div className="flex-1 whitespace-pre-line">{parseMarkdownLinks(msg.text, true)}</div>
+            <div className="min-w-0 flex-1 break-words whitespace-pre-line">{parseMarkdownLinks(msg.text, true)}</div>
             <div className="shrink-0 self-end text-[10px] text-white/60 leading-none">
               {formatMessageTime(msg.ts)}
             </div>
@@ -222,7 +258,7 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
       ) : (
         <div className="max-w-[80%] rounded-2xl bg-[var(--color-surface-app)] px-4 py-2 text-sm leading-snug text-[var(--color-brand-900)] shadow-sm">
           <div className="flex items-end justify-between gap-2">
-            <div className="flex-1 whitespace-pre-line">{parseMarkdownLinks(msg.text, false)}</div>
+            <div className="min-w-0 flex-1 break-words whitespace-pre-line">{parseMarkdownLinks(msg.text, false)}</div>
             <div className="shrink-0 self-end text-[10px] text-gray-500/70 leading-none">
               {formatMessageTime(msg.ts)}
             </div>

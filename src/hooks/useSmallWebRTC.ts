@@ -714,7 +714,7 @@ export function useSmallWebRTC() {
       // Create Pipecat client
       const client = new PipecatClient({
         transport,
-        enableMic: true,
+        enableMic: false,
         enableCam: false,
       })
 
