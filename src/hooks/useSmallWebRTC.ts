@@ -981,11 +981,11 @@ export function useSmallWebRTC() {
         } else if (data?.type === 'TRANSFER_SUCCESS') {
           const signal = data as TransferSuccessSignal
           console.log('[SmallWebRTC] Transfer success:', signal)
-          // Transfer completed: close OTP panel and show outcome in chat stream.
+          // Transfer completed: close OTP panel. The outcome is provided via agent utterance.
           setOtpSignal(null)
-          const successText = signal.message?.trim()
-            || 'Transfer successful. The amount has been debited from your account.'
-          pushMsg('assistant', successText)
+          if (signal.message?.trim()) {
+            pushMsg('assistant', signal.message.trim())
+          }
         } else {
           const directTxnSignal =
             data?.type === 'TRANSACTION_LIST' ? (data as TransactionListSignal) : null
