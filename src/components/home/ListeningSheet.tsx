@@ -587,6 +587,7 @@ export function ListeningSheet({
                     try { e.currentTarget.releasePointerCapture(e.pointerId) } catch {}
                   }}
                   onPointerCancel={() => {}}
+                  onClick={() => { void onReconnect() }}
                   className="h-16 w-full max-w-[280px] touch-none select-none rounded-full bg-[var(--color-surface-card)] font-semibold text-[var(--color-brand-900)] ring-2 ring-[var(--color-brand-500)]/30 shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98]"
                 >
                   {t('holdToReconnect')}
