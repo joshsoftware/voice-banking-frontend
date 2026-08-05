@@ -618,8 +618,8 @@ export function useSmallWebRTC() {
 
   // ── Force Terminate Local Media ────────────────────────────────────────────
 
-  const forceTerminateLocalMedia = useCallback(() => {
-    const client = clientRef.current
+  const forceTerminateLocalMedia = useCallback((targetClient?: PipecatClient | null) => {
+    const client = targetClient ?? clientRef.current
     if (!client) return
 
     try {
@@ -668,18 +668,20 @@ export function useSmallWebRTC() {
     // If a previous client exists, tear it down completely before reconnecting.
     // This handles the case where disconnect() failed or the peer connection
     // was closed externally (e.g. by the OS during app backgrounding).
+    isConnectingRef.current = true
+
     if (clientRef.current) {
-      console.log('[SmallWebRTC] Cleaning up stale client before reconnect')
-      try {
-        forceTerminateLocalMedia()
-        await clientRef.current.disconnect()
-      } catch (err) {
-        console.warn('[SmallWebRTC] Error cleaning stale client:', err)
-      }
+      const staleClient = clientRef.current
       clientRef.current = null
       globalClientInstance = null
+      console.log('[SmallWebRTC] Replacing client for reconnect')
+      try {
+        forceTerminateLocalMedia(staleClient)
+        await staleClient.disconnect()
+      } catch (err) {
+        console.warn('[SmallWebRTC] Error disconnecting replaced client:', err)
+      }
     }
-    isConnectingRef.current = true
 
     setState('connecting')
     setSessionId(null)
@@ -714,7 +716,7 @@ export function useSmallWebRTC() {
       // Create Pipecat client
       const client = new PipecatClient({
         transport,
-        enableMic: true,
+        enableMic: false,
         enableCam: false,
       })
 
@@ -916,8 +918,12 @@ export function useSmallWebRTC() {
       })
 
       client.on('disconnected', () => {
-        console.log('[SmallWebRTC] Disconnected — cleaning up to prevent stale session reuse')
-        forceTerminateLocalMedia()
+        if (client !== clientRef.current) {
+          console.log('[SmallWebRTC] Ignoring disconnected event from superseded client')
+          return
+        }
+        console.log('[SmallWebRTC] Session disconnected — cleaning up')
+        forceTerminateLocalMedia(client)
         clientRef.current = null
         globalClientInstance = null
         isMicInputEnabledRef.current = false
@@ -981,11 +987,11 @@ export function useSmallWebRTC() {
         } else if (data?.type === 'TRANSFER_SUCCESS') {
           const signal = data as TransferSuccessSignal
           console.log('[SmallWebRTC] Transfer success:', signal)
-          // Transfer completed: close OTP panel and show outcome in chat stream.
+          // Transfer completed: close OTP panel. The outcome is provided via agent utterance.
           setOtpSignal(null)
-          const successText = signal.message?.trim()
-            || 'Transfer successful. The amount has been debited from your account.'
-          pushMsg('assistant', successText)
+          if (signal.message?.trim()) {
+            pushMsg('assistant', signal.message.trim())
+          }
         } else {
           const directTxnSignal =
             data?.type === 'TRANSACTION_LIST' ? (data as TransactionListSignal) : null
@@ -1095,9 +1101,10 @@ export function useSmallWebRTC() {
   const disconnect = useCallback(async () => {
     const client = clientRef.current
     if (!client) {
-      // Even with no client, reset state flags that may be stale
+      // Client already torn down (e.g. server-side disconnect). Keep disconnected
+      // so the UI still shows Session Ended and offers reconnect.
       isBackgroundPausedRef.current = false
-      setState('idle')
+      setState('disconnected')
       return
     }
 
@@ -1114,7 +1121,7 @@ export function useSmallWebRTC() {
     globalClientInstance = null
 
     try {
-      forceTerminateLocalMedia()
+      forceTerminateLocalMedia(client)
       await client.disconnect()
       console.log('[SmallWebRTC] Client disconnected')
     } catch (err) {
