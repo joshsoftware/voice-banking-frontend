@@ -7,6 +7,7 @@ import { useVoiceSession } from '@/contexts/VoiceSessionContext'
 import { BotAudio } from '@/components/BotAudio'
 import { getActiveCustomer } from '@/lib/customerData'
 import { MicIcon } from '@/components/ui/icons'
+import { useTranslation } from '@/i18n/LanguageHooks'
 
 export default function Listening() {
   const navigate = useNavigate()
@@ -31,6 +32,8 @@ export default function Listening() {
   const [soundPopup, setSoundPopup] = useState<string | null>(null)
   const [chatOpen, setChatOpen] = useState(true)
   const customer = getActiveCustomer()
+  const { t } = useTranslation()
+  const needsReconnect = state === 'disconnected' || (state === 'idle' && messages.length > 0)
 
   useEffect(() => {
     connect()
@@ -94,14 +97,14 @@ export default function Listening() {
             <div className="absolute bottom-0 left-0 w-full">
               <div className="rounded-t-3xl bg-[var(--color-surface-card)] px-5 py-6 shadow-[var(--shadow-sheet)]">
                 <div className="mx-auto flex w-full max-w-[356px] flex-col items-center gap-3 px-3 pb-2">
-                  {state === 'disconnected' && (
-                    <p className="text-sm font-semibold text-red-500">Session Ended</p>
+                  {needsReconnect && (
+                    <p className="text-sm font-semibold text-red-500">{t('statusSessionEnded')}</p>
                   )}
                   <button
                     type="button"
                     onPointerDown={(e) => {
                       e.preventDefault()
-                      if (state === 'disconnected') {
+                      if (needsReconnect) {
                         void connect()
                         setChatOpen(true)
                       } else {
@@ -116,6 +119,12 @@ export default function Listening() {
                         document.addEventListener('pointercancel', handleUp)
                       }
                     }}
+                    onClick={() => {
+                      if (state === 'disconnected') {
+                        void connect()
+                        setChatOpen(true)
+                      }
+                    }}
                     className={`h-16 w-full max-w-[280px] touch-none select-none rounded-full font-semibold shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98] flex items-center justify-center gap-3 px-6 ${
                       isMicHeld
                         ? '[background:var(--gradient-mic)] text-white shadow-[var(--shadow-mic)]'
@@ -123,7 +132,7 @@ export default function Listening() {
                     }`}
                   >
                     <MicIcon width="20" height="20" className="shrink-0" />
-                    <span>{state === 'disconnected' ? 'Hold to reconnect' : isMicHeld ? 'Release to send' : 'Hold to speak'}</span>
+                    <span>{needsReconnect ? t('holdToReconnect') : isMicHeld ? t('releaseToMute') : t('holdToSpeak')}</span>
                   </button>
                 </div>
               </div>
