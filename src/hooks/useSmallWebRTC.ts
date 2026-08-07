@@ -13,20 +13,27 @@ let globalClientInstance: PipecatClient | null = null
 
 // ─── Beep ─────────────────────────────────────────────────────────────────────
 
-function playBeep() {
-  try {
-    const ctx = new AudioContext()
-    const osc = ctx.createOscillator(), gain = ctx.createGain()
-    osc.connect(gain); gain.connect(ctx.destination)
-    osc.type = 'triangle'
-    osc.frequency.setValueAtTime(440, ctx.currentTime)
-    gain.gain.setValueAtTime(0, ctx.currentTime)
-    gain.gain.linearRampToValueAtTime(0.9, ctx.currentTime + 0.02)
-    gain.gain.setValueAtTime(0.9, ctx.currentTime + 0.1)
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.1)
-    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 1.1)
-    osc.onended = () => ctx.close()
-  } catch {}
+/** Resolves once the beep is audibly started (~120 ms). */
+function playBeep(): Promise<void> {
+  return new Promise((resolve) => {
+    const finish = () => window.setTimeout(resolve, 120)
+    try {
+      const ctx = new AudioContext()
+      const osc = ctx.createOscillator(), gain = ctx.createGain()
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(440, ctx.currentTime)
+      gain.gain.setValueAtTime(0, ctx.currentTime)
+      gain.gain.linearRampToValueAtTime(0.9, ctx.currentTime + 0.02)
+      gain.gain.setValueAtTime(0.9, ctx.currentTime + 0.1)
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.1)
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 1.1)
+      osc.onended = () => ctx.close()
+      finish()
+    } catch {
+      resolve()
+    }
+  })
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -786,6 +793,10 @@ export function useSmallWebRTC() {
       })
 
       client.on('botStartedSpeaking', () => {
+        if (isMicInputEnabledRef.current) {
+          console.log('[SmallWebRTC] Ignoring botStartedSpeaking — user is holding mic (barge-in)')
+          return
+        }
         console.log('[SmallWebRTC] Bot started speaking')
         try {
           const tracks = client.tracks()
@@ -827,6 +838,7 @@ export function useSmallWebRTC() {
         // event but come with a participant argument — skip those to avoid
         // playing back the user's own voice as a weird echo/artifact.
         if (track.kind !== 'audio' || participant != null) return
+        if (isMicInputEnabledRef.current) return
 
         if (!audioElRef.current) {
           audioElRef.current = new Audio()
@@ -874,7 +886,9 @@ export function useSmallWebRTC() {
         const token = typeof data === 'string' ? data : (data?.text ?? '')
         console.log('[SmallWebRTC] Bot LLM text token:', token)
         llmTextBufferRef.current += token
-        setState(prev => prev === 'processing' ? 'speaking' : prev)
+        if (!isMicInputEnabledRef.current) {
+          setState(prev => (prev === 'processing' ? 'speaking' : prev))
+        }
       })
 
       // botLlmStopped fires when the LLM finishes streaming — flush buffer immediately
@@ -1284,19 +1298,26 @@ export function useSmallWebRTC() {
       pendingHoldRequestRef.current = false
       if (isMicInputEnabledRef.current) return
 
+      hasDetectedUserVoiceRef.current = false
+      setInputSoundStatus(null)
+      clearNoSoundTimer()
       isMicInputEnabledRef.current = true
-      setIsMicHeld(true)
 
-      try {
-        void client.enableMic(true)
-        const tracks = client.tracks()
-        if (tracks?.local?.audio) tracks.local.audio.enabled = true
-      } catch (err) {
-        console.error('[SmallWebRTC] Failed to enable mic capture:', err)
-      }
+      void (async () => {
+        try {
+          void client.enableMic(true)
+          const tracks = client.tracks()
+          if (tracks?.local?.audio) tracks.local.audio.enabled = true
+        } catch (err) {
+          console.error('[SmallWebRTC] Failed to enable mic capture:', err)
+        }
 
-      playBeep()
-      startNoSoundTimer()
+        await playBeep()
+        if (!isMicInputEnabledRef.current) return
+
+        setIsMicHeld(true)
+        startNoSoundTimer()
+      })()
     } else {
       pendingHoldRequestRef.current = false
       if (!isMicInputEnabledRef.current) return
