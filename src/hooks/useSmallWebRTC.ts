@@ -256,41 +256,6 @@ function isAssistantRecentTransactionsProse(text: string) {
   return false
 }
 
-function parseTransactionRowsFromAssistantProse(text: string): {
-  transactions: TransactionItem[]
-  tableTitle: string
-} | null {
-  const transactions: TransactionItem[] = []
-  const rowPattern =
-    /(?:^|[.:]\s*)(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d+)?)\s+(?:(debited|credited)\s+)?on\s+(\d{4}-\d{2}-\d{2})\s*,?\s*(?:via\s+)?(.+?)(?=(?:[.;]\s*)?(?:₹|rs\.?|inr)?\s*[\d,]+(?:\.\d+)?\s+(?:(?:debited|credited)\s+)?on\s+\d{4}-\d{2}-\d{2}|$)/gi
-
-  let match: RegExpExecArray | null
-  while ((match = rowPattern.exec(text)) !== null) {
-    const amount = Number(match[1].replace(/,/g, ''))
-    if (!Number.isFinite(amount)) continue
-
-    const transactionType = match[2]?.toLowerCase() === 'credited' ? 'CREDIT' : 'DEBIT'
-    const description = (match[4] ?? 'Transaction')
-      .replace(/\s*\|\s*/g, ' | ')
-      .replace(/[.;]\s*$/, '')
-      .trim()
-
-    transactions.push({
-      amount,
-      category: description.split('|').at(-1)?.trim(),
-      description,
-      transactionDate: match[3],
-      transactionId: `assistant-prose-${match[3]}-${transactions.length}`,
-      type: transactionType,
-    })
-  }
-
-  if (transactions.length === 0) return null
-
-  const tableTitle = /\bupi\b/i.test(text) ? 'UPI Transactions' : 'Transactions'
-  return { transactions, tableTitle }
-}
-
 /** Bot did not answer transaction request yet (fallback/help/repair response). */
 function isAssistantNonTransactionalFallback(text: string) {
   const normalized = text.toLowerCase()
@@ -362,66 +327,6 @@ export function useSmallWebRTC() {
   const lastUserTranscriptRef = useRef<string>('')
   const pendingUserIntentRef = useRef<string>('')
   const pendingStructuredIntentRef = useRef<PendingStructuredIntent>(null)
-  const pendingTxnSignalRef = useRef<{
-    transactions: TransactionItem[]
-    tableTitle: string
-    totalSpent?: number
-  } | null>(null)
-  const pendingTransactionTableRef = useRef<{
-    transactions: TransactionItem[]
-    tableTitle?: string
-    totalSpent?: number
-  } | null>(null)
-
-  const waitForTxnSignal = useCallback(async (timeoutMs = 3000) => {
-    const started = Date.now()
-    while (Date.now() - started < timeoutMs) {
-      const signalData = pendingTxnSignalRef.current
-      if (signalData) {
-        pendingTxnSignalRef.current = null
-        return signalData
-      }
-      await new Promise<void>((resolve) => {
-        window.setTimeout(resolve, 50)
-      })
-    }
-    return pendingTxnSignalRef.current
-  }, [])
-
-  const attachTxnSignalToRecentAssistant = useCallback((
-    transactions: TransactionItem[],
-    tableTitle: string,
-    totalSpent?: number,
-  ) => {
-    const userIntent = lastUserTranscriptRef.current
-    const hadTxnUserIntent = isRecentTransactionsQuery(userIntent)
-    setMessages((prev) => {
-      const cutoff = Date.now() - 15000
-      for (let i = prev.length - 1; i >= 0; i--) {
-        const msg = prev[i]
-        if (msg.role !== 'assistant' || msg.ts < cutoff) continue
-        if (msg.transactions && msg.transactions.length > 0) continue
-        const proseMatch =
-          isAssistantRecentTransactionsProse(msg.text) ||
-          msg.text.toLowerCase().startsWith('recent transactions') ||
-          /^total spent on\b/i.test(msg.text) ||
-          /\bhere are your recent transactions\b/i.test(msg.text) ||
-          isAssistantLoanStatementProse(msg.text)
-        if (!proseMatch && !hadTxnUserIntent) continue
-        const next = [...prev]
-        next[i] = {
-          ...msg,
-          text: '',
-          transactions,
-          tableTitle,
-          totalSpent,
-        }
-        pendingTxnSignalRef.current = null
-        return next
-      }
-      return prev
-    })
-  }, [])
   const txnTableHandledThisTurnRef = useRef(false)
   const hasUserSpokenThisSessionRef = useRef(false)
   const hasDetectedUserVoiceRef = useRef(false)
@@ -468,8 +373,18 @@ export function useSmallWebRTC() {
     setMessages(prev => [...prev, { role, text: normalizedText, ts: Date.now(), transactions, tableTitle, totalSpent }])
   }, [])
 
+  const applyTransactionListSignal = useCallback((signal: TransactionListSignal) => {
+    if (txnTableHandledThisTurnRef.current) return
+    const { transactions, tableTitle, totalSpent } = mapTransactionListSignal(signal)
+    if (!transactions.length) return
+    // Table only in chat — bot audio/TTS continues unchanged.
+    pushMsg('assistant', '', transactions, tableTitle, totalSpent)
+    txnTableHandledThisTurnRef.current = true
+    clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
+  }, [pushMsg])
+
   const pushAssistantMessage = useCallback(
-    async (text: string) => {
+    (text: string) => {
       const normalized = normalizeAssistantMessage(text)
       const userIntentText = (pendingUserIntentRef.current || lastUserTranscriptRef.current || '').trim()
 
@@ -482,18 +397,6 @@ export function useSmallWebRTC() {
 
       // Txn table already rendered this turn — skip duplicate plain-text / table bubbles.
       if (txnTableHandledThisTurnRef.current) {
-        return
-      }
-
-      const pendingTable = pendingTransactionTableRef.current
-      if (pendingTable) {
-        pendingTransactionTableRef.current = null
-        if (!txnTableHandledThisTurnRef.current) {
-          // Table only in chat — bot audio/TTS continues unchanged.
-          pushMsg('assistant', '', pendingTable.transactions, pendingTable.tableTitle, pendingTable.totalSpent)
-          txnTableHandledThisTurnRef.current = true
-        }
-        clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
         return
       }
 
@@ -515,7 +418,6 @@ export function useSmallWebRTC() {
       }
 
       const needsLoanStatement = isAssistantLoanStatementProse(normalized)
-
       const txnFromUserIntent =
         pendingStructuredIntentRef.current === 'transactions' &&
         hasUserSpokenThisSessionRef.current &&
@@ -524,9 +426,8 @@ export function useSmallWebRTC() {
         (isRecentTransactionsQuery(userIntentText) || isAccountSelectionReply(userIntentText))
       const txnFromAssistantProse = !needsLoanStatement && isAssistantRecentTransactionsProse(normalized)
       const assistantFallback = isAssistantNonTransactionalFallback(normalized)
-      // txnFromAssistantProse no longer requires pendingStructuredIntentRef === 'transactions':
-      // if the bot's response clearly contains a transaction list, show the table regardless of
-      // whether the user's phrase matched our intent patterns.
+      // txnFromAssistantProse: if the bot's response clearly contains a transaction list,
+      // treat it as structured even when the user's phrase did not match our intent patterns.
       const needsRecentTransactions = !assistantFallback && (txnFromUserIntent || txnFromAssistantProse)
       const needsStructuredTable = needsRecentTransactions || needsLoanStatement
 
@@ -543,68 +444,10 @@ export function useSmallWebRTC() {
         return
       }
 
-      try {
-        pendingTransactionTableRef.current = null
-
-        if (txnTableHandledThisTurnRef.current) {
-          clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
-          return
-        }
-
-        let transactions: TransactionItem[] = []
-        let tableTitle = t('recentTransactions')
-        let totalSpent: number | undefined
-        let signalData = pendingTxnSignalRef.current
-        if (signalData) {
-          pendingTxnSignalRef.current = null
-        } else {
-          // Signal is emitted before TTS but may arrive on the data channel slightly later.
-          signalData = await waitForTxnSignal(3000)
-          if (signalData) {
-            pendingTxnSignalRef.current = null
-          }
-        }
-
-        // TRANSACTION_LIST handler may have already rendered the table while we waited.
-        if (txnTableHandledThisTurnRef.current) {
-          clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
-          return
-        }
-
-        if (signalData) {
-          transactions = signalData.transactions
-          tableTitle = signalData.tableTitle
-          totalSpent = signalData.totalSpent
-        } else if (needsRecentTransactions) {
-          const parsedRows = parseTransactionRowsFromAssistantProse(normalized)
-          if (parsedRows) {
-            transactions = parsedRows.transactions
-            tableTitle = parsedRows.tableTitle
-          } else {
-            console.warn('[SmallWebRTC] Missing TRANSACTION_LIST signal after wait; showing text only')
-            transactions = []
-          }
-        } else {
-          console.warn('[SmallWebRTC] Missing TRANSACTION_LIST signal after wait; showing text only')
-          transactions = []
-        }
-        // Table only in chat — bot audio/TTS continues unchanged.
-        const hasTransactions = transactions.length > 0
-        const displayText = hasTransactions ? '' : normalized
-        pushMsg(
-          'assistant',
-          displayText,
-          hasTransactions ? transactions : undefined,
-          hasTransactions ? tableTitle : undefined,
-          hasTransactions ? totalSpent : undefined,
-        )
-        if (transactions.length) txnTableHandledThisTurnRef.current = true
-        clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
-      } catch {
-        pushMsg('assistant', normalized)
-      }
+      // List/table UI comes from TRANSACTION_LIST RTVI signal only — swallow spoken list text.
+      return
     },
-    [pushMsg, t, waitForTxnSignal]
+    [pushMsg]
   )
 
   const clearNoSoundTimer = useCallback(() => {
@@ -697,8 +540,6 @@ export function useSmallWebRTC() {
     lastUserTranscriptRef.current = ''
     pendingUserIntentRef.current = ''
     pendingStructuredIntentRef.current = null
-    pendingTxnSignalRef.current = null
-    pendingTransactionTableRef.current = null
     txnTableHandledThisTurnRef.current = false
     hasUserSpokenThisSessionRef.current = false
     hasDetectedUserVoiceRef.current = false
@@ -776,8 +617,8 @@ export function useSmallWebRTC() {
         }
         clearNoSoundTimer()
         voiceprintBlockedRef.current = false  // Reset block flag for new turn
+        llmTextBufferRef.current = ''  // Drop stale assistant text from previous turn
         llmFlushedRef.current = false  // Reset flush flag for new turn
-        pendingTransactionTableRef.current = null  // Drop stale txn table from previous turn
         txnTableHandledThisTurnRef.current = false
         setOtpSignal(null)  // Reset OTP state for new turn
         setState('processing')
@@ -821,8 +662,9 @@ export function useSmallWebRTC() {
         // Flush any remaining buffer not yet flushed by botLlmStopped
         const accumulated = llmTextBufferRef.current.trim()
         if (accumulated) {
-          void pushAssistantMessage(accumulated)
+          pushAssistantMessage(accumulated)
           llmTextBufferRef.current = ''
+          llmFlushedRef.current = true  // Mark as flushed so botTtsText/botTranscript won't duplicate
         }
         setState('listening')
       })
@@ -868,11 +710,8 @@ export function useSmallWebRTC() {
         }
         if (text && data.final) {
           hasUserSpokenThisSessionRef.current = true
-          pendingTransactionTableRef.current = null
           pendingUserIntentRef.current = text
           lastUserTranscriptRef.current = text
-          pendingTxnSignalRef.current = null
-          pendingTransactionTableRef.current = null
           if (isRecentTransactionsQuery(text)) {
             pendingStructuredIntentRef.current = 'transactions'
           }
@@ -900,7 +739,7 @@ export function useSmallWebRTC() {
         }
         const accumulated = llmTextBufferRef.current.trim()
         if (accumulated) {
-          void pushAssistantMessage(accumulated)
+          pushAssistantMessage(accumulated)
           llmTextBufferRef.current = ''
           llmFlushedRef.current = true  // Mark as flushed so botTtsText/botTranscript won't duplicate
         }
@@ -912,7 +751,7 @@ export function useSmallWebRTC() {
         if (voiceprintBlockedRef.current) return  // Suppress when verification failed
         if (llmTextBufferRef.current || llmFlushedRef.current) return // already handled via botLlmText/botLlmStopped
         const text = typeof data === 'string' ? data : data?.text
-        if (text) void pushAssistantMessage(text)
+        if (text) pushAssistantMessage(text)
       })
 
       // botTranscript — final fallback for older backends
@@ -921,7 +760,7 @@ export function useSmallWebRTC() {
         if (voiceprintBlockedRef.current) return  // Suppress when verification failed
         if (llmTextBufferRef.current || llmFlushedRef.current) return // already handled via botLlmText/botLlmStopped
         const text = typeof data === 'string' ? data : data?.text
-        if (text) void pushAssistantMessage(text)
+        if (text) pushAssistantMessage(text)
       })
 
       // Error handling
@@ -971,24 +810,8 @@ export function useSmallWebRTC() {
             pushMsg('assistant', t('errorNotAuthorized'))
           }
         } else if (data?.type === 'TRANSACTION_LIST') {
-          const list = data.transactions
-          if (Array.isArray(list) && list.length > 0 && !txnTableHandledThisTurnRef.current) {
-            const tablePayload = {
-              transactions: list as TransactionItem[],
-              tableTitle: typeof data.tableTitle === 'string' ? data.tableTitle : undefined,
-              totalSpent:
-                typeof data.totalSpent === 'number' && Number.isFinite(data.totalSpent)
-                  ? data.totalSpent
-                  : undefined,
-            }
-            if (llmFlushedRef.current) {
-              pushMsg('assistant', '', tablePayload.transactions, tablePayload.tableTitle, tablePayload.totalSpent)
-              txnTableHandledThisTurnRef.current = true
-              clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
-            } else {
-              pendingTransactionTableRef.current = tablePayload
-            }
-          }
+          // Push immediately — do not wait for LLM text flush (signal often arrives first).
+          applyTransactionListSignal(data as TransactionListSignal)
         } else if (data?.type === 'OTP_REQUIRED') {
           console.log('[SmallWebRTC] OTP Required:', data)
           setOtpSignal({
@@ -1015,9 +838,7 @@ export function useSmallWebRTC() {
           const txnSignal = directTxnSignal ?? nestedTxnSignal
 
           if (txnSignal) {
-            const { transactions: mapped, tableTitle, totalSpent } = mapTransactionListSignal(txnSignal)
-            pendingTxnSignalRef.current = { transactions: mapped, tableTitle, totalSpent }
-            attachTxnSignalToRecentAssistant(mapped, tableTitle, totalSpent)
+            applyTransactionListSignal(txnSignal)
           }
         }
       })
@@ -1102,7 +923,7 @@ export function useSmallWebRTC() {
     clearNoSoundTimer,
     forceTerminateLocalMedia,
     language,
-    attachTxnSignalToRecentAssistant,
+    applyTransactionListSignal,
     pushAssistantMessage,
     pushMsg,
     shouldVerifyVoice,
@@ -1147,8 +968,6 @@ export function useSmallWebRTC() {
     isMicInputEnabledRef.current = false
     setIsMicHeld(false)
     setVoiceprintStatus(null)
-    pendingTxnSignalRef.current = null
-    pendingTransactionTableRef.current = null
     setState('disconnected')
   }, [clearNoSoundTimer, forceTerminateLocalMedia])
 
