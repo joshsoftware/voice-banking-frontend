@@ -31,6 +31,8 @@ export default defineConfig(({ mode }) => {
         '/api/feedback': { target: webrtcBackend, changeOrigin: true, secure: false },
         '/api/transactions': { target: webrtcBackend, changeOrigin: true, secure: false },
         '/api/loan_transaction': { target: webrtcBackend, changeOrigin: true, secure: false },
+        '/voiceprint': { target: webrtcBackend, changeOrigin: true, secure: false },
+        '/enrollment': { target: webrtcBackend, changeOrigin: true, secure: false },
         '/api/v1': { target: javaBackend, changeOrigin: true, secure: false },
       },
     },
