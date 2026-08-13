@@ -227,9 +227,8 @@ export default function VoiceRegistration() {
             iceConfig?: unknown
           }
           // Avoid accidentally accepting WebRTC `/start` response.
-          const looksLikeEnrollmentStart =
-            payload.status === 'started' ||
-            (typeof payload.session_id === 'string' && !payload.sessionId && !payload.iceConfig)
+          // The enrollment backend ALWAYS returns status='started'.
+          const looksLikeEnrollmentStart = payload.status === 'started'
 
           if (looksLikeEnrollmentStart) {
             startEnrollmentPayload = payload
