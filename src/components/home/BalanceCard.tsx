@@ -1,13 +1,19 @@
 import { useState, useEffect } from 'react'
 import { EyeIcon, EyeOffIcon } from '@/components/ui/icons'
 import { useTranslation } from '@/i18n/LanguageHooks'
-import type { DemoAccount } from '@/lib/customerData'
 import { API_BASE } from '@/lib/constants'
 import { balanceApi } from '@/lib/balanceApi'
 import ArrowIcon from '@/assets/arrow.svg?react'
 
+interface BankAccount {
+  account_type: 'SAVINGS' | 'CURRENT'
+  account_id: string
+  balance?: number
+  customer_id: string
+}
+
 interface BalanceCardProps {
-  account?: DemoAccount | null
+  account?: BankAccount | null
 }
 
 interface TransactionItem {

@@ -3,8 +3,6 @@ import userEvent from '@testing-library/user-event'
 import type { SVGProps } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { DemoAccount } from '@/lib/customerData'
-
 vi.mock('@/assets/arrow.svg?react', () => ({
   default: (props: SVGProps<SVGSVGElement>) => <svg aria-hidden="true" {...props} />,
 }))
@@ -31,14 +29,10 @@ vi.mock('@/lib/balanceApi', () => ({
 import { balanceApi } from '@/lib/balanceApi'
 import { BalanceCard } from '../BalanceCard'
 
-const account: DemoAccount = {
-  account_type: 'SAVINGS',
+const account = {
+  account_type: 'SAVINGS' as const,
   account_id: 'ACC1234567890',
   balance: 45250.75,
-  status: 'ACTIVE',
-  overdraft_limit: 0,
-  interest_rate: 3.5,
-  minimum_balance: 1000,
   customer_id: 'CUSTOMER-1',
 }
 

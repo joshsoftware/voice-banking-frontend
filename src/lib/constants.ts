@@ -22,5 +22,5 @@ export const JAVA_API_BASE = import.meta.env.DEV
 export const VOICEPRINT_API_BASE =
   import.meta.env.VITE_VOICEPRINT_API_BASE ?? 'https://voicebanking.joshsoftware.com'
 
-/** Customer routing: ESB phones use Bandhan fixtures; others use mock-bank demo data. */
-export const CUSTOMER_DATA_SOURCE = 'phone-routed'
+/** Customer identity comes from the mock-bank phone lookup API. */
+export const CUSTOMER_DATA_SOURCE = 'mock-bank-api'

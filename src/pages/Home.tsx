@@ -8,7 +8,6 @@ import { BalanceCard } from '@/components/home/BalanceCard'
 import {
   allowVoiceSkip,
   getActiveCustomer,
-  getPrimaryAccount,
   isVoiceRegistered,
   markVoiceUnregistered,
 } from '@/lib/customerData'
@@ -28,7 +27,6 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
   const [showUnregisterConfirm, setShowUnregisterConfirm] = useState(false)
   const [isUnregisteringVoice, setIsUnregisteringVoice] = useState(false)
   const customer = getActiveCustomer()
-  const primaryAccount = customer ? getPrimaryAccount(customer.customer_id) : null
   const voiceRegistered = customer ? isVoiceRegistered(customer.customer_id) : false
   useEffect(() => {
     if (!isAuthenticated || !customer) {
@@ -91,7 +89,7 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
                 canUnregisterVoice={voiceRegistered}
                 onUnregisterVoice={() => setShowUnregisterConfirm(true)}
               />
-              <BalanceCard account={primaryAccount} />
+              <BalanceCard />
             </div>
           </div>
 
