@@ -55,28 +55,24 @@ The HTTP client:
 - Clears tokens and redirects to `/welcome` when refresh fails.
 - Calls the registered invalidation handler when the backend returns `Session expired or invalidated`.
 
-## 3. Customer Data and Demo Routing
+## 3. Customer Data
 
 Primary files:
 
 - `src/lib/customerData.ts`
 - `src/lib/demoCustomer.ts`
-- `src/lib/esbCustomer.ts`
+- `src/lib/mockBankApi.ts`
 
-The customer layer routes between two customer data sources:
-
-- Bandhan ESB fixtures for mapped phone numbers.
-- Mock-bank demo customers for all other numbers.
+Customer identity comes from the mock-bank phone lookup API (`POST /api/v1/customers/info/phone-number`). There is no local phone-to-customer mapping.
 
 `src/lib/customerData.ts` is the unified access layer. It exposes helpers for:
 
-- Finding a customer by phone number.
+- Resolving a customer by phone number via the mock-bank API.
 - Setting and clearing the active customer.
-- Reading account and loan data.
 - Checking and updating voice registration status.
 - Allowing or disallowing voice registration skip.
 
-The auth login flow updates legacy/demo customer state after OTP verification so older UI components can continue reading the active customer.
+The auth login flow stores the API customer after OTP verification so UI components can read the active customer.
 
 
 ## 4. Realtime Voice Assistant
