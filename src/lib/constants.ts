@@ -10,10 +10,19 @@ export const AUTH_API_BASE = import.meta.env.DEV
   ? ''
   : (import.meta.env.VITE_AUTH_API_BASE ?? 'https://voicebanking.joshsoftware.com')
 
-/** Java banking APIs (transactions, loans, transfers, etc). */
+/** Java banking APIs (customer lookup, transactions, loans, transfers).
+ * In dev: relative `/api/v1` so Vite can proxy to local mock-bank.
+ * In production/stage: VITE_JAVA_API_BASE, else `{VITE_API_BASE}/api/v1`.
+ * Empty build-args must not win over the fallback. */
+const hostedBackendOrigin = (
+  import.meta.env.VITE_AUTH_API_BASE ||
+  import.meta.env.VITE_API_BASE ||
+  'https://voicebanking.joshsoftware.com'
+).replace(/\/$/, '')
+
 export const JAVA_API_BASE = import.meta.env.DEV
   ? '/api/v1'
-  : (import.meta.env.VITE_JAVA_API_BASE ?? 'http://localhost:9090/api/v1')
+  : (import.meta.env.VITE_JAVA_API_BASE || `${hostedBackendOrigin}/api/v1`)
 
 /**
  * Voice embedding enrollment API
