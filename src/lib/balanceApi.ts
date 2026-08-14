@@ -1,4 +1,4 @@
-import { AUTH_API_BASE } from './constants';
+import { API_BASE } from './constants';
 
 export interface BalanceResponse {
   balance: number;
@@ -12,7 +12,7 @@ export const balanceApi = {
    * @returns Promise with balance amount
    */
   async fetchBalance(customerId: string, accountId: string): Promise<number> {
-    const response = await fetch(`${AUTH_API_BASE}/api/balance`, {
+    const response = await fetch(`${API_BASE}/api/balance`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ customerId, accountId }),

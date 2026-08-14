@@ -3,12 +3,13 @@
  * In production: set VITE_API_BASE to the full backend URL. */
 export const API_BASE = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BASE ?? '')
 
-/** Auth / login API (OTP, verify, refresh, logout). */
-// In dev, use relative URLs so requests go through the Vite proxy and work
-// even when the UI is opened from another device on LAN.
+/** Auth / login API (OTP, verify, refresh, logout).
+ * Dev: relative URLs so Vite can proxy.
+ * Deployed: VITE_AUTH_API_BASE, else VITE_API_BASE, else same-origin.
+ * Never fall back to a hardcoded prod host — that made stage UI call prod. */
 export const AUTH_API_BASE = import.meta.env.DEV
   ? ''
-  : (import.meta.env.VITE_AUTH_API_BASE ?? 'https://voicebanking.joshsoftware.com')
+  : (import.meta.env.VITE_AUTH_API_BASE ?? import.meta.env.VITE_API_BASE ?? '')
 
 /** Java banking APIs (customer lookup, transactions, loans, transfers).
  * Relative `/api/v1` in both dev and deploy so the request stays on the same host:
