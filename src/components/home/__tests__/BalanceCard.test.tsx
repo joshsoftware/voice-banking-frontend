@@ -26,7 +26,16 @@ vi.mock('@/lib/balanceApi', () => ({
   },
 }))
 
+vi.mock('@/lib/mockBankApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/mockBankApi')>()
+  return {
+    ...actual,
+    fetchAccountsForCustomer: vi.fn(),
+  }
+})
+
 import { balanceApi } from '@/lib/balanceApi'
+import { fetchAccountsForCustomer } from '@/lib/mockBankApi'
 import { BalanceCard } from '../BalanceCard'
 
 const account = {
@@ -40,6 +49,7 @@ describe('BalanceCard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(balanceApi.fetchBalance).mockResolvedValue(98765.43)
+    vi.mocked(fetchAccountsForCustomer).mockResolvedValue([])
   })
 
   it('masks account number and balance by default', async () => {
@@ -64,6 +74,20 @@ describe('BalanceCard', () => {
       expect(screen.getByText(/98,765\.43/)).toBeInTheDocument()
     })
     expect(balanceApi.fetchBalance).toHaveBeenCalledWith('CUSTOMER-1', 'ACC1234567890')
+  })
+
+  it('resolves an account from mock-bank then fetches Python balance', async () => {
+    vi.mocked(fetchAccountsForCustomer).mockResolvedValueOnce([
+      { account_id: 'ACC202602260007', account_type: 'SAVINGS', customer_id: 'CIF202602260005' },
+    ])
+
+    render(<BalanceCard customerId="CIF202602260005" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('****0007')).toBeInTheDocument()
+    })
+    expect(fetchAccountsForCustomer).toHaveBeenCalledWith('CIF202602260005')
+    expect(balanceApi.fetchBalance).toHaveBeenCalledWith('CIF202602260005', 'ACC202602260007')
   })
 })
 
