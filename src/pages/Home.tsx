@@ -89,7 +89,7 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
                 canUnregisterVoice={voiceRegistered}
                 onUnregisterVoice={() => setShowUnregisterConfirm(true)}
               />
-              <BalanceCard />
+              <BalanceCard customerId={customer?.customer_id} />
             </div>
           </div>
 

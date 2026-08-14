@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fetchCustomerByPhone, mapMockBankCustomer } from '../mockBankApi'
+import { fetchAccountsForCustomer, fetchCustomerByPhone, mapMockBankCustomer } from '../mockBankApi'
 
 describe('mockBankApi', () => {
   beforeEach(() => {
@@ -83,5 +83,37 @@ describe('mockBankApi', () => {
     )
 
     await expect(fetchCustomerByPhone('9000000001')).rejects.toThrow('Customer not found')
+  })
+
+  it('loads account ids from mock-bank so Python balance/transactions can be called', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            accountList: [
+              { accountId: 'ACC202602260007', accountType: 'SAVINGS', status: 'ACTIVE' },
+              { accountId: 'ACC202602260008', accountType: 'CURRENT', status: 'ACTIVE' },
+            ],
+          },
+          message: 'Account list fetched successfully',
+          status: 'success',
+          statusCode: 200,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    await expect(fetchAccountsForCustomer('CIF202602260005')).resolves.toEqual([
+      { account_id: 'ACC202602260007', account_type: 'SAVINGS', customer_id: 'CIF202602260005' },
+      { account_id: 'ACC202602260008', account_type: 'CURRENT', customer_id: 'CIF202602260005' },
+    ])
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/accounts/list'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ customerId: 'CIF202602260005' }),
+      }),
+    )
   })
 })
