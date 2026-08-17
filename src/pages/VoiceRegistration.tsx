@@ -227,8 +227,9 @@ export default function VoiceRegistration() {
             iceConfig?: unknown
           }
           // Avoid accidentally accepting WebRTC `/start` response.
-          // The enrollment backend ALWAYS returns status='started'.
-          const looksLikeEnrollmentStart = payload.status === 'started'
+          const looksLikeEnrollmentStart =
+            payload.status === 'started' ||
+            (typeof payload.session_id === 'string' && !payload.sessionId && !payload.iceConfig)
 
           if (looksLikeEnrollmentStart) {
             startEnrollmentPayload = payload
@@ -241,6 +242,16 @@ export default function VoiceRegistration() {
         }
         const err = await res.json().catch(() => ({}))
         const detail = (err as { detail?: string }).detail
+        if (res.status === 400 && detail?.toLowerCase().includes('already registered')) {
+          // User is already enrolled but was routed here due to stale state.
+          // Mark as registered and redirect to the listening page.
+          if (activeCustomer?.customer_id) {
+            markVoiceRegistered(activeCustomer.customer_id)
+          }
+          refreshActiveCustomer()
+          navigate('/listening', { replace: true })
+          return
+        }
         if (res.status !== 404) {
           throw new Error(detail || `Enrollment start failed (${res.status})`)
         }
