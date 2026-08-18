@@ -3,17 +3,20 @@
  * In production: set VITE_API_BASE to the full backend URL. */
 export const API_BASE = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BASE ?? '')
 
-/** Auth / login API (OTP, verify, refresh, logout). */
-// In dev, use relative URLs so requests go through the Vite proxy and work
-// even when the UI is opened from another device on LAN.
+/** Auth / login API (OTP, verify, refresh, logout).
+ * Dev: relative URLs so Vite can proxy.
+ * Deployed: VITE_AUTH_API_BASE, else VITE_API_BASE, else same-origin.
+ * Never fall back to a hardcoded prod host — that made stage UI call prod. */
 export const AUTH_API_BASE = import.meta.env.DEV
   ? ''
-  : (import.meta.env.VITE_AUTH_API_BASE ?? 'https://voicebanking.joshsoftware.com')
+  : (import.meta.env.VITE_AUTH_API_BASE ?? import.meta.env.VITE_API_BASE ?? '')
 
-/** Java banking APIs (transactions, loans, transfers, etc). */
-export const JAVA_API_BASE = import.meta.env.DEV
-  ? '/api/v1'
-  : (import.meta.env.VITE_JAVA_API_BASE ?? 'http://localhost:9090/api/v1')
+/** Java banking APIs (customer lookup, transactions, loans, transfers).
+ * Relative `/api/v1` in both dev and deploy so the request stays on the same host:
+ *   stage UI → https://voicebank-stage.joshsoftware.com/api/v1
+ *   prod UI  → https://voicebanking.joshsoftware.com/api/v1
+ * Set VITE_JAVA_API_BASE only to override that (never leave it pointing at the other env). */
+export const JAVA_API_BASE = import.meta.env.VITE_JAVA_API_BASE || '/api/v1'
 
 /**
  * Voice embedding enrollment API
@@ -22,5 +25,5 @@ export const JAVA_API_BASE = import.meta.env.DEV
 export const VOICEPRINT_API_BASE =
   import.meta.env.VITE_VOICEPRINT_API_BASE ?? 'https://voicebanking.joshsoftware.com'
 
-/** Customer routing: ESB phones use Bandhan fixtures; others use mock-bank demo data. */
-export const CUSTOMER_DATA_SOURCE = 'phone-routed'
+/** Customer identity comes from the mock-bank phone lookup API. */
+export const CUSTOMER_DATA_SOURCE = 'mock-bank-api'

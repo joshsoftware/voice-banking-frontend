@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useTranslation } from '@/i18n/LanguageHooks'
 import { useAuth } from '@/contexts/AuthContext'
+import { resolveCustomerByPhone } from '@/lib/customerData'
 import { useEffect } from 'react'
 
 export default function Welcome() {
@@ -32,6 +33,7 @@ export default function Welcome() {
     setError('')
     setIsLoading(true)
     try {
+      await resolveCustomerByPhone(phone)
       await requestOtp(`91${phone}`)
       navigate('/verify-otp', { state: { phone: `91${phone}` } })
     } catch (err) {

@@ -1,5 +1,3 @@
-import { getDeviceId } from './device'
-
 export interface DemoCustomer {
   customer_id: string
   email: string
@@ -14,486 +12,112 @@ export interface DemoCustomer {
   is_voice_registered?: boolean // Registration status flag from backend
 }
 
-export interface DemoAccount {
-  account_type: 'SAVINGS' | 'CURRENT'
-  account_id: string
-  balance: number
-  status: string
-  overdraft_limit: number
-  interest_rate: number
-  minimum_balance: number
-  customer_id: string
-}
-
-export interface DemoLoanAccount {
-  account_id: string
-  account_status: string
-  created_at: string
-  emi: string
-  interest_rate: number
-  loan_amount: number
-  loan_tenure: string
-  loan_type: string
-  product_name: string
-  sanction_date: string
-  sanction_loan_amount: string
-  scheme_name: string
-  updated_at: string
-  customer_id: string
-}
-
 const ACTIVE_CUSTOMER_STORAGE_KEY = 'voicebank.activeCustomerId'
+const ACTIVE_CUSTOMER_PROFILE_KEY = 'voicebank.activeCustomerProfile'
 const VOICE_REGISTERED_CUSTOMERS_STORAGE_KEY = 'voicebank.voiceRegisteredCustomers'
 const VOICE_SKIP_ALLOWED_CUSTOMERS_STORAGE_KEY = 'voicebank.voiceSkipAllowedCustomers'
-const DYNAMIC_PHONE_TO_CUSTOMER_ID_STORAGE_KEY = 'voicebank.dynamicPhoneToCustomerId'
-const DYNAMIC_PHONE_ASSIGNMENT_ORDER_STORAGE_KEY = 'voicebank.dynamicPhoneAssignmentOrder'
-const PHONE_TO_CUSTOMER_PERSISTENT_STORAGE_KEY = 'voicebank.phoneToCustomerPersistent'
-
-const CUSTOMERS: DemoCustomer[] = [
-  { customer_id: 'CIF202602260001', email: 'amit.sharma@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-02-26T07:15:16.424Z', date_of_birth: '1990-05-21', mobile_number: '9876543213', name: 'Amit Sharma', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260002', email: 'priya.singh@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-02-26T07:15:16.424Z', date_of_birth: '1988-08-15', mobile_number: '9123456780', name: 'Priya Singh', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260003', email: 'rahul.verma@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-02-26T07:15:16.424Z', date_of_birth: '1992-02-10', mobile_number: '9988776655', name: 'Rahul Verma', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260004', email: 'neha.gupta@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-02-26T07:15:16.424Z', date_of_birth: '1995-11-03', mobile_number: '9811122233', name: 'Neha Gupta', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260005', email: 'rohit.mehta@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-02-26T07:15:16.424Z', date_of_birth: '1987-01-19', mobile_number: '9898989898', name: 'Rohit Mehta', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260006', email: 'ananya.iyer@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-02-26T07:15:16.424Z', date_of_birth: '1994-07-12', mobile_number: '9445566778', name: 'Ananya Iyer', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260007', email: 'suresh.patel@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-02-26T07:15:16.424Z', date_of_birth: '1985-03-27', mobile_number: '9723456789', name: 'Suresh Patel', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260008', email: 'pooja.nair@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-02-26T07:15:16.424Z', date_of_birth: '1991-09-09', mobile_number: '9632587410', name: 'Pooja Nair', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260009', email: 'karan.malhotra@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-02-26T07:15:16.424Z', date_of_birth: '1989-12-01', mobile_number: '9911223344', name: 'Karan Malhotra', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260010', email: 'sneha.kulkarni@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-02-26T07:15:16.424Z', date_of_birth: '1993-04-18', mobile_number: '9765432109', name: 'Sneha Kulkarni', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260011', email: 'pooja.patil@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-03-31T07:15:16.424Z', date_of_birth: '1998-09-11', mobile_number: '9632580810', name: 'Pooja Patil', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260012', email: 'meera.joshi@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1989-11-20', mobile_number: '9700000012', name: 'Meera Joshi', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260013', email: 'vikram.desai@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1990-07-18', mobile_number: '9700000013', name: 'Vikram Desai', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260014', email: 'ishita.bansal@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1991-03-15', mobile_number: '9700000014', name: 'Ishita Bansal', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260015', email: 'nitin.chawla@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1991-11-10', mobile_number: '9700000015', name: 'Nitin Chawla', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260016', email: 'kavya.menon@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1992-07-07', mobile_number: '9700000016', name: 'Kavya Menon', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260017', email: 'aditya.rao@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1993-03-04', mobile_number: '9700000017', name: 'Aditya Rao', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260018', email: 'ritika.sethi@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1993-10-30', mobile_number: '9700000018', name: 'Ritika Sethi', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260019', email: 'manish.yadav@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1994-06-27', mobile_number: '9700000019', name: 'Manish Yadav', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260020', email: 'shreya.kapoor@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1995-02-22', mobile_number: '9700000020', name: 'Shreya Kapoor', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260021', email: 'harsh.vardhan@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1995-10-20', mobile_number: '9700000021', name: 'Harsh Vardhan', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260022', email: 'nandini.pillai@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1996-06-16', mobile_number: '9700000022', name: 'Nandini Pillai', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260023', email: 'siddharth.jain@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1997-02-11', mobile_number: '9700000023', name: 'Siddharth Jain', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260024', email: 'aarti.mishra@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1997-10-09', mobile_number: '9700000024', name: 'Aarti Mishra', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260025', email: 'pranav.kulshreshtha@mockbank.com', kyc_status: 'VERIFIED', created_at: '2026-06-11T06:18:38.498Z', date_of_birth: '1998-06-06', mobile_number: '9700000025', name: 'Pranav Kulshreshtha', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260031', email: 'gautam.rege@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-03-31T12:45:16.424Z', date_of_birth: '1985-09-11', mobile_number: '9881395656', name: 'Gautam Rege', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260032', email: 'anshumant.dhawan@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-03-31T12:45:16.424Z', date_of_birth: '1992-03-14', mobile_number: '7974933860', name: 'Anshumant Dhawan', status: 'ACTIVE' },
-  { customer_id: 'CIF202602260033', email: 'vinayak.behere@gmail.com', kyc_status: 'VERIFIED', created_at: '2026-03-31T12:45:16.424Z', date_of_birth: '1980-03-14', mobile_number: '8459875361', name: 'Vinayak Behere', status: 'ACTIVE' },
-]
-
-const ACCOUNTS: DemoAccount[] = [
-  { account_type: 'CURRENT', account_id: 'ACC202602260002', balance: 250000, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 7.2, minimum_balance: 0, customer_id: 'CIF202602260001' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260003', balance: 98350.4, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260002' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260004', balance: 18200, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3, minimum_balance: 1000, customer_id: 'CIF202602260003' },
-  { account_type: 'CURRENT', account_id: 'ACC202602260005', balance: 562340.9, status: 'ACTIVE', overdraft_limit: 100000, interest_rate: 0, minimum_balance: 10000, customer_id: 'CIF202602260003' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260006', balance: 7350.25, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3, minimum_balance: 1000, customer_id: 'CIF202602260004' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260007', balance: 125400, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260005' },
-  { account_type: 'CURRENT', account_id: 'ACC202602260008', balance: 500000, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 7.5, minimum_balance: 0, customer_id: 'CIF202602260005' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260009', balance: 21450.8, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3, minimum_balance: 1000, customer_id: 'CIF202602260006' },
-  { account_type: 'CURRENT', account_id: 'ACC202602260010', balance: 342150.6, status: 'ACTIVE', overdraft_limit: 150000, interest_rate: 0, minimum_balance: 10000, customer_id: 'CIF202602260007' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260011', balance: 44800.1, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260008' },
-  { account_type: 'CURRENT', account_id: 'ACC202602260012', balance: 150000, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 6.9, minimum_balance: 0, customer_id: 'CIF202602260008' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260013', balance: 65990.55, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3, minimum_balance: 1000, customer_id: 'CIF202602260009' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260014', balance: 30200, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260010' },
-  { account_type: 'CURRENT', account_id: 'ACC202602260015', balance: 189000.75, status: 'ACTIVE', overdraft_limit: 50000, interest_rate: 0, minimum_balance: 10000, customer_id: 'CIF202602260010' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260016', balance: 550000, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 6.8, minimum_balance: 10000, customer_id: 'CIF202602260011' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260001', balance: 43780.75, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260001' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260017', balance: 46000, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260012' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260018', balance: 47750, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260013' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260019', balance: 49500, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260014' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260020', balance: 51250, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260015' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260021', balance: 53000, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260016' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260022', balance: 54750, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260017' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260023', balance: 56500, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260018' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260024', balance: 58250, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260019' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260025', balance: 60000, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260020' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260026', balance: 61750, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260021' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260027', balance: 63500, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260022' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260028', balance: 65250, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260023' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260029', balance: 67000, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260024' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260030', balance: 68750, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260025' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260036', balance: 550000, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260031' },
-  { account_type: 'CURRENT', account_id: 'ACC202602260037', balance: 3567, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 0, minimum_balance: 10000, customer_id: 'CIF202602260031' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260038', balance: 134256, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260032' },
-  { account_type: 'CURRENT', account_id: 'ACC202602260039', balance: 63799, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 0, minimum_balance: 10000, customer_id: 'CIF202602260032' },
-  { account_type: 'SAVINGS', account_id: 'ACC202602260040', balance: 200050, status: 'ACTIVE', overdraft_limit: 0, interest_rate: 3.5, minimum_balance: 1000, customer_id: 'CIF202602260033' },
-]
-
-const LOANS: DemoLoanAccount[] = [
-  { account_id: 'LN10001', account_status: 'ACTIVE', created_at: '2026-03-24T12:22:42.794Z', emi: '15000', interest_rate: 7.5, loan_amount: 500000, loan_tenure: '240', loan_type: 'HOME_LOAN', product_name: 'Dream Home Loan', sanction_date: '2022-01-10', sanction_loan_amount: '500000', scheme_name: 'HOME_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260001' },
-  { account_id: 'LN10002', account_status: 'ACTIVE', created_at: '2026-03-24T12:22:42.794Z', emi: '8000', interest_rate: 12.5, loan_amount: 200000, loan_tenure: '60', loan_type: 'PERSONAL_LOAN', product_name: 'Quick Cash Loan', sanction_date: '2023-06-15', sanction_loan_amount: '200000', scheme_name: 'PERSONAL_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260001' },
-  { account_id: 'LN10003', account_status: 'ACTIVE', created_at: '2026-03-24T12:22:42.794Z', emi: '9000', interest_rate: 9, loan_amount: 300000, loan_tenure: '84', loan_type: 'CAR_LOAN', product_name: 'Auto Loan', sanction_date: '2021-09-20', sanction_loan_amount: '300000', scheme_name: 'CAR_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260002' },
-  { account_id: 'LN10004', account_status: 'ACTIVE', created_at: '2026-03-24T12:22:42.794Z', emi: '22000', interest_rate: 7.2, loan_amount: 800000, loan_tenure: '300', loan_type: 'HOME_LOAN', product_name: 'Premium Home Loan', sanction_date: '2020-05-12', sanction_loan_amount: '800000', scheme_name: 'HOME_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260003' },
-  { account_id: 'LN10005', account_status: 'CLOSED', created_at: '2026-03-24T12:22:42.794Z', emi: '7000', interest_rate: 13, loan_amount: 150000, loan_tenure: '48', loan_type: 'PERSONAL_LOAN', product_name: 'Instant Loan', sanction_date: '2022-11-01', sanction_loan_amount: '150000', scheme_name: 'PERSONAL_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260003' },
-  { account_id: 'LN10006', account_status: 'ACTIVE', created_at: '2026-03-24T12:22:42.794Z', emi: '4000', interest_rate: 10.5, loan_amount: 100000, loan_tenure: '36', loan_type: 'EDUCATION_LOAN', product_name: 'Study Loan', sanction_date: '2023-02-18', sanction_loan_amount: '100000', scheme_name: 'EDUCATION_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260004' },
-  { account_id: 'LN10007', account_status: 'ACTIVE', created_at: '2026-03-24T12:22:42.794Z', emi: '18000', interest_rate: 7.8, loan_amount: 600000, loan_tenure: '240', loan_type: 'HOME_LOAN', product_name: 'Home Advantage Loan', sanction_date: '2019-07-25', sanction_loan_amount: '600000', scheme_name: 'HOME_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260005' },
-  { account_id: 'LN10008', account_status: 'ACTIVE', created_at: '2026-03-24T12:22:42.794Z', emi: '10000', interest_rate: 8.9, loan_amount: 250000, loan_tenure: '72', loan_type: 'CAR_LOAN', product_name: 'Car Loan Plus', sanction_date: '2021-03-14', sanction_loan_amount: '250000', scheme_name: 'CAR_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260005' },
-  { account_id: 'LN10009', account_status: 'ACTIVE', created_at: '2026-03-24T12:22:42.794Z', emi: '6000', interest_rate: 12, loan_amount: 120000, loan_tenure: '36', loan_type: 'PERSONAL_LOAN', product_name: 'Flexi Loan', sanction_date: '2024-01-01', sanction_loan_amount: '120000', scheme_name: 'PERSONAL_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260005' },
-  { account_id: 'LN10010', account_status: 'ACTIVE', created_at: '2026-03-24T12:22:42.794Z', emi: '14000', interest_rate: 7.6, loan_amount: 400000, loan_tenure: '180', loan_type: 'HOME_LOAN', product_name: 'Smart Home Loan', sanction_date: '2022-08-30', sanction_loan_amount: '400000', scheme_name: 'HOME_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260006' },
-  { account_id: 'LN10011', account_status: 'ACTIVE', created_at: '2026-03-24T12:22:42.794Z', emi: '12000', interest_rate: 11, loan_amount: 350000, loan_tenure: '120', loan_type: 'BUSINESS_LOAN', product_name: 'SME Loan', sanction_date: '2020-12-05', sanction_loan_amount: '350000', scheme_name: 'BUSINESS_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260007' },
-  { account_id: 'LN10012', account_status: 'ACTIVE', created_at: '2026-03-24T12:22:42.794Z', emi: '4500', interest_rate: 13.5, loan_amount: 100000, loan_tenure: '24', loan_type: 'PERSONAL_LOAN', product_name: 'Express Loan', sanction_date: '2023-04-10', sanction_loan_amount: '100000', scheme_name: 'PERSONAL_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260007' },
-  { account_id: 'LN10013', account_status: 'ACTIVE', created_at: '2026-03-24T12:22:42.794Z', emi: '8500', interest_rate: 9.5, loan_amount: 200000, loan_tenure: '60', loan_type: 'CAR_LOAN', product_name: 'Auto Loan Basic', sanction_date: '2021-01-11', sanction_loan_amount: '200000', scheme_name: 'CAR_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260008' },
-  { account_id: 'LN10014', account_status: 'ACTIVE', created_at: '2026-03-24T12:22:42.794Z', emi: '25000', interest_rate: 7.1, loan_amount: 900000, loan_tenure: '300', loan_type: 'HOME_LOAN', product_name: 'Elite Home Loan', sanction_date: '2018-10-22', sanction_loan_amount: '900000', scheme_name: 'HOME_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260009' },
-  { account_id: 'LN10015', account_status: 'CLOSED', created_at: '2026-03-24T12:22:42.794Z', emi: '7500', interest_rate: 12.8, loan_amount: 180000, loan_tenure: '48', loan_type: 'PERSONAL_LOAN', product_name: 'Quick Personal Loan', sanction_date: '2022-02-14', sanction_loan_amount: '180000', scheme_name: 'PERSONAL_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260009' },
-  { account_id: 'LN10016', account_status: 'ACTIVE', created_at: '2026-03-24T12:22:42.794Z', emi: '9000', interest_rate: 10, loan_amount: 220000, loan_tenure: '48', loan_type: 'EDUCATION_LOAN', product_name: 'Higher Study Loan', sanction_date: '2023-09-01', sanction_loan_amount: '220000', scheme_name: 'EDUCATION_LOAN_SCHEME', updated_at: '2026-03-24T12:22:42.794Z', customer_id: 'CIF202602260010' },
-  { account_id: 'LN10018', account_status: 'ACTIVE', created_at: '2026-06-11T06:33:40.019Z', emi: '6500', interest_rate: 9, loan_amount: 280000, loan_tenure: '60', loan_type: 'PERSONAL_LOAN', product_name: 'Quick Cash Loan', sanction_date: '2023-08-29', sanction_loan_amount: '280000', scheme_name: 'PERSONAL_LOAN_SCHEME', updated_at: '2026-06-11T06:33:40.019Z', customer_id: 'CIF202602260012' },
-  { account_id: 'LN10019', account_status: 'ACTIVE', created_at: '2026-06-11T06:33:40.019Z', emi: '6750', interest_rate: 9.5, loan_amount: 295000, loan_tenure: '60', loan_type: 'CAR_LOAN', product_name: 'Auto Loan Plus', sanction_date: '2023-09-18', sanction_loan_amount: '295000', scheme_name: 'CAR_LOAN_SCHEME', updated_at: '2026-06-11T06:33:40.019Z', customer_id: 'CIF202602260013' },
-  { account_id: 'LN10020', account_status: 'ACTIVE', created_at: '2026-06-11T06:33:40.019Z', emi: '7000', interest_rate: 10, loan_amount: 310000, loan_tenure: '60', loan_type: 'HOME_LOAN', product_name: 'Smart Home Loan', sanction_date: '2023-10-08', sanction_loan_amount: '310000', scheme_name: 'HOME_LOAN_SCHEME', updated_at: '2026-06-11T06:33:40.019Z', customer_id: 'CIF202602260014' },
-  { account_id: 'LN10021', account_status: 'ACTIVE', created_at: '2026-06-11T06:33:40.019Z', emi: '7250', interest_rate: 8, loan_amount: 325000, loan_tenure: '60', loan_type: 'EDUCATION_LOAN', product_name: 'Higher Study Loan', sanction_date: '2023-10-28', sanction_loan_amount: '325000', scheme_name: 'EDUCATION_LOAN_SCHEME', updated_at: '2026-06-11T06:33:40.019Z', customer_id: 'CIF202602260015' },
-  { account_id: 'LN10022', account_status: 'ACTIVE', created_at: '2026-06-11T06:33:40.019Z', emi: '7500', interest_rate: 8.5, loan_amount: 340000, loan_tenure: '60', loan_type: 'PERSONAL_LOAN', product_name: 'Quick Cash Loan', sanction_date: '2023-11-17', sanction_loan_amount: '340000', scheme_name: 'PERSONAL_LOAN_SCHEME', updated_at: '2026-06-11T06:33:40.019Z', customer_id: 'CIF202602260016' },
-  { account_id: 'LN10023', account_status: 'ACTIVE', created_at: '2026-06-11T06:33:40.019Z', emi: '7750', interest_rate: 9, loan_amount: 355000, loan_tenure: '60', loan_type: 'CAR_LOAN', product_name: 'Auto Loan Plus', sanction_date: '2023-12-07', sanction_loan_amount: '355000', scheme_name: 'CAR_LOAN_SCHEME', updated_at: '2026-06-11T06:33:40.019Z', customer_id: 'CIF202602260017' },
-  { account_id: 'LN10024', account_status: 'ACTIVE', created_at: '2026-06-11T06:33:40.019Z', emi: '8000', interest_rate: 9.5, loan_amount: 370000, loan_tenure: '60', loan_type: 'HOME_LOAN', product_name: 'Smart Home Loan', sanction_date: '2023-12-27', sanction_loan_amount: '370000', scheme_name: 'HOME_LOAN_SCHEME', updated_at: '2026-06-11T06:33:40.019Z', customer_id: 'CIF202602260018' },
-  { account_id: 'LN10025', account_status: 'ACTIVE', created_at: '2026-06-11T06:33:40.019Z', emi: '8250', interest_rate: 10, loan_amount: 385000, loan_tenure: '60', loan_type: 'EDUCATION_LOAN', product_name: 'Higher Study Loan', sanction_date: '2024-01-16', sanction_loan_amount: '385000', scheme_name: 'EDUCATION_LOAN_SCHEME', updated_at: '2026-06-11T06:33:40.019Z', customer_id: 'CIF202602260019' },
-  { account_id: 'LN10026', account_status: 'ACTIVE', created_at: '2026-06-11T06:33:40.019Z', emi: '8500', interest_rate: 8, loan_amount: 400000, loan_tenure: '60', loan_type: 'PERSONAL_LOAN', product_name: 'Quick Cash Loan', sanction_date: '2024-02-05', sanction_loan_amount: '400000', scheme_name: 'PERSONAL_LOAN_SCHEME', updated_at: '2026-06-11T06:33:40.019Z', customer_id: 'CIF202602260020' },
-  { account_id: 'LN10027', account_status: 'ACTIVE', created_at: '2026-06-11T06:33:40.019Z', emi: '8750', interest_rate: 8.5, loan_amount: 415000, loan_tenure: '60', loan_type: 'CAR_LOAN', product_name: 'Auto Loan Plus', sanction_date: '2024-02-25', sanction_loan_amount: '415000', scheme_name: 'CAR_LOAN_SCHEME', updated_at: '2026-06-11T06:33:40.019Z', customer_id: 'CIF202602260021' },
-  { account_id: 'LN10028', account_status: 'ACTIVE', created_at: '2026-06-11T06:33:40.019Z', emi: '9000', interest_rate: 9, loan_amount: 430000, loan_tenure: '60', loan_type: 'HOME_LOAN', product_name: 'Smart Home Loan', sanction_date: '2024-03-16', sanction_loan_amount: '430000', scheme_name: 'HOME_LOAN_SCHEME', updated_at: '2026-06-11T06:33:40.019Z', customer_id: 'CIF202602260022' },
-  { account_id: 'LN10029', account_status: 'ACTIVE', created_at: '2026-06-11T06:33:40.019Z', emi: '9250', interest_rate: 9.5, loan_amount: 445000, loan_tenure: '60', loan_type: 'EDUCATION_LOAN', product_name: 'Higher Study Loan', sanction_date: '2024-04-05', sanction_loan_amount: '445000', scheme_name: 'EDUCATION_LOAN_SCHEME', updated_at: '2026-06-11T06:33:40.019Z', customer_id: 'CIF202602260023' },
-  { account_id: 'LN10030', account_status: 'ACTIVE', created_at: '2026-06-11T06:33:40.019Z', emi: '9500', interest_rate: 10, loan_amount: 460000, loan_tenure: '60', loan_type: 'PERSONAL_LOAN', product_name: 'Quick Cash Loan', sanction_date: '2024-04-25', sanction_loan_amount: '460000', scheme_name: 'PERSONAL_LOAN_SCHEME', updated_at: '2026-06-11T06:33:40.019Z', customer_id: 'CIF202602260024' },
-  { account_id: 'LN10031', account_status: 'ACTIVE', created_at: '2026-06-11T06:33:40.019Z', emi: '9750', interest_rate: 8, loan_amount: 475000, loan_tenure: '60', loan_type: 'CAR_LOAN', product_name: 'Auto Loan Plus', sanction_date: '2024-05-15', sanction_loan_amount: '475000', scheme_name: 'CAR_LOAN_SCHEME', updated_at: '2026-06-11T06:33:40.019Z', customer_id: 'CIF202602260025' },
-]
-
-function getTopCustomersByRelationships(limit = 3): string[] {
-  const counts = new Map<string, number>()
-  for (const account of ACCOUNTS) {
-    counts.set(account.customer_id, (counts.get(account.customer_id) ?? 0) + 1)
-  }
-  for (const loan of LOANS) {
-    counts.set(loan.customer_id, (counts.get(loan.customer_id) ?? 0) + 1)
-  }
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, limit)
-    .map(([customerId]) => customerId)
-}
-
-const TOP_3_CUSTOMER_IDS = getTopCustomersByRelationships(3)
-
-// Explicit demo mapping only for top-3 account-rich customers.
-const PHONE_TO_CUSTOMER_ID: Record<string, string> = {
-  '9000000001': TOP_3_CUSTOMER_IDS[0] ?? 'CIF202602260005',
-  '9000000002': TOP_3_CUSTOMER_IDS[1] ?? 'CIF202602260001',
-  '9000000003': TOP_3_CUSTOMER_IDS[2] ?? 'CIF202602260003',
-  '9000000005': 'CIF202602260005',
-  // Exact table numbers for top-3 customers
-  '9898989898': 'CIF202602260005',
-  '9876543213': 'CIF202602260001',
-  '9988776655': 'CIF202602260003',
-  '9081219596': 'CIF202602260012',
-  '9081219597': 'CIF202602260013',
-  '9881395656': 'CIF202602260031',
-  '7974933860': 'CIF202602260032',
-  '8459875361': 'CIF202602260033',
-}
-
-const EXACT_PHONE_ONLY_CUSTOMER_IDS = new Set([
-  'CIF202602260031',
-  'CIF202602260032',
-  'CIF202602260033',
-])
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, '').slice(-10)
 }
 
-function canUseCustomerForPhone(customerId: string, normalizedPhone: string): boolean {
-  if (!EXACT_PHONE_ONLY_CUSTOMER_IDS.has(customerId)) return true
-  return PHONE_TO_CUSTOMER_ID[normalizedPhone] === customerId
-}
-
-function getPersistentPhoneToCustomerMap(): Record<string, string> {
+function readStoredCustomerProfile(): DemoCustomer | null {
   try {
-    const raw = localStorage.getItem(PHONE_TO_CUSTOMER_PERSISTENT_STORAGE_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
-    return Object.entries(parsed).reduce<Record<string, string>>((acc, [phone, customerId]) => {
-      if (typeof phone === 'string' && typeof customerId === 'string') acc[phone] = customerId
-      return acc
-    }, {})
+    const raw = localStorage.getItem(ACTIVE_CUSTOMER_PROFILE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as DemoCustomer
+    if (!parsed || typeof parsed.customer_id !== 'string') return null
+    return parsed
   } catch {
-    return {}
+    return null
   }
 }
 
-function setPersistentPhoneToCustomerMap(map: Record<string, string>): void {
+function writeStoredCustomerProfile(customer: DemoCustomer): void {
   try {
-    localStorage.setItem(PHONE_TO_CUSTOMER_PERSISTENT_STORAGE_KEY, JSON.stringify(map))
+    localStorage.setItem(ACTIVE_CUSTOMER_STORAGE_KEY, customer.customer_id)
+    localStorage.setItem(ACTIVE_CUSTOMER_PROFILE_KEY, JSON.stringify(customer))
   } catch {
     // ignore storage issues
   }
 }
 
-function buildDynamicMapKey(phone: string, deviceId?: string): string {
-  const normalizedPhone = normalizePhone(phone)
-  return `${normalizedPhone}:${deviceId ?? ''}`
-}
-
-function hashString(input: string): number {
-  let hash = 2166136261
-  for (let i = 0; i < input.length; i += 1) {
-    hash ^= input.charCodeAt(i)
-    hash = Math.imul(hash, 16777619)
+export function findCustomerByPhone(phone: string): DemoCustomer | null {
+  const stored = readStoredCustomerProfile()
+  if (stored && normalizePhone(stored.mobile_number) === normalizePhone(phone)) {
+    return stored
   }
-  return hash >>> 0
+  return null
 }
 
-function getDeterministicCustomerId(phone: string, deviceId: string | undefined, eligibleIds: string[]) {
-  if (!eligibleIds.length) return null
-  const key = buildDynamicMapKey(phone, deviceId)
-  const idx = hashString(key) % eligibleIds.length
-  return eligibleIds[idx] ?? null
-}
-
-function getDynamicPhoneToCustomerMap(): Record<string, string> {
-  try {
-    const raw = localStorage.getItem(DYNAMIC_PHONE_TO_CUSTOMER_ID_STORAGE_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
-    return Object.entries(parsed).reduce<Record<string, string>>((acc, [phone, customerId]) => {
-      if (typeof phone === 'string' && typeof customerId === 'string') acc[phone] = customerId
-      return acc
-    }, {})
-  } catch {
-    return {}
-  }
-}
-
-function setDynamicPhoneToCustomerMap(map: Record<string, string>): void {
-  try {
-    localStorage.setItem(DYNAMIC_PHONE_TO_CUSTOMER_ID_STORAGE_KEY, JSON.stringify(map))
-  } catch {
-    // ignore storage issues
-  }
-}
-
-function shuffleIds(ids: string[]): string[] {
-  const copy = [...ids]
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[copy[i], copy[j]] = [copy[j], copy[i]]
-  }
-  return copy
-}
-
-function getOrBuildDynamicAssignmentOrder(eligibleIds: string[]): string[] {
-  try {
-    const raw = localStorage.getItem(DYNAMIC_PHONE_ASSIGNMENT_ORDER_STORAGE_KEY)
-    const parsed = raw ? JSON.parse(raw) : null
-    const validParsed = Array.isArray(parsed)
-      ? parsed.filter((id): id is string => typeof id === 'string' && eligibleIds.includes(id))
-      : []
-    if (validParsed.length) return validParsed
-  } catch {
-    // ignore parse/storage issues and rebuild below
-  }
-
-  const shuffled = shuffleIds(eligibleIds)
-  try {
-    localStorage.setItem(DYNAMIC_PHONE_ASSIGNMENT_ORDER_STORAGE_KEY, JSON.stringify(shuffled))
-  } catch {
-    // ignore storage issues
-  }
-  return shuffled
-}
-
-function setDynamicAssignmentOrder(ids: string[]): void {
-  try {
-    localStorage.setItem(DYNAMIC_PHONE_ASSIGNMENT_ORDER_STORAGE_KEY, JSON.stringify(ids))
-  } catch {
-    // ignore storage issues
-  }
-}
-
-function getCustomerById(customerId: string): DemoCustomer | null {
-  return CUSTOMERS.find((c) => c.customer_id === customerId) ?? null
-}
-
-export function findCustomerByPhone(phone: string, deviceId?: string): DemoCustomer | null {
-  const normalized = normalizePhone(phone)
-  const mappedCustomerId = PHONE_TO_CUSTOMER_ID[normalized]
-  if (mappedCustomerId) {
-    return getCustomerById(mappedCustomerId)
-  }
-
-  // Highest-priority persisted mapping: once a phone gets a customer, keep it.
-  const persistentMap = getPersistentPhoneToCustomerMap()
-  const persistentCustomerId = persistentMap[normalized]
-  if (persistentCustomerId) {
-    if (canUseCustomerForPhone(persistentCustomerId, normalized)) {
-      return getCustomerById(persistentCustomerId)
-    }
-    delete persistentMap[normalized]
-    setPersistentPhoneToCustomerMap(persistentMap)
-  }
-
-  // For any other phone number, dynamically assign customers in shuffled order
-  // (excluding the top-3 and exact-phone-only explicitly mapped customers).
-  const eligibleCustomers = CUSTOMERS.filter((c) =>
-    !TOP_3_CUSTOMER_IDS.includes(c.customer_id) &&
-    canUseCustomerForPhone(c.customer_id, normalized)
-  )
-  if (!eligibleCustomers.length) return CUSTOMERS[0] ?? null
-
-  const dynamicMap = getDynamicPhoneToCustomerMap()
-  const compositeKey = buildDynamicMapKey(phone, deviceId)
-  const existingDynamicCustomerId = dynamicMap[compositeKey] ?? dynamicMap[normalized]
-  if (existingDynamicCustomerId) {
-    if (!canUseCustomerForPhone(existingDynamicCustomerId, normalized)) {
-      delete dynamicMap[compositeKey]
-      delete dynamicMap[normalized]
-      setDynamicPhoneToCustomerMap(dynamicMap)
-    } else {
-      // Backfill composite key for older phone-only entries.
-      if (!dynamicMap[compositeKey]) {
-        dynamicMap[compositeKey] = existingDynamicCustomerId
-        setDynamicPhoneToCustomerMap(dynamicMap)
-      }
-      return getCustomerById(existingDynamicCustomerId)
-    }
-  }
-
-  const eligibleIds = eligibleCustomers.map((c) => c.customer_id)
-  const assignedCustomerId =
-    getDeterministicCustomerId(phone, deviceId, eligibleIds) ??
-    getOrBuildDynamicAssignmentOrder(eligibleIds)[0] ??
-    eligibleCustomers[0]?.customer_id
-  if (!assignedCustomerId) return eligibleCustomers[0] ?? null
-  dynamicMap[compositeKey] = assignedCustomerId
-  dynamicMap[normalized] = assignedCustomerId
-  setDynamicPhoneToCustomerMap(dynamicMap)
-
-  const persistentUpdated = getPersistentPhoneToCustomerMap()
-  persistentUpdated[normalized] = assignedCustomerId
-  setPersistentPhoneToCustomerMap(persistentUpdated)
-
-  const assignmentOrder = getOrBuildDynamicAssignmentOrder(eligibleIds)
-  if (assignmentOrder.length) {
-    const remaining = assignmentOrder.filter((id) => id !== assignedCustomerId)
-    const nextOrder = [...remaining, assignedCustomerId]
-    setDynamicAssignmentOrder(nextOrder)
-  }
-
-  return getCustomerById(assignedCustomerId)
-}
-
-export function getAccountsForCustomer(customerId: string): DemoAccount[] {
-  return ACCOUNTS.filter((a) => a.customer_id === customerId)
-}
-
-export function getPrimaryAccount(customerId: string): DemoAccount | null {
-  const accounts = getAccountsForCustomer(customerId)
-  return accounts.find((a) => a.account_type === 'SAVINGS') ?? accounts[0] ?? null
-}
-
-export function getLoanAccountsForCustomer(customerId: string): DemoLoanAccount[] {
-  return LOANS.filter((loan) => loan.customer_id === customerId)
-}
-
-export function getPrimaryLoanAccount(customerId: string): DemoLoanAccount | null {
-  const loans = getLoanAccountsForCustomer(customerId)
-  return loans.find((loan) => loan.account_status === 'ACTIVE') ?? loans[0] ?? null
-}
-
-// Maps spoken loan-type keywords to the loan_type values used in LOANS.
-const LOAN_TYPE_KEYWORDS: Record<string, RegExp> = {
-  HOME_LOAN: /\bhome\b/,
-  PERSONAL_LOAN: /\bpersonal\b/,
-  CAR_LOAN: /\bcar\b|\bauto\b|\bvehicle\b/,
-  EDUCATION_LOAN: /\beducation\b|\bstudy\b|\bstudent\b/,
-  BUSINESS_LOAN: /\bbusiness\b|\bsme\b/,
-}
-
-/**
- * Picks the loan account matching a loan type mentioned in the user's query
- * (e.g. "home loan statement"), so customers with multiple loans aren't always
- * routed to their primary loan account. Falls back to the primary loan account
- * when no loan type is mentioned or no matching loan exists.
- */
-export function getLoanAccountForQuery(customerId: string, queryText: string): DemoLoanAccount | null {
-  const loans = getLoanAccountsForCustomer(customerId)
-  if (!loans.length) return null
-
-  const normalized = queryText.toLowerCase()
-  for (const [loanType, pattern] of Object.entries(LOAN_TYPE_KEYWORDS)) {
-    if (!pattern.test(normalized)) continue
-    const match = loans.find((loan) => loan.loan_type === loanType && loan.account_status === 'ACTIVE')
-      ?? loans.find((loan) => loan.loan_type === loanType)
-    if (match) return match
-  }
-
-  return getPrimaryLoanAccount(customerId)
-}
-
-export function setActiveCustomerByPhone(
-  phone: string, 
-  voice_customer_id?: string, 
+function applyVoiceFields(
+  customer: DemoCustomer,
+  voice_customer_id?: string,
   is_voice_registered?: boolean,
-  base_customer_id?: string
-): DemoCustomer | null {
-  const deviceId = getDeviceId()
-  const normalized = normalizePhone(phone)
-  let customer: DemoCustomer | null = null
-
-  if (base_customer_id) {
-    // Respect existing persisted mapping for this phone.
-    const persistentMap = getPersistentPhoneToCustomerMap()
-    const persistedForPhone = persistentMap[normalized]
-    const preferredCustomerId = persistedForPhone || base_customer_id
-    if (canUseCustomerForPhone(preferredCustomerId, normalized)) {
-      customer = getCustomerById(preferredCustomerId)
-    } else if (persistedForPhone) {
-      delete persistentMap[normalized]
-      setPersistentPhoneToCustomerMap(persistentMap)
-    }
-    if (customer) {
-      // Persist strict mapping for this phone+device combination.
-      const dynamicMap = getDynamicPhoneToCustomerMap()
-      dynamicMap[buildDynamicMapKey(phone, deviceId)] = customer.customer_id
-      dynamicMap[normalized] = customer.customer_id
-      setDynamicPhoneToCustomerMap(dynamicMap)
-
-      const persistentUpdated = getPersistentPhoneToCustomerMap()
-      persistentUpdated[normalized] = customer.customer_id
-      setPersistentPhoneToCustomerMap(persistentUpdated)
-    }
-  }
-
-  if (!customer) {
-    customer = findCustomerByPhone(phone, deviceId)
-  }
-  if (!customer) return null
-  
+  base_customer_id?: string,
+): DemoCustomer {
   if (voice_customer_id) customer.voice_customer_id = voice_customer_id
   if (is_voice_registered !== undefined) customer.is_voice_registered = is_voice_registered
   if (base_customer_id) customer.base_customer_id = base_customer_id
+  return customer
+}
 
+function persistVoiceFields(
+  voice_customer_id?: string,
+  is_voice_registered?: boolean,
+  base_customer_id?: string,
+): void {
   try {
-    localStorage.setItem(ACTIVE_CUSTOMER_STORAGE_KEY, customer.customer_id)
     if (voice_customer_id) {
-        localStorage.setItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.voice_customer_id`, voice_customer_id)
+      localStorage.setItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.voice_customer_id`, voice_customer_id)
     }
     if (is_voice_registered !== undefined) {
-        localStorage.setItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`, String(is_voice_registered))
+      localStorage.setItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`, String(is_voice_registered))
     }
     if (base_customer_id) {
-        localStorage.setItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.base_customer_id`, base_customer_id)
+      localStorage.setItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.base_customer_id`, base_customer_id)
     }
   } catch {
     // ignore storage issues
   }
-  return customer
+}
+
+export function setActiveCustomer(
+  customer: DemoCustomer,
+  voice_customer_id?: string,
+  is_voice_registered?: boolean,
+  base_customer_id?: string,
+): DemoCustomer {
+  const next = applyVoiceFields({ ...customer }, voice_customer_id, is_voice_registered, base_customer_id)
+  writeStoredCustomerProfile(next)
+  persistVoiceFields(voice_customer_id, is_voice_registered, base_customer_id)
+  return next
+}
+
+export function setActiveCustomerByPhone(
+  phone: string,
+  voice_customer_id?: string,
+  is_voice_registered?: boolean,
+  base_customer_id?: string,
+): DemoCustomer | null {
+  const customer = findCustomerByPhone(phone)
+  if (!customer) return null
+  return setActiveCustomer(customer, voice_customer_id, is_voice_registered, base_customer_id)
 }
 
 export function getActiveCustomer(): DemoCustomer | null {
   try {
-    const id = localStorage.getItem(ACTIVE_CUSTOMER_STORAGE_KEY)
+    const stored = readStoredCustomerProfile()
+    const id = stored?.customer_id ?? localStorage.getItem(ACTIVE_CUSTOMER_STORAGE_KEY)
     if (!id) return null
-    const customer = CUSTOMERS.find((c) => c.customer_id === id) ?? null
+    const customer = stored
     if (customer) {
-        customer.voice_customer_id = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.voice_customer_id`) ?? undefined
-        customer.base_customer_id = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.base_customer_id`) ?? undefined
-        const storedVoiceStatus = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`)
-        customer.is_voice_registered = storedVoiceStatus === null ? undefined : storedVoiceStatus === 'true'
+      customer.voice_customer_id = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.voice_customer_id`) ?? customer.voice_customer_id
+      customer.base_customer_id = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.base_customer_id`) ?? customer.base_customer_id
+      const storedVoiceStatus = localStorage.getItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`)
+      if (storedVoiceStatus !== null) {
+        customer.is_voice_registered = storedVoiceStatus === 'true'
+      }
     }
     return customer
   } catch {
@@ -504,6 +128,7 @@ export function getActiveCustomer(): DemoCustomer | null {
 export function clearActiveCustomer(): void {
   try {
     localStorage.removeItem(ACTIVE_CUSTOMER_STORAGE_KEY)
+    localStorage.removeItem(ACTIVE_CUSTOMER_PROFILE_KEY)
     localStorage.removeItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.voice_customer_id`)
     localStorage.removeItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`)
     localStorage.removeItem(`${ACTIVE_CUSTOMER_STORAGE_KEY}.base_customer_id`)
@@ -536,9 +161,11 @@ function setActiveCustomerVoiceRegistrationStatus(isRegistered: boolean): void {
   try {
     const activeCustomerId = localStorage.getItem(ACTIVE_CUSTOMER_STORAGE_KEY)
     if (!activeCustomerId) return
-    const activeCustomer = CUSTOMERS.find((c) => c.customer_id === activeCustomerId)
+    const stored = readStoredCustomerProfile()
+    const activeCustomer = stored?.customer_id === activeCustomerId ? stored : null
     if (activeCustomer) {
       activeCustomer.is_voice_registered = isRegistered
+      writeStoredCustomerProfile(activeCustomer)
     }
     localStorage.setItem(
       `${ACTIVE_CUSTOMER_STORAGE_KEY}.is_voice_registered`,

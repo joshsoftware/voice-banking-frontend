@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authApi, type AuthResponse } from '@/lib/authApi';
-import { setActiveCustomerByPhone, clearActiveCustomer, getActiveCustomer, type DemoCustomer } from '@/lib/customerData';
+import { setActiveCustomer, resolveCustomerByPhone, clearActiveCustomer, getActiveCustomer, type DemoCustomer } from '@/lib/customerData';
 import { registerSessionInvalidatedHandler } from '@/lib/httpClient';
 import {
   AUTH_PREFERRED_LANGUAGE_KEY,
@@ -207,12 +207,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Update legacy mock customer state for compatibility with existing components
-      const customer = setActiveCustomerByPhone(
-        phone, 
-        response.customer_id, 
+      const phoneDigits = phone.replace(/\D/g, '').slice(-10);
+      const existing = getActiveCustomer();
+      const bankCustomer =
+        existing && existing.mobile_number.replace(/\D/g, '').slice(-10) === phoneDigits
+          ? existing
+          : await resolveCustomerByPhone(phone);
+      const customer = setActiveCustomer(
+        bankCustomer,
+        response.customer_id,
         response.is_voiceprint_registered,
-        response.base_customer_id
+        response.base_customer_id,
       );
       setUser(customer);
       setLastOtp(null);

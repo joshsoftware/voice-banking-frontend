@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { EyeIcon, EyeOffIcon } from '@/components/ui/icons'
 import { useTranslation } from '@/i18n/LanguageHooks'
-import type { DemoAccount } from '@/lib/customerData'
 import { API_BASE } from '@/lib/constants'
 import { balanceApi } from '@/lib/balanceApi'
+import { fetchAccountsForCustomer, pickPrimaryAccount, type BankAccount } from '@/lib/mockBankApi'
 import ArrowIcon from '@/assets/arrow.svg?react'
 
 interface BalanceCardProps {
-  account?: DemoAccount | null
+  account?: BankAccount | null
+  customerId?: string | null
 }
 
 interface TransactionItem {
@@ -83,7 +84,8 @@ function forceLogoutOnUnauthorized() {
   window.location.href = '/welcome'
 }
 
-export function BalanceCard({ account }: BalanceCardProps) {
+export function BalanceCard({ account, customerId }: BalanceCardProps) {
+  const [resolvedAccount, setResolvedAccount] = useState<BankAccount | null>(account ?? null)
   const [showBalance, setShowBalance] = useState(false)
   const [loadingTransactions, setLoadingTransactions] = useState(false)
   const [transactionsError, setTransactionsError] = useState<string | null>(null)
@@ -93,11 +95,39 @@ export function BalanceCard({ account }: BalanceCardProps) {
   const [balanceLoading, setBalanceLoading] = useState(false)
   const [balanceError, setBalanceError] = useState<string | null>(null)
   const { t } = useTranslation()
-  const balanceValue = balance ?? account?.balance ?? 45250.75
-  const accountTypeLabel = account?.account_type === 'CURRENT' ? 'Current Account' : t('savingsAccount')
-  const maskedAccount = account ? `****${account.account_id.slice(-4)}` : '****7890'
+  const activeAccount = account ?? resolvedAccount
+  const balanceValue = balance ?? activeAccount?.balance
+  const accountTypeLabel = activeAccount?.account_type === 'CURRENT' ? 'Current Account' : t('savingsAccount')
+  const maskedAccount = activeAccount ? `****${activeAccount.account_id.slice(-4)}` : '****----'
+
+  useEffect(() => {
+    if (account) {
+      setResolvedAccount(account)
+      return
+    }
+    if (!customerId) {
+      setResolvedAccount(null)
+      return
+    }
+
+    let cancelled = false
+    void (async () => {
+      try {
+        const accounts = await fetchAccountsForCustomer(customerId)
+        if (cancelled) return
+        setResolvedAccount(pickPrimaryAccount(accounts))
+      } catch {
+        if (!cancelled) setResolvedAccount(null)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [account, customerId])
+
   const fetchBalanceData = async () => {
-    if (!account?.account_id || !account?.customer_id) {
+    if (!activeAccount?.account_id || !activeAccount?.customer_id) {
       setBalanceError('Account information not available')
       return
     }
@@ -106,20 +136,19 @@ export function BalanceCard({ account }: BalanceCardProps) {
     setBalanceError(null)
 
     try {
-      const fetchedBalance = await balanceApi.fetchBalance(account.customer_id, account.account_id)
+      const fetchedBalance = await balanceApi.fetchBalance(activeAccount.customer_id, activeAccount.account_id)
       setBalance(fetchedBalance)
     } catch (e: any) {
       setBalanceError(e?.message || 'Failed to fetch balance')
-      // Keep using fallback balance from account prop
     } finally {
       setBalanceLoading(false)
     }
   }
 
-  // Fetch balance on component mount
+  // Fetch balance from Python once we have an account id.
   useEffect(() => {
     void fetchBalanceData()
-  }, [account?.account_id, account?.customer_id])
+  }, [activeAccount?.account_id, activeAccount?.customer_id])
 
   const handleToggleBalance = async () => {
     // If showing balance, fetch fresh data
@@ -129,7 +158,7 @@ export function BalanceCard({ account }: BalanceCardProps) {
     setShowBalance(!showBalance)
   }
   const handleViewDetails = async () => {
-    if (!account?.account_id) {
+    if (!activeAccount?.account_id) {
       setTransactionsError('Account is not available.')
       setShowTransactions(true)
       return
@@ -147,7 +176,7 @@ export function BalanceCard({ account }: BalanceCardProps) {
     setShowTransactions(true)
 
     const payload = {
-      accountId: account.account_id,
+      accountId: activeAccount.account_id,
       page: 0,
       size: 5,
     }
@@ -213,7 +242,7 @@ export function BalanceCard({ account }: BalanceCardProps) {
             {balanceLoading ? (
               <span className="text-[var(--color-text-muted-2)]">Loading...</span>
             ) : showBalance ? (
-              formatCurrency(balanceValue)
+              balanceValue == null ? '—' : formatCurrency(balanceValue)
             ) : (
               '₹••••••'
             )}
