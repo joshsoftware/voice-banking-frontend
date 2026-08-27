@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authApi, type AuthResponse } from '@/lib/authApi';
-import { setActiveCustomer, resolveCustomerByPhone, clearActiveCustomer, getActiveCustomer, type DemoCustomer } from '@/lib/customerData';
-import { registerSessionInvalidatedHandler } from '@/lib/httpClient';
+import { setActiveCustomer, resolveCustomerByPhone, clearActiveCustomer, getActiveCustomer, markVoiceRegistered, markVoiceUnregistered, type DemoCustomer } from '@/lib/customerData';
+import { registerSessionInvalidatedHandler, httpClient } from '@/lib/httpClient';
 import {
   AUTH_PREFERRED_LANGUAGE_KEY,
   clearLanguageSessionStorage,
@@ -70,6 +70,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else if (accessToken) {
       const customer = getActiveCustomer();
       setUser(customer);
+      
+      // Sync voiceprint status with backend
+      if (customer) {
+        const voiceCustomerId = customer.voice_customer_id || customer.customer_id;
+        if (voiceCustomerId) {
+          httpClient.get(`/voiceprint/status/${encodeURIComponent(voiceCustomerId)}`)
+            .then((res: any) => {
+              if (res && typeof res.is_registered === 'boolean') {
+                if (res.is_registered !== customer.is_voice_registered) {
+                  if (res.is_registered) {
+                    markVoiceRegistered(customer.customer_id);
+                  } else {
+                    markVoiceUnregistered(customer.customer_id);
+                  }
+                  setUser(getActiveCustomer());
+                }
+              }
+            })
+            .catch((err) => {
+              console.error('Failed to sync voiceprint status:', err);
+            });
+        }
+      }
     }
     setIsLoading(false);
   }, [accessToken]);
