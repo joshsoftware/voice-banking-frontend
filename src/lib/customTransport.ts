@@ -15,6 +15,23 @@ function extractHeaders(h: Headers | Record<string, string> | undefined): Record
   return h as Record<string, string>;
 }
 
+/** Backend sometimes returns 404 for /sessions/{id}/api/offer before the session is registered. */
+function isSessionNotReadyOfferFailure(status: number, body: string): boolean {
+  if (status !== 404 && status !== 409 && status !== 503) return false;
+  const text = body.toLowerCase();
+  return (
+    text.includes('not-yet-ready') ||
+    text.includes('not yet ready') ||
+    text.includes('invalid or not-yet-ready session_id') ||
+    text.includes('session_id') ||
+    text.includes('session id')
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Custom transport that waits for full ICE gathering before sending the offer so
  * that all candidates are embedded in the SDP (no trickle-ICE needed by the
@@ -113,17 +130,44 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
         ...extractHeaders(webrtcRequest?.headers),
       };
 
-      const response = await fetch(webrtcRequest.endpoint, {
-        method: 'POST',
-        headers: reqHeaders,
-        body: JSON.stringify(payload),
-      });
+      // /start can return a session_id before the WebRTC worker has registered it.
+      // Retry transient "not-yet-ready" / invalid-session offer failures instead of
+      // failing the whole connect on the first 404 (often no useful backend log).
+      const maxOfferAttempts = 5;
+      let response: Response | null = null;
+      let lastFailureText = '';
+      let lastFailureStatus = 0;
 
-      if (!response.ok) {
+      for (let attempt = 1; attempt <= maxOfferAttempts; attempt++) {
+        response = await fetch(webrtcRequest.endpoint, {
+          method: 'POST',
+          headers: reqHeaders,
+          body: JSON.stringify(payload),
+        });
+
+        if (response.ok) break;
+
+        lastFailureStatus = response.status;
+        lastFailureText = await response.text();
+        const retryable = isSessionNotReadyOfferFailure(lastFailureStatus, lastFailureText);
+        if (!retryable || attempt === maxOfferAttempts) {
+          this._isNegotiated = false;
+          this._isNegotiating = false;
+          throw new Error(`Negotiation failed (${lastFailureStatus}): ${lastFailureText}`);
+        }
+
+        const delayMs = Math.min(250 * 2 ** (attempt - 1), 2000);
+        console.warn(
+          `[CustomTransport] Offer attempt ${attempt}/${maxOfferAttempts} failed ` +
+            `(${lastFailureStatus}): ${lastFailureText}. Retrying in ${delayMs}ms`,
+        );
+        await sleep(delayMs);
+      }
+
+      if (!response || !response.ok) {
         this._isNegotiated = false;
         this._isNegotiating = false;
-        const text = await response.text();
-        throw new Error(`Negotiation failed (${response.status}): ${text}`);
+        throw new Error(`Negotiation failed (${lastFailureStatus}): ${lastFailureText}`);
       }
 
       const answer = await response.json();
