@@ -43,6 +43,7 @@ export type WebRTCState =
   | 'connecting'
   | 'connected'
   | 'listening'
+  | 'transcribing'
   | 'processing'
   | 'speaking'
   | 'error'
@@ -339,6 +340,10 @@ export function useSmallWebRTC() {
   const isBotReadyRef = useRef(false)
   const pendingHoldRequestRef = useRef(false)
   const pendingUserBubbleTextRef = useRef<string>('')
+  /** Bumped on each mic release; bot UI events only apply when they match botTurnIdRef. */
+  const turnIdRef = useRef(0)
+  /** Set when final user transcript commits this turn (assistant phase). */
+  const botTurnIdRef = useRef(0)
   const activeCustomer = getActiveCustomer()
   const activeCustomerId = activeCustomer?.customer_id ?? null
   const activeCustomerName = activeCustomer?.name ?? 'User'
@@ -548,6 +553,8 @@ export function useSmallWebRTC() {
     isBotReadyRef.current = false
     pendingHoldRequestRef.current = false
     pendingUserBubbleTextRef.current = ''
+    turnIdRef.current = 0
+    botTurnIdRef.current = 0
     setIsMicHeld(false)
     clearNoSoundTimer()
     llmTextBufferRef.current = ''
@@ -622,7 +629,7 @@ export function useSmallWebRTC() {
         llmFlushedRef.current = false  // Reset flush flag for new turn
         txnTableHandledThisTurnRef.current = false
         setOtpSignal(null)  // Reset OTP state for new turn
-        setState('processing')
+        // Stay in listening while holding — typing bubble only after release (transcribing)
       })
 
       client.on('userStoppedSpeaking', () => {
@@ -631,12 +638,16 @@ export function useSmallWebRTC() {
           return
         }
         console.log('[SmallWebRTC] User stopped speaking')
-        setState('processing')
+        // Bubble deferred to mic release → transcribing
       })
 
       client.on('botStartedSpeaking', () => {
         if (isMicInputEnabledRef.current) {
           console.log('[SmallWebRTC] Ignoring botStartedSpeaking — user is holding mic (barge-in)')
+          return
+        }
+        if (turnIdRef.current !== botTurnIdRef.current) {
+          console.log('[SmallWebRTC] Ignoring botStartedSpeaking — stale turn')
           return
         }
         console.log('[SmallWebRTC] Bot started speaking')
@@ -654,6 +665,10 @@ export function useSmallWebRTC() {
 
       client.on('botStoppedSpeaking', () => {
         console.log('[SmallWebRTC] Bot stopped speaking')
+        if (turnIdRef.current !== botTurnIdRef.current) {
+          console.log('[SmallWebRTC] Ignoring botStoppedSpeaking state change — stale turn')
+          return
+        }
         if (voiceprintBlockedRef.current) {
           // Verification failed — discard any bot text for this turn
           llmTextBufferRef.current = ''
@@ -716,13 +731,19 @@ export function useSmallWebRTC() {
           if (isRecentTransactionsQuery(text)) {
             pendingStructuredIntentRef.current = 'transactions'
           }
+          // Commit user bubble, then switch to assistant-side typing (left)
+          botTurnIdRef.current = turnIdRef.current
+          llmTextBufferRef.current = ''
+          llmFlushedRef.current = false
           pushMsg('user', text)
+          setState('processing')
         }
       })
 
       // botLlmText fires per streaming token — accumulate into buffer
       client.on('botLlmText', (data: any) => {
         if (voiceprintBlockedRef.current) return  // Suppress text when verification failed
+        if (turnIdRef.current !== botTurnIdRef.current) return  // Stale prior-turn tokens
         const token = typeof data === 'string' ? data : (data?.text ?? '')
         console.log('[SmallWebRTC] Bot LLM text token:', token)
         llmTextBufferRef.current += token
@@ -734,6 +755,10 @@ export function useSmallWebRTC() {
       // botLlmStopped fires when the LLM finishes streaming — flush buffer immediately
       client.on('botLlmStopped', () => {
         console.log('[SmallWebRTC] Bot LLM stopped, flushing buffer')
+        if (turnIdRef.current !== botTurnIdRef.current) {
+          llmTextBufferRef.current = ''
+          return
+        }
         if (voiceprintBlockedRef.current) {
           llmTextBufferRef.current = ''
           return  // Don't flush — verification failed
@@ -750,6 +775,7 @@ export function useSmallWebRTC() {
       client.on('botTtsText', (data: any) => {
         console.log('[SmallWebRTC] Bot TTS text:', data)
         if (voiceprintBlockedRef.current) return  // Suppress when verification failed
+        if (turnIdRef.current !== botTurnIdRef.current) return
         if (llmTextBufferRef.current || llmFlushedRef.current) return // already handled via botLlmText/botLlmStopped
         const text = typeof data === 'string' ? data : data?.text
         if (text) pushAssistantMessage(text)
@@ -759,6 +785,7 @@ export function useSmallWebRTC() {
       client.on('botTranscript', (data: any) => {
         console.log('[SmallWebRTC] Bot transcript:', data)
         if (voiceprintBlockedRef.current) return  // Suppress when verification failed
+        if (turnIdRef.current !== botTurnIdRef.current) return
         if (llmTextBufferRef.current || llmFlushedRef.current) return // already handled via botLlmText/botLlmStopped
         const text = typeof data === 'string' ? data : data?.text
         if (text) pushAssistantMessage(text)
@@ -1181,8 +1208,11 @@ export function useSmallWebRTC() {
         pendingUserBubbleTextRef.current = ''
       }
 
-      // Requirement 5: Transition to processing immediately after button release
-      setState(prev => (prev === 'listening' || prev === 'connected' || prev === 'speaking') ? 'processing' : prev)
+      // New UI turn: right-side typing while STT runs; always re-enter even if already processing
+      turnIdRef.current += 1
+      llmTextBufferRef.current = ''
+      llmFlushedRef.current = false
+      setState('transcribing')
     }
   }, [clearNoSoundTimer, startNoSoundTimer, state, pushMsg])
 
