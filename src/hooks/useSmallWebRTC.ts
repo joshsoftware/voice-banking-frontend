@@ -321,6 +321,7 @@ export function useSmallWebRTC() {
 
   const clientRef = useRef<PipecatClient | null>(null)
   const isConnectingRef = useRef(false)
+  const sessionOfferRetryRef = useRef(0)
   const audioElRef = useRef<HTMLAudioElement | null>(null)
   const llmTextBufferRef = useRef<string>('')
   const llmFlushedRef = useRef(false)
@@ -902,13 +903,34 @@ export function useSmallWebRTC() {
         ...(startData.iceConfig ? { iceConfig: startData.iceConfig } : {}),
       } as any)
 
+      // Fresh session negotiated successfully — allow a future one-shot retry.
+      sessionOfferRetryRef.current = 0
+
     } catch (err) {
       console.error('[SmallWebRTC] Connect error:', err)
       clearNoSoundTimer()
-      pushMsg('status', `Error: ${err instanceof Error ? err.message : 'Unknown'}`)
-      setState('error')
       clientRef.current = null
       globalClientInstance = null
+
+      const message = err instanceof Error ? err.message : 'Unknown'
+      const sessionNotReady =
+        /not-yet-ready|invalid or not-yet-ready session_id|negotiation failed \(404\)/i.test(message)
+
+      // Offer retries in CustomTransport cover short races. If the session still
+      // isn't usable, start a brand-new /start once before surfacing an error.
+      if (sessionNotReady && sessionOfferRetryRef.current < 1) {
+        sessionOfferRetryRef.current += 1
+        console.warn('[SmallWebRTC] Session not ready after offer retries; restarting /start once')
+        isConnectingRef.current = false
+        window.setTimeout(() => {
+          void connect()
+        }, 400)
+        return
+      }
+
+      sessionOfferRetryRef.current = 0
+      pushMsg('status', `Error: ${message}`)
+      setState('error')
     } finally {
       isConnectingRef.current = false
     }
