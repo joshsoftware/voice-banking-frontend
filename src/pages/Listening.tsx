@@ -119,6 +119,12 @@ export default function Listening() {
                         document.addEventListener('pointercancel', handleUp)
                       }
                     }}
+                    onClick={() => {
+                      if (state === 'disconnected') {
+                        void connect()
+                        setChatOpen(true)
+                      }
+                    }}
                     className={`h-16 w-full max-w-[280px] touch-none select-none rounded-full font-semibold shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98] flex items-center justify-center gap-3 px-6 ${
                       isMicHeld
                         ? '[background:var(--gradient-mic)] text-white shadow-[var(--shadow-mic)]'

@@ -8,7 +8,15 @@ import { ImageDescribeSheet, type ImageDescribeSheetState } from '@/components/v
 import { VoiceRegistrationSuccess } from '@/components/voice-registration/VoiceRegistrationSuccess'
 import { useMicLevel } from '@/hooks/useMicLevel'
 import { API_BASE, VOICEPRINT_API_BASE } from '@/lib/constants'
-import { ensureSpeechVoicesLoaded, isLanguageSupported, stopSpeech, speakText } from '@/lib/speech'
+import {
+  ensureSpeechVoicesLoaded,
+  getImageAudioUrl,
+  isAudioPlaying,
+  isLanguageSupported,
+  playAudioUrl,
+  speakText,
+  stopSpeech,
+} from '@/lib/speech'
 import {
   pickRandomRegistrationImages,
   VOICE_REGISTRATION_STEP_COUNT,
@@ -50,6 +58,7 @@ export default function VoiceRegistration() {
   const [audioSupportMessage, setAudioSupportMessage] = useState<string | null>(null)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [showAudioFailedPopup, setShowAudioFailedPopup] = useState(false)
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false)
 
   const pcRef = useRef<RTCPeerConnection | null>(null)
   const pcIdRef = useRef<string | null>(null)
@@ -242,6 +251,16 @@ export default function VoiceRegistration() {
         }
         const err = await res.json().catch(() => ({}))
         const detail = (err as { detail?: string }).detail
+        if (res.status === 400 && detail?.toLowerCase().includes('already registered')) {
+          // User is already enrolled but was routed here due to stale state.
+          // Mark as registered and redirect to the listening page.
+          if (activeCustomer?.customer_id) {
+            markVoiceRegistered(activeCustomer.customer_id)
+          }
+          refreshActiveCustomer()
+          navigate('/listening', { replace: true })
+          return
+        }
         if (res.status !== 404) {
           throw new Error(detail || `Enrollment start failed (${res.status})`)
         }
@@ -325,6 +344,8 @@ export default function VoiceRegistration() {
 
   useEffect(() => {
     if (phase !== 'imageChallenge') return
+    stopSpeech()
+    setIsPlayingAudio(false)
     setSheetState('micIdle')
     setCountdown(3)
     setRecordProgress(0)
@@ -493,19 +514,43 @@ export default function VoiceRegistration() {
   const playImageDescription = async () => {
     const item = sessionImages[imageIndex]
     if (!item) return
-    await ensureSpeechVoicesLoaded()
-    const localizedDescription = item.spokenDescriptions[language] || item.spokenDescriptions.en
-    if (language !== 'en' && !isLanguageSupported(language)) {
-      setAudioSupportMessage(t('voiceRegistrationAudioLanguageUnsupported'))
-      speakText(item.spokenDescriptions.en, 'en')
+
+    if (isPlayingAudio || isAudioPlaying()) {
+      stopSpeech()
+      setIsPlayingAudio(false)
       return
     }
+
     setAudioSupportMessage(null)
-    speakText(localizedDescription, language)
+    setIsPlayingAudio(true)
+
+    const audioUrl = getImageAudioUrl(item.id, language)
+    playAudioUrl(
+      audioUrl,
+      () => {
+        setIsPlayingAudio(false)
+      },
+      async () => {
+        // Fallback to browser speech synthesis if static audio is unavailable
+        try {
+          await ensureSpeechVoicesLoaded()
+          const localizedDescription = item.spokenDescriptions[language] || item.spokenDescriptions.en
+          if (language !== 'en' && !isLanguageSupported(language)) {
+            setAudioSupportMessage(t('voiceRegistrationAudioLanguageUnsupported'))
+            speakText(item.spokenDescriptions.en, 'en', () => setIsPlayingAudio(false))
+            return
+          }
+          speakText(localizedDescription, language, () => setIsPlayingAudio(false))
+        } catch {
+          setIsPlayingAudio(false)
+        }
+      }
+    )
   }
 
   const handleTapImageMic = () => {
     stopSpeech()
+    setIsPlayingAudio(false)
     setEnrollError(null)
     setShowNoVoiceDetected(false)
     countdownToRecordingRef.current = false
@@ -514,6 +559,8 @@ export default function VoiceRegistration() {
   }
 
   const handleRerecord = () => {
+    stopSpeech()
+    setIsPlayingAudio(false)
     imageFinalizeLockRef.current = false
     setRecordProgress(0)
     setShowNoVoiceDetected(false)
@@ -531,6 +578,7 @@ export default function VoiceRegistration() {
       return
     }
     stopSpeech()
+    setIsPlayingAudio(false)
     setSubmitLoading(true)
     setEnrollError(null)
     try {
@@ -640,7 +688,11 @@ export default function VoiceRegistration() {
                   data-testid="voice-registration-play-audio-btn"
                   aria-label={t('voiceRegistrationPlayImageDescription')}
                   onClick={() => void playImageDescription()}
-                  className="absolute right-3 top-3 grid size-10 place-items-center rounded-full bg-white text-[var(--color-brand-500)] shadow-[var(--shadow-mute)] transition-transform active:scale-95"
+                  className={`absolute right-3 top-3 grid size-10 place-items-center rounded-full shadow-[var(--shadow-mute)] transition-all active:scale-95 ${
+                    isPlayingAudio
+                      ? 'bg-[var(--color-brand-500)] text-white shadow-md'
+                      : 'bg-white text-[var(--color-brand-500)] hover:bg-slate-50'
+                  }`}
                 >
                   <VolumeIcon className="size-5" />
                 </button>

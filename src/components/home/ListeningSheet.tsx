@@ -13,6 +13,7 @@ const STATUS_COLORS: Record<WebRTCState, string> = {
   connecting: 'text-amber-500',
   connected: 'text-[var(--color-brand-500)]',
   listening: 'text-[var(--color-brand-500)]',
+  transcribing: 'text-amber-500',
   processing: 'text-amber-500',
   speaking: 'text-emerald-600',
   error: 'text-red-500',
@@ -311,7 +312,8 @@ export function ListeningSheet({
   const needsReconnect = state === 'disconnected' || (state === 'idle' && messages.length > 0)
   const showPushToTalk = !needsReconnect && !isError
   const isPushToTalkDisabled = isConnecting || state === 'idle'
-  const showHoldHint = showPushToTalk && state !== 'processing' && !isMicHeld && !isPushToTalkDisabled
+  const showHoldHint = showPushToTalk && state !== 'processing' && state !== 'transcribing' && !isMicHeld && !isPushToTalkDisabled
+  const showUserTyping = state === 'transcribing' || (isMicHeld && state === 'listening')
   const { t } = useTranslation()
 
   const handlePushToTalkPointerDown = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
@@ -361,6 +363,7 @@ export function ListeningSheet({
     connecting: t('statusConnecting'),
     connected: t('statusReady'),
     listening: t('statusListening'),
+    transcribing: t('statusProcessing'),
     processing: t('statusProcessing'),
     speaking: t('statusSpeaking'),
     error: t('statusConnectionError'),
@@ -370,7 +373,7 @@ export function ListeningSheet({
   // Auto-scroll chat to bottom
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, state])
+  }, [messages, state, showUserTyping])
 
   // Voiceprint badge visibility with auto-fade
   const [showVpBadge, setShowVpBadge] = useState(false)
@@ -559,12 +562,13 @@ export function ListeningSheet({
             )}
 
             {/* Chat area */}
-            {(visibleMessages.length > 0 || state === 'processing') && (
+            {(visibleMessages.length > 0 || state === 'processing' || showUserTyping) && (
               <div className="w-full flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto mobile-scroll px-1">
                 {visibleMessages.map((msg, i) => (
                   <ChatBubble key={i} msg={msg} />
                 ))}
-                {state === 'processing' && <TypingIndicator />}
+                {showUserTyping && <TypingIndicator align="end" />}
+                {state === 'processing' && <TypingIndicator align="start" />}
                 <div ref={chatBottomRef} />
               </div>
             )}
@@ -587,6 +591,7 @@ export function ListeningSheet({
                     try { e.currentTarget.releasePointerCapture(e.pointerId) } catch {}
                   }}
                   onPointerCancel={() => {}}
+                  onClick={() => { void onReconnect() }}
                   className="h-16 w-full max-w-[280px] touch-none select-none rounded-full bg-[var(--color-surface-card)] font-semibold text-[var(--color-brand-900)] ring-2 ring-[var(--color-brand-500)]/30 shadow-[var(--shadow-voice-btn)] transition-all active:scale-[0.98]"
                 >
                   {t('holdToReconnect')}

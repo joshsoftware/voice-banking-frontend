@@ -80,13 +80,61 @@ function pickBestVoice(language: LanguageId): SpeechSynthesisVoice | null {
   return voices[0] ?? null
 }
 
+let activeAudio: HTMLAudioElement | null = null
+
+export function getImageAudioUrl(imageId: string, language: LanguageId): string {
+  return `/voice-registration/audio/${imageId}_${language}.wav`
+}
+
+export function isAudioPlaying(): boolean {
+  return activeAudio !== null && !activeAudio.paused && !activeAudio.ended
+}
+
 /**
- * Browser text-to-speech for image descriptions. Backend audio can replace this later.
+ * Play pre-synthesized audio URL (e.g. Sarvam AI audio).
+ * Automatically stops any previously playing audio or speech synthesis.
+ */
+export function playAudioUrl(
+  url: string,
+  onEnd?: () => void,
+  onError?: (error?: unknown) => void
+): HTMLAudioElement {
+  stopSpeech()
+
+  const audio = new Audio(url)
+  activeAudio = audio
+
+  audio.onended = () => {
+    if (activeAudio === audio) {
+      activeAudio = null
+    }
+    onEnd?.()
+  }
+
+  audio.onerror = (e) => {
+    if (activeAudio === audio) {
+      activeAudio = null
+    }
+    onError?.(e)
+  }
+
+  audio.play().catch((err) => {
+    if (activeAudio === audio) {
+      activeAudio = null
+    }
+    onError?.(err)
+  })
+
+  return audio
+}
+
+/**
+ * Browser text-to-speech for image descriptions (fallback when pre-synthesized audio is unavailable).
  */
 export function speakText(text: string, language: LanguageId = 'en', onEnd?: () => void): void {
+  stopSpeech()
   const synth = getSpeechSynthesis()
   if (!synth) return
-  synth.cancel()
   const utterance = new SpeechSynthesisUtterance(text)
   utterance.lang = SPEECH_LOCALE_BY_LANGUAGE[language] || SPEECH_LOCALE_BY_LANGUAGE.en
   const selectedVoice = pickBestVoice(language)
@@ -100,7 +148,17 @@ export function speakText(text: string, language: LanguageId = 'en', onEnd?: () 
 }
 
 export function stopSpeech(): void {
+  if (activeAudio) {
+    try {
+      activeAudio.pause()
+      activeAudio.currentTime = 0
+    } catch {
+      // ignore
+    }
+    activeAudio = null
+  }
   const synth = getSpeechSynthesis()
-  if (!synth) return
-  synth.cancel()
+  if (synth) {
+    synth.cancel()
+  }
 }
