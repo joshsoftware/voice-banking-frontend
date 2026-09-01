@@ -1,0 +1,280 @@
+#!/usr/bin/env node
+
+/**
+ * Script to check and generate missing voice registration audio files using Sarvam AI TTS.
+ * Runs automatically before build (prebuild) or via `npm run generate-audio`.
+ *
+ * Uses native Node.js 18+ (fetch, fs, path) without extra dependencies.
+ */
+
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+const FRONTEND_ROOT = path.resolve(__dirname, '..')
+const AUDIO_DIR = path.join(FRONTEND_ROOT, 'public', 'voice-registration', 'audio')
+
+// Load environment variables from .env / .env.local if present
+function loadEnvFiles() {
+  const envFiles = [
+    path.join(FRONTEND_ROOT, '.env'),
+    path.join(FRONTEND_ROOT, '.env.local'),
+    path.join(FRONTEND_ROOT, '..', 'Backend', '.env'),
+  ]
+
+  for (const file of envFiles) {
+    if (fs.existsSync(file)) {
+      const content = fs.readFileSync(file, 'utf-8')
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed.startsWith('#')) continue
+        const eqIdx = trimmed.indexOf('=')
+        if (eqIdx > 0) {
+          const key = trimmed.slice(0, eqIdx).trim()
+          const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '')
+          if (!process.env[key]) {
+            process.env[key] = val
+          }
+        }
+      }
+    }
+  }
+}
+
+loadEnvFiles()
+
+const SARVAM_API_KEY =
+  process.env.SARVAM_API_KEY || process.env.VITE_SARVAM_API_KEY || ''
+const SARVAM_TTS_URL = 'https://api.sarvam.ai/text-to-speech'
+const SARVAM_MODEL = process.env.SARVAM_TTS_MODEL || 'bulbul:v3'
+const SARVAM_SPEAKER = process.env.SARVAM_TTS_SPEAKER || 'ishita'
+const SARVAM_SAMPLE_RATE = process.env.SARVAM_TTS_SAMPLE_RATE || '24000'
+
+const SARVAM_LANGUAGE_MAP = {
+  en: 'en-IN',
+  hi: 'hi-IN',
+  ta: 'ta-IN',
+  kn: 'kn-IN',
+  te: 'te-IN',
+  ml: 'ml-IN',
+  bn: 'bn-IN',
+  mr: 'mr-IN',
+  gu: 'gu-IN',
+}
+
+const VOICE_REGISTRATION_DATA = [
+  {
+    id: 'children-painting',
+    spokenDescriptions: {
+      en: 'Five children sit on a carpet near a large window, happily painting colorful pictures together inside a bright living room.',
+      hi: 'पांच बच्चे एक बड़े खिड़की के पास कालीन पर बैठकर एक उजले लिविंग रूम में रंग-बिरंगी तस्वीरें खुशी से बना रहे हैं।',
+      ta: 'ஐந்து குழந்தைகள் பெரிய ஜன்னலின் அருகில் கம்பளத்தின் மேல் அமர்ந்து, பிரகாசமான ஹாலில் வண்ணமயமான படங்களை மகிழ்ச்சியாக வரைகின்றனர்.',
+      kn: 'ಐದು ಮಕ್ಕಳು ದೊಡ್ಡ ಕಿಟಕಿಯ ಬಳಿಯಲ್ಲಿ ಹಾಸಿನ ಮೇಲೆ ಕುಳಿತು, ಬೆಳಕಿನಿಂದ ತುಂಬಿದ ಹಾಲ್‌ನಲ್ಲಿ ಬಣ್ಣದ ಚಿತ್ರಗಳನ್ನು ಸಂತೋಷವಾಗಿ ಬಿಡಿಸುತ್ತಿದ್ದಾರೆ.',
+      te: 'ఐదుగురు పిల్లలు పెద్ద కిటికీ పక్కన కార్పెట్‌పై కూర్చొని, వెలుగున్న గదిలో రంగురంగుల చిత్రాలు ఆనందంగా వేస్తున్నారు.',
+      ml: 'അഞ്ച് കുട്ടികൾ വലിയ ജനലിന്റെ സമീപം കാർപ്പറ്റിൽ ഇരുന്ന്, വെളിച്ചമുള്ള ലിവിംഗ് റൂമിൽ നിറമുള്ള ചിത്രങ്ങൾ സന്തോഷത്തോടെ വരയ്ക്കുന്നു.',
+      bn: 'পাঁচটি শিশু বড় জানালার পাশে কার্পেটে বসে উজ্জ্বল ঘরে আনন্দের সাথে রঙিন ছবি আঁকছে।',
+      mr: 'पाच मुले मोठ्या खिडकीजवळ गालिच्यावर बसून उजळ हॉलमध्ये आनंदाने रंगीत चित्रे काढत आहेत.',
+      gu: 'પાંચ બાળકો મોટી બારી પાસે ગાલિચા પર બેસીને પ્રકાશિત હોલમાં આનંદથી રંગબેરંગી ચિત્રો દોરી રહ્યા છે.',
+    },
+  },
+  {
+    id: 'children-dogs-frisbee',
+    spokenDescriptions: {
+      en: 'Four children play joyfully with two dogs in a lush green garden, tossing a frisbee under the bright afternoon sun.',
+      hi: 'चार बच्चे हरे-भरे बगीचे में दो कुत्तों के साथ तेज दोपहर की धूप में फ्रिस्बी फेंकते हुए खुशी से खेल रहे हैं।',
+      ta: 'நான்கு குழந்தைகள் செழிப்பான பச்சை தோட்டத்தில் இரண்டு நாய்களுடன் பிரகாசமான மதிய சூரியனில் ஃபிரிஸ்பி வீசி மகிழ்ச்சியாக விளையாடுகின்றனர்.',
+      kn: 'ನಾಲ್ಕು ಮಕ್ಕಳು ಹಸಿರಿನಿಂದ ತುಂಬಿದ ತೋಟದಲ್ಲಿ ಎರಡು ನಾಯಿಗಳೊಂದಿಗೆ ಪ್ರಕಾಶಮಾನ ಮಧ್ಯಾಹ್ನ ಸೂರ್ಯನಡಿ ಫ್ರಿಸ್ಬಿ ಎಸೆದು ಸಂತೋಷದಿಂದ ಆಟವಾಡುತ್ತಿದ್ದಾರೆ.',
+      te: 'నాలుగు పిల్లలు పచ్చని తోటలో రెండు కుక్కలతో ప్రకాశవంతమైన మధ్యాహ్న సూర్యరశ్మిలో ఫ్రిస్బీ విసురుతూ ఆనందంగా ఆడుతున్నారు.',
+      ml: 'നാലു കുട്ടികൾ പച്ചപ്പാർന്ന തോട്ടത്തിൽ രണ്ട് നായകളോടൊപ്പം തെളിഞ്ഞ ഉച്ചസൂര്യത്തിൽ ഫ്രിസ്ബി എറിഞ്ഞ് സന്തോഷത്തോടെ കളിക്കുന്നു.',
+      bn: 'চারটি শিশু সবুজে ভরা বাগানে দুটি কুকুরের সাথে উজ্জ্বল দুপুরের রোদে ফ্রিসবি ছুঁড়ে আনন্দে খেলছে।',
+      mr: 'चार मुले हिरव्यागार बागेत दोन कुत्र्यांसोबत तेजस्वी दुपारच्या उन्हात फ्रिस्बी फेकत आनंदाने खेळत आहेत.',
+      gu: 'ચાર બાળકો હરિયાળા બગીચામાં બે કુતરાઓ સાથે તેજસ્વી બપોરના સૂર્યપ્રકાશમાં ફ્રિસ્બી ફેંકીને આનંદથી રમી રહ્યા છે.',
+    },
+  },
+  {
+    id: 'mom-son-kitchen',
+    spokenDescriptions: {
+      en: 'A mother helps her young son cook at the stove, standing on a wooden stool in a bright, modern white kitchen.',
+      hi: 'एक मां अपने छोटे बेटे को चमकदार आधुनिक सफेद रसोई में लकड़ी के स्टूल पर खड़े होकर चूल्हे पर खाना बनाने में मदद कर रही है।',
+      ta: 'ஒளிவான நவீன வெள்ளை சமையலறையில் மர நாற்காலியில் நின்று கொண்டு ஒரு தாய் தனது இளம் மகனுக்கு அடுப்பில் சமைக்க உதவுகிறார்.',
+      kn: 'ಬೆಳಕಿನಿಂದ ತುಂಬಿದ ಆಧುನಿಕ ಬಿಳಿ ಅಡುಗೆಮನೆಯಲ್ಲಿ ಮರದ ಸ್ಟೂಲ್ ಮೇಲೆ ನಿಂತು ತಾಯಿ ತನ್ನ ಚಿಕ್ಕ ಮಗನಿಗೆ ಸ್ಟೌವ್ ಬಳಿ ಅಡುಗೆ ಮಾಡಲು ಸಹಾಯ ಮಾಡುತ್ತಿದ್ದಾರೆ.',
+      te: 'ప్రకాశవంతమైన ఆధునిక తెల్ల వంటగదిలో చెక్క స్టూల్‌పై నిలబడి ఉన్న తన చిన్న కుమారుడు స్టౌవ్‌పై వండటానికి తల్లి సహాయం చేస్తోంది.',
+      ml: 'പ്രകാശമുള്ള ആധുനിക വെളുത്ത അടുക്കളയിൽ മരച്ചാരിയിൽ നിൽക്കുന്ന ചെറുമകനെ അടുപ്പിൽ പാചകം ചെയ്യാൻ ഒരു അമ്മ സഹായിക്കുന്നു.',
+      bn: 'উজ্জ্বল আধুনিক সাদা রান্নাঘরে কাঠের স্টুলে দাঁড়িয়ে থাকা ছোট ছেলেকে চুলায় রান্না করতে একজন মা সাহায্য করছেন।',
+      mr: 'उजळ, आधुनिक पांढऱ्या स्वयंपाकघरात लाकडी स्टूलवर उभ्या असलेल्या आपल्या लहान मुलाला आई गॅसजवळ स्वयंपाक करायला मदत करत आहे.',
+      gu: 'ઉજળી આધુનિક સફેદ રસોડામાં લાકડાના સ્ટૂલ પર ઉભેલા પોતાના નાનકડા દીકરાને માતા સ્ટોવ પર રસોઈમાં મદદ કરી રહી છે.',
+    },
+  },
+  {
+    id: 'girl-reading',
+    spokenDescriptions: {
+      en: 'A young woman with long curly hair sits on a tan leather sofa, reading a book beside stuffed teddy bears in a bright living room near a window.',
+      hi: 'लंबे घुंघराले बालों वाली एक युवा महिला भूरे रंग के लेदर सोफे पर बैठी है, खिड़की के पास उजले लिविंग रूम में टेडी बियर के बगल में किताब पढ़ रही है।',
+      ta: 'நீண்ட சுருள் முடியுள்ள இளம் பெண், ஜன்னல் அருகே பிரகாசமான ஹாலில் டெடி கரடிகளுக்கு அருகில் சோபாவில் உட்கார்ந்து புத்தகம் படித்துக் கொண்டிருக்கிறார்.',
+      kn: 'ಉದ್ದನೆಯ ಕರಿಪಗೆಯ ಕೂದಲಿನ ಯುವತಿ ಹೊಗೆಯ ಬಣ್ಣದ ಲೆದರ್ ಸೋಫಾದ ಮೇಲೆ ಕುಳಿತು, ಜನಲಿನ ಬಳಿಯ ಬೆಳಕಿನ ಹಾಲ್‌ನಲ್ಲಿ ಟೆಡಿ ಬಿಯರ್‌ಗಳ ಬಳಿ ಪುಸ್ತಕ ಓದುತ್ತಿದ್ದಾಳೆ.',
+      te: 'పొడవైన గిరగిరి జుట్టు ఉన్న యువతి బ్రౌన్ లెదర్ సోఫాపై కూర్చొని, కిటికీ పక్కన వెలుగున్న గదిలో టెడ్డీ బేర్‌ల పక్కన పుస్తకం చదువుతోంది.',
+      ml: 'നീളമുള്ള ചുരുൾ മുടിയുള്ള യുവതി ടാൻ ലെതർ സോഫയിൽ ഇരുന്ന്, ജനലിന് സമീപമുള്ള വെളിച്ചമുള്ള ലിവിംഗ് റൂമിൽ ടെഡി ബിയറുകളുടെ അടുത്ത് പുസ്തകം വായിക്കുന്നു.',
+      bn: 'লম্বা কোঁকড়া চুলের এক যুবতী ট্যান রঙের লেদার সোফায় বসে উজ্জ্বল ঘরে জানালার পাশে টেডি বিয়ারের কাছে বই পড়ছে।',
+      mr: 'लांब कुरळ्या केसांसह एक तरुणी तपकिरी लेदर सोफ्यावर बसून, खिडकीजवळ उजळ हॉलमध्ये टेडी बिअरजवळ पुस्तक वाचत आहे.',
+      gu: 'લાંબા વાળવાળી યુવતી તપકિરી લેધર સોફા પર બેસીને, બારી પાસેના ઉજળા હોલમાં ટેડી બિયરની બાજુમાં પુસ્તક વાંચી રહી છે.',
+    },
+  },
+  {
+    id: 'family-dinner',
+    spokenDescriptions: {
+      en: 'A happy multi-generational family shares a meal together at a dining table filled with colorful dishes, smiling and laughing in a sunlit room.',
+      hi: 'एक खुश बहु-पीढ़ी वाला परिवार धूप से भरे कमरे में रंग-बिरंगे व्यंजनों से भरी डाइनिंग टेबल पर एक साथ भोजन करते हुए मुस्कुरा और हँस रहा है।',
+      ta: 'மகிழ்ச்சியான பல தலைமுறை குடும்பம், வெயில்மிகு அறையில் வண்ணமயமான உணவுகள் நிறைந்த மேசையில் ஒன்றாக உணவு உண்டு புன்னகைத்து சிரித்துக் கொண்டிருக்கிறது.',
+      kn: 'ಸಂತೋಷದ ಬಹು ತಲೆಮುರೆಯ ಕುಟುಂಬವು ಬೆಳಕಿನ ಕೊಠಡಿಯಲ್ಲಿ ಬಣ್ಣಬಣ್ಣದ ಆಹಾರಗಳಿಂದ ತುಂಬಿದ ಮೇಜಿನಲ್ಲಿ ಒಟ್ಟಿಗೆ ಊಟ ಮಾಡುತ್ತಾ ನಗುತ್ತಾ ಹಾಸ್ಯ ಮಾಡುತ್ತಿದೆ.',
+      te: 'ఆనందంగా ఉన్న బహువంశ కుటుంబం వెలుగున్న గదిలో రంగురంగుల వంటకాలతో నిండిన భోజన మేజాపై కలిసి భోజనం చేస్తూ నవ్వుతూ సంతోషిస్తోంది.',
+      ml: 'സന്തോഷമുള്ള ബഹുവംശ കുടുംബം സൂര്യപ്രകാശമുള്ള മുറിയിൽ നിറമുള്ള വിഭവങ്ങൾ നിറഞ്ഞ മേശയിൽ ഒരുമിച്ച് ഭക്ഷണം കഴിച്ച് പുഞ്ചിരിച്ച് ചിരിക്കുന്നു.',
+      bn: 'একটি আনন্দময় বহু প্রজন্মের পরিবার রোদে ভরা ঘরে রঙিন খাবারে ভরা ডাইনিং টেবিলে একসাথে খেতে খেতে হাসছে।',
+      mr: 'आनंदी बहुपिढीय कुटुंब उन्हाळ्याच्या प्रकाशात रंगीत पदार्थांनी भरलेल्या जेवणाच्या टेबलावर एकत्र जेवत हसत आहे.',
+      gu: 'ખુશહાલ બહુપેઢીનું પરિવાર સૂર્યપ્રકાશથી ભરેલા રૂમમાં રંગબેરંગી વાનગીઓથી ભરેલી ટેબલ પર સાથે ભોજન કરીને હસી રહ્યું છે.',
+    },
+  },
+  {
+    id: 'boy-helping',
+    spokenDescriptions: {
+      en: 'A young boy in a striped sweater kneels on a carpet in the living room, carefully folding laundry into a neat stack.',
+      hi: 'धारीदार स्वेटर पहने एक छोटा लड़का लिविंग रूम में कालीन पर घुटनों के बल बैठकर ध्यान से कपड़े मोड़कर ठीक से ढेर लगा रहा है।',
+      ta: 'கோடுகள் கொண்ட சுவிட்டர் அணிந்த சிறு பையன், ஹாலில் கம்பளத்தின் மேல் முழங்கால் படியிட்டு கவனமாக துணிகளை மடித்து ஒழுங்காக அடுக்குகிறான்.',
+      kn: 'ಪಟ್ಟೆಗಳ ಸ್ವೆಟರ್ ಧರಿಸಿದ ಚಿಕ್ಕ ಹುಡುಗ ಹಾಲ್‌ನಲ್ಲಿ ಕಾರ್ಪೆಟ್ ಮೇಲೆ ಮೊಣಕಾಲು ಮುಗಿದು ಎಚ್ಚರಿಕೆಯಿಂದ ಬಟ್ಟೆಗಳನ್ನು ಮಡಿಚಿ ಸರಿಯಾಗಿ ಅடுக்கುತ್ತಿದ್ದಾನೆ.',
+      te: 'పట్టీల స్వెటర్ ధరించిన చిన్న బాలుడు లివింగ్ రూమ్‌లో కార్పెట్‌పై మోకాలి మోపి జాగ్రత్తగా బట్టలను మడిచి చక్కగా పేర్చుతున్నాడు.',
+      ml: 'വരകളുള്ള സ്വെറ്റർ ധരിച്ച ചെറിയ ആണ്‍കുട്ടി ലിവിംഗ് റൂമിലെ കാർപ്പറ്റിൽ മുട്ടുകുത്തി ശ്രദ്ധയോടെ വസ്ത്രങ്ങൾ മടക്കി നന്നായി അടുക്കുന്നു.',
+      bn: 'ডোরাকাটা সোয়েটার পরা ছোট ছেলেটি বসার ঘরে কার্পেটে হাঁটু গেড়ে সাবধানে কাপড় ভাঁজ করে সুন্দরভাবে সাজাচ্ছে।',
+      mr: 'पट्ट्यांचा स्वेटर घातलेला लहान मुलगा हॉलमध्ये गालिच्यावर गुडघे टेकून कपडे काळजीपूर्वक दुमडून नीटनेटके ढीग लावत आहे.',
+      gu: 'ધારીદાર સ્વેટર પહેરેલો નાનો છોકરો લિવિંગ રૂમમાં ગાલિચા પર ઘૂંટણ મારી કાળજીપૂર્વક કપડાં વીંટીને સરસ રીતે ગોઠવી રહ્યો છે.',
+    },
+  },
+  {
+    id: 'girl-watering',
+    spokenDescriptions: {
+      en: 'A young girl holds a blue watering can and gently waters a potted indoor plant on a white shelf in a bright home.',
+      hi: 'एक छोटी लड़की नीले रंग का पानी देने का कनस्ता पकड़कर उजले घर में सफेद शेल्फ पर रखे गमले के पौधे को धीरे से पानी दे रही है।',
+      ta: 'ஒரு சிறு பெண் நீல நிற பாத்திரத்தைப் பிடித்து, பிரகாசமான வீட்டில் வெள்ளை அலமாரியில் உள்ள தொட்டியில் வளரும் செடிக்கு மெதுவாக தண்ணீர் ஊற்றுகிறாள்.',
+      kn: 'ಚಿಕ್ಕ ಹುಡುಗಿ ನೀಲಿ ಬಣ್ಣದ ನೀರಿನ ಕ್ಯಾನ್ ಹಿಡಿದು, ಬೆಳಕಿನ ಮನೆಯಲ್ಲಿ ಬಿಳಿ ಶೆಲ್ಫ್ ಮೇಲಿರುವ ಗಿಡಕ್ಕೆ ಸುಮ್ಮನೆ ನೀರು ಹಾಕುತ್ತಿದ್ದಾಳೆ.',
+      te: 'చిన్న అమ్మాయి నీలం రంగు వాటరింగ్ క్యాన్ పట్టుకొని, వెలుగున్న ఇంటిలో తెల్ల షెల్ఫ్‌పై ఉన్న కుండీ మొక్కకు సున్నితంగా నీరు పోస్తోంది.',
+      ml: 'ചെറിയ പെൺകുട്ടി നീല നിറമുള്ള വാട്ടറിംഗ് കാൻ പിടിച്ച്, വെളിച്ചമുള്ള വീട്ടിലെ വെളുത്ത ഷെൽഫിൽ വെച്ചിരിക്കുന്ന പൂക്കുടം ചെടിക്ക് മൃദുവായി വെള്ളം ഒഴിക്കുന്നു.',
+      bn: 'একটি ছোট মেয়ে নীল রঙের জল দেওয়ার ক্যান ধরে উজ্জ্বল ঘরে সাদা শেল্ফে রাখা গমলার গাছে আস্তে আস্তে জল দিচ্ছে।',
+      mr: 'एक लहान मुलगी निळ्या रंगाचा पाण्याचा कॅन धरून, उजळ घरात पांढऱ्या शेल्फवर ठेवलेल्या कुंडीतल्या रोपाला हळूवारपणे पाणी घालत आहे.',
+      gu: 'નાની છોકરી વાદળી રંગનું પાણીનું કેન પકડીને, ઉજળા ઘરમાં સફેદ શેલ્ફ પર રાખેલા ગમલાના છોડને ધીમે ધીમે પાણી આપી રહી છે.',
+    },
+  },
+  {
+    id: 'woman-meeting',
+    spokenDescriptions: {
+      en: 'A smiling young woman wearing earphones sits at a wooden desk with her laptop open, taking part in an online meeting beside a vase of orange flowers.',
+      hi: 'ईयरफ़ोन पहने एक मुस्कुराती युवा महिला लकड़ी की मेज पर लैपटॉप खोलकर बैठी है, नारंगी फूलों के फूलदान के पास ऑनलाइन मीटिंग में भाग ले रही है।',
+      ta: 'இயர்ஃபோன் அணிந்த இளம் பெண், மர மேசையில் லேப்டாப் திறந்து அமர்ந்து, ஆரஞ்சு பூக்களின் மலர்க்கூடை அருகில் ஆன்லைன் கூட்டத்தில் பங்கேற்கிறார்.',
+      kn: 'ಇಯರ್‌ಫೋನ್ ಧರಿಸಿದ ಯುವತಿ ಮರದ ಮೇಜಿನಲ್ಲಿ ಲ್ಯಾಪ್‌ಟಾಪ್ ತೆರೆದು ಕುಳಿತು, ಕಿತ್ತಳೆ ಹೂವಿನ ಹೂದಾನಿಯ ಬಳಿ ಆನ್‌ಲೈನ್ ಸಭೆಯಲ್ಲಿ ಭಾಗವಹಿಸುತ್ತಿದ್ದಾಳೆ.',
+      te: 'ఇయర్‌ఫోన్‌లు ಧರಿಸిన యువతి చెక్క డెస్క్‌పై ల్యాప్‌టాప్ తెరిచి కూర్చొని, నారింజ పువ్వుల జాడీ పక్కన ఆన్‌లైన్ మీటింగ్‌లో పాల్గొంటోంది.',
+      ml: 'ഇയർഫോൺ ധരിച്ച യുവതി മരമേശയിൽ ലാപ്‌ടോപ്പ് തുറന്ന് ഇരുന്ന്, ഓറഞ്ച് പൂക്കളുടെ പൂവാഴയുടെ അടുത്ത് ഓൺലൈൻ മീറ്റിംഗിൽ പങ്കെടുക്കുന്നു.',
+      bn: 'ইয়ারফোন পরা এক যুবতী কাঠের ডেস্কে ল্যাপটপ খুলে বসে কমলা ফুলের ফুলদানির পাশে অনলাইন মিটিংয়ে যোগ দিচ্ছে।',
+      mr: 'इयरफोन घातलेली तरुणी लाकडी डेस्कवर लॅपटॉप उघडून बसली आहे आणि केशरी फुलांच्या फुलदाणीजवळ ऑनलाइन बैठकीत सहभागी होत आहे.',
+      gu: 'ઇયરફોન પહેરેલી યુવતી લાકડાની ડેસ્ક પર લેપટોપ ખોલીને બેઠી છે અને કેસરી ફૂલોના ફૂલદાની પાસે ઓનલાઇન મીટિંગમાં ભાગ લઈ રહી છે.',
+    },
+  },
+]
+
+async function synthesizeClip(imageId, lang, text, filePath) {
+  const bcp47 = SARVAM_LANGUAGE_MAP[lang] || 'en-IN'
+  const payload = {
+    text,
+    target_language_code: bcp47,
+    model: SARVAM_MODEL,
+    speaker: SARVAM_SPEAKER,
+    pace: 1.0,
+    speech_sample_rate: String(SARVAM_SAMPLE_RATE),
+  }
+
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      const resp = await fetch(SARVAM_TTS_URL, {
+        method: 'POST',
+        headers: {
+          'api-subscription-key': SARVAM_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (resp.ok) {
+        const data = await resp.json()
+        if (data.audios && data.audios[0]) {
+          const buffer = Buffer.from(data.audios[0], 'base64')
+          fs.writeFileSync(filePath, buffer)
+          console.log(`✓ Synthesized: ${path.basename(filePath)} (${buffer.length} bytes)`)
+          await new Promise((r) => setTimeout(r, 1000))
+          return true
+        }
+      } else if (resp.status === 429) {
+        const wait = 3000 * attempt
+        console.warn(`⚠ [429 Rate Limit] Waiting ${wait / 1000}s for ${path.basename(filePath)}...`)
+        await new Promise((r) => setTimeout(r, wait))
+      } else {
+        const errText = await resp.text()
+        console.error(`✗ [${resp.status}] Attempt ${attempt} failed: ${errText}`)
+        await new Promise((r) => setTimeout(r, 2000))
+      }
+    } catch (err) {
+      console.error(`✗ Attempt ${attempt} error for ${path.basename(filePath)}:`, err.message)
+      await new Promise((r) => setTimeout(r, 2000))
+    }
+  }
+  return false
+}
+
+async function main() {
+  if (!fs.existsSync(AUDIO_DIR)) {
+    fs.mkdirSync(AUDIO_DIR, { recursive: true })
+  }
+
+  const missing = []
+  let existingCount = 0
+
+  for (const item of VOICE_REGISTRATION_DATA) {
+    for (const [lang, text] of Object.entries(item.spokenDescriptions)) {
+      const filename = `${item.id}_${lang}.wav`
+      const filePath = path.join(AUDIO_DIR, filename)
+
+      if (fs.existsSync(filePath) && fs.statSync(filePath).size > 0) {
+        existingCount++
+      } else {
+        missing.push({ imageId: item.id, lang, text, filePath })
+      }
+    }
+  }
+
+  console.log(`[Audio Check] ${existingCount}/72 audio files already exist in public/voice-registration/audio/`)
+
+  if (missing.length === 0) {
+    console.log('[Audio Check] All audio files are present.')
+    return
+  }
+
+  console.log(`[Audio Check] ${missing.length} audio files are missing.`)
+
+  if (!SARVAM_API_KEY) {
+    console.warn(
+      '⚠ SARVAM_API_KEY is not set in environment or .env. Skipping automatic synthesis of missing files.'
+    )
+    return
+  }
+
+  console.log(`[Audio Generation] Synthesizing ${missing.length} missing clips using Sarvam AI (${SARVAM_MODEL}, ${SARVAM_SPEAKER})...`)
+
+  for (const clip of missing) {
+    await synthesizeClip(clip.imageId, clip.lang, clip.text, clip.filePath)
+  }
+
+  console.log('[Audio Generation] Done!')
+}
+
+main().catch((err) => {
+  console.error('[Audio Generation] Fatal error:', err)
+  // Don't crash build process on non-critical audio synthesis failure
+})
