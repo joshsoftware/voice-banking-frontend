@@ -309,7 +309,7 @@ function clearPendingUserIntent(
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useSmallWebRTC() {
-  const { t, language } = useTranslation()
+  const { language } = useTranslation()
   const { preferredLanguage: authPreferredLanguage, isAuthenticated } = useAuth()
   const [state, setState] = useState<WebRTCState>('idle')
   const authSessionId = localStorage.getItem(AUTH_SESSION_ID_KEY)
@@ -334,7 +334,6 @@ export function useSmallWebRTC() {
   const txnTableHandledThisTurnRef = useRef(false)
   const hasUserSpokenThisSessionRef = useRef(false)
   const hasDetectedUserVoiceRef = useRef(false)
-  const voiceprintBlockedRef = useRef(false)
   const noSoundTimerRef = useRef<number | null>(null)
   const isBackgroundPausedRef = useRef(false)
   const wasMutedBeforeBackgroundRef = useRef(false)
@@ -635,7 +634,6 @@ export function useSmallWebRTC() {
           setInputSoundStatus('voice_detected')
         }
         clearNoSoundTimer()
-        voiceprintBlockedRef.current = false  // Reset block flag for new turn
         llmTextBufferRef.current = ''  // Drop stale assistant text from previous turn
         llmFlushedRef.current = false  // Reset flush flag for new turn
         botTextViaLlmRef.current = false
@@ -679,12 +677,6 @@ export function useSmallWebRTC() {
         console.log('[SmallWebRTC] Bot stopped speaking')
         if (turnIdRef.current !== botTurnIdRef.current) {
           console.log('[SmallWebRTC] Ignoring botStoppedSpeaking state change — stale turn')
-          return
-        }
-        if (voiceprintBlockedRef.current) {
-          // Verification failed — discard any bot text for this turn
-          llmTextBufferRef.current = ''
-          setState('listening')
           return
         }
         // Flush any remaining buffer not yet flushed by botLlmStopped
@@ -752,7 +744,6 @@ export function useSmallWebRTC() {
 
       // botLlmText fires per streaming token — accumulate into buffer
       client.on('botLlmText', (data: any) => {
-        if (voiceprintBlockedRef.current) return  // Suppress text when verification failed
         if (turnIdRef.current !== botTurnIdRef.current) return  // Stale prior-turn tokens
         botTextViaLlmRef.current = true
         const token = typeof data === 'string' ? data : (data?.text ?? '')
@@ -771,11 +762,6 @@ export function useSmallWebRTC() {
           botTextViaLlmRef.current = false
           return
         }
-        if (voiceprintBlockedRef.current) {
-          llmTextBufferRef.current = ''
-          botTextViaLlmRef.current = false
-          return  // Don't flush — verification failed
-        }
         flushAssistantBubble(llmTextBufferRef.current)
         botTextViaLlmRef.current = false
       })
@@ -783,7 +769,6 @@ export function useSmallWebRTC() {
       // botTtsText carries the full TTS sentence — use as fallback if no LLM tokens came in
       client.on('botTtsText', (data: any) => {
         console.log('[SmallWebRTC] Bot TTS text:', data)
-        if (voiceprintBlockedRef.current) return  // Suppress when verification failed
         if (turnIdRef.current !== botTurnIdRef.current) return
         if (llmFlushedRef.current) return
         const text = typeof data === 'string' ? data : data?.text
@@ -793,7 +778,6 @@ export function useSmallWebRTC() {
       // botTranscript — accumulate per-chunk; commit on botLlmStopped / botStoppedSpeaking
       client.on('botTranscript', (data: any) => {
         console.log('[SmallWebRTC] Bot transcript:', data)
-        if (voiceprintBlockedRef.current) return  // Suppress when verification failed
         if (turnIdRef.current !== botTurnIdRef.current) return
         if (llmFlushedRef.current || botTextViaLlmRef.current) return
         const text = typeof data === 'string' ? data : data?.text
@@ -830,22 +814,6 @@ export function useSmallWebRTC() {
           const score = typeof data.score === 'number' ? data.score : 0
           console.log(`[SmallWebRTC] Voiceprint verification: verified=${verified}, score=${score}`)
           setVoiceprintStatus({ verified, score, ts: Date.now() })
-
-          if (!verified) {
-            // Voice verification failed — block ALL bot text for this turn.
-            // The flag suppresses botLlmText/botLlmStopped/botStoppedSpeaking
-            // so neither the originally-streamed balance text nor the backend's
-            // replacement text will appear.  We push our own error message.
-            voiceprintBlockedRef.current = true
-            llmTextBufferRef.current = ''
-            // Remove any assistant messages already flushed during this turn
-            setMessages(prev => {
-              const cutoff = Date.now() - 5000
-              return prev.filter(m => !(m.role === 'assistant' && m.ts >= cutoff))
-            })
-            // Push a single authoritative error message
-            pushMsg('assistant', t('errorNotAuthorized'))
-          }
         } else if (data?.type === 'TRANSACTION_LIST') {
           // Push immediately — do not wait for LLM text flush (signal often arrives first).
           applyTransactionListSignal(data as TransactionListSignal)
