@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fetchAccountsForCustomer, fetchCustomerByPhone, mapMockBankCustomer } from '../mockBankApi'
+import { CustomerNotFoundError, fetchAccountsForCustomer, fetchCustomerByPhone, mapMockBankCustomer } from '../mockBankApi'
 
 describe('mockBankApi', () => {
   beforeEach(() => {
@@ -82,7 +82,45 @@ describe('mockBankApi', () => {
       }),
     )
 
-    await expect(fetchCustomerByPhone('9000000001')).rejects.toThrow('Customer not found')
+    const error = await fetchCustomerByPhone('9000000001').catch((err) => err)
+    expect(error).toBeInstanceOf(CustomerNotFoundError)
+    expect(error).toHaveProperty('message', 'Customer not found')
+  })
+
+  it('treats nested error.code 404 payloads as a missing customer', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: 'Customer not found',
+            message: 'not found',
+          },
+          status: 'error',
+          statusCode: 404,
+        }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    await expect(fetchCustomerByPhone('7073482367')).rejects.toBeInstanceOf(CustomerNotFoundError)
+  })
+
+  it('treats HTTP 200 bodies with nested customer-not-found errors as missing customers', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: 'Customer not found',
+            message: 'not found',
+          },
+          status: 'error',
+          statusCode: 404,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    await expect(fetchCustomerByPhone('7073482367')).rejects.toBeInstanceOf(CustomerNotFoundError)
   })
 
   it('loads account ids from mock-bank so Python balance/transactions can be called', async () => {
