@@ -6,13 +6,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useTranslation } from '@/i18n/LanguageHooks'
 import { useAuth } from '@/contexts/AuthContext'
-import { resolveCustomerByPhone } from '@/lib/customerData'
+import { isCustomerNotFoundError, registerCustomerByPhone, resolveCustomerByPhone } from '@/lib/customerData'
 import { useEffect } from 'react'
 
 export default function Welcome() {
   const [phone, setPhone] = useState('')
+  const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [showRegistrationPrompt, setShowRegistrationPrompt] = useState(false)
+  const [showNameForm, setShowNameForm] = useState(false)
+  const [registrationError, setRegistrationError] = useState('')
+  const [isRegistering, setIsRegistering] = useState(false)
   const navigate = useNavigate()
   const { requestOtp, sessionError, clearSessionError } = useAuth()
   const { t } = useTranslation()
@@ -37,7 +42,11 @@ export default function Welcome() {
       await requestOtp(`91${phone}`)
       navigate('/verify-otp', { state: { phone: `91${phone}` } })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send OTP')
+      if (isCustomerNotFoundError(err)) {
+        setShowRegistrationPrompt(true)
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to send OTP')
+      }
     } finally {
       setIsLoading(false)
     }
@@ -47,6 +56,40 @@ export default function Welcome() {
     const cleaned = value.replace(/[^0-9]/g, '').slice(0, 10)
     setPhone(cleaned)
     if (error) setError('')
+  }
+
+  const closeRegistrationFlow = () => {
+    setShowRegistrationPrompt(false)
+    setShowNameForm(false)
+    setRegistrationError('')
+    setName('')
+  }
+
+  const handleContinueToRegistration = () => {
+    setShowNameForm(true)
+    setRegistrationError('')
+  }
+
+  const handleCreateCustomer = async (e: FormEvent) => {
+    e.preventDefault()
+    const cleanName = name.trim()
+    if (!cleanName) {
+      setRegistrationError('Please enter customer name')
+      return
+    }
+
+    setRegistrationError('')
+    setIsRegistering(true)
+    try {
+      await registerCustomerByPhone(cleanName, phone)
+      await requestOtp(`91${phone}`)
+      closeRegistrationFlow()
+      navigate('/verify-otp', { state: { phone: `91${phone}` } })
+    } catch (err) {
+      setRegistrationError(err instanceof Error ? err.message : 'Failed to create customer')
+    } finally {
+      setIsRegistering(false)
+    }
   }
 
   return (
@@ -115,6 +158,61 @@ export default function Welcome() {
           </div>
         </form>
       </div>
+      {showRegistrationPrompt && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
+          <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-white p-5 text-gray-900 shadow-2xl">
+            {!showNameForm ? (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Customer not found</h2>
+                <p className="text-sm text-gray-700">
+                  This mobile number is not registered. Do you want to create a new customer?
+                </p>
+                <div className="flex gap-3">
+                  <Button type="button" variant="secondary" className="h-11 flex-1 border-gray-200 bg-gray-100 text-gray-800 hover:bg-gray-200" onClick={closeRegistrationFlow}>
+                    Cancel
+                  </Button>
+                  <Button type="button" variant="primary" className="h-11 flex-1" onClick={handleContinueToRegistration}>
+                    Add Customer
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <form className="space-y-4" onSubmit={handleCreateCustomer}>
+                <h2 className="text-lg font-semibold">Create customer</h2>
+                <p className="text-sm text-gray-700">Enter name to register this mobile number and continue with OTP.</p>
+                <div className="space-y-1">
+                  <label htmlFor="customerName" className="text-sm font-medium text-gray-700">
+                    Customer name
+                  </label>
+                  <Input
+                    id="customerName"
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.target.value)
+                      if (registrationError) setRegistrationError('')
+                    }}
+                    placeholder="Enter full name"
+                    className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400"
+                    disabled={isRegistering}
+                  />
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                  Mobile number: +91 {phone}
+                </div>
+                {registrationError && <p className="text-sm text-red-600">{registrationError}</p>}
+                <div className="flex gap-3">
+                  <Button type="button" variant="secondary" className="h-11 flex-1 border-gray-200 bg-gray-100 text-gray-800 hover:bg-gray-200" onClick={closeRegistrationFlow} disabled={isRegistering}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" variant="primary" className="h-11 flex-1" disabled={isRegistering}>
+                    {isRegistering ? 'Creating...' : 'Create & Send OTP'}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </MobileContainer>
   )
 }
