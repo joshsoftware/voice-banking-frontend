@@ -24,7 +24,8 @@ function isSessionNotReadyOfferFailure(status: number, body: string): boolean {
     text.includes('not yet ready') ||
     text.includes('invalid or not-yet-ready session_id') ||
     text.includes('session_id') ||
-    text.includes('session id')
+    text.includes('session id') ||
+    text.includes('transport busy')
   );
 }
 
@@ -119,6 +120,8 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
         type: pc.localDescription?.type ?? offer.type,
         pc_id: pcId,
         restart_pc: recreatePeerConnection,
+        // First connect must not reuse a stale server-side peer (aiortc mDNS races).
+        force_fresh_peer: !pcId,
         // Pass requestData through so the backend bot receives customer_id etc.
         ...(webrtcRequest?.requestData ? { requestData: webrtcRequest.requestData } : {}),
       };
