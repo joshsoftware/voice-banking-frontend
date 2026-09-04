@@ -3,7 +3,7 @@
  */
 import type { DemoCustomer } from './demoCustomer'
 import * as demo from './demoCustomer'
-import { fetchCustomerByPhone } from './mockBankApi'
+import { createCustomerWithDefaultProducts, CustomerNotFoundError, fetchCustomerByPhone } from './mockBankApi'
 
 export type { DemoCustomer } from './demoCustomer'
 
@@ -15,6 +15,17 @@ export async function resolveCustomerByPhone(phone: string): Promise<DemoCustome
   const customer = await fetchCustomerByPhone(phone)
   demo.setActiveCustomer(customer)
   return customer
+}
+
+export async function registerCustomerByPhone(name: string, phone: string): Promise<DemoCustomer> {
+  await createCustomerWithDefaultProducts(name, phone)
+  return resolveCustomerByPhone(phone)
+}
+
+export function isCustomerNotFoundError(error: unknown): boolean {
+  if (error instanceof CustomerNotFoundError) return true
+  if (!(error instanceof Error)) return false
+  return error.name === 'CustomerNotFoundError' || /customer not found/i.test(error.message)
 }
 
 export function setActiveCustomer(

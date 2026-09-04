@@ -1,6 +1,29 @@
 import { AUTH_API_BASE } from './constants'
 import { getDeviceId } from './device'
 
+export class AppApiError extends Error {
+  code: string
+  status: number
+  retryable: boolean
+  data: any
+
+  constructor(
+    message: string,
+    code: string = 'UNKNOWN_ERROR',
+    status: number = 500,
+    retryable: boolean = false,
+    data: any = null,
+  ) {
+    super(message)
+    this.name = 'AppApiError'
+    this.code = code
+    this.status = status
+    this.retryable = retryable
+    this.data = data
+    Object.setPrototypeOf(this, AppApiError.prototype)
+  }
+}
+
 interface RequestOptions extends RequestInit {
   params?: Record<string, string>
 }
@@ -65,7 +88,31 @@ class HttpClient {
       },
     }
 
-    let response = await fetch(url, config)
+    let response: Response
+    try {
+      response = await fetch(url, config)
+    } catch (networkErr: any) {
+      const isFailedToFetch =
+        networkErr?.name === 'TypeError' ||
+        networkErr?.message?.toLowerCase().includes('failed to fetch') ||
+        networkErr?.message?.toLowerCase().includes('network')
+      if (isFailedToFetch) {
+        throw new AppApiError(
+          'Unable to connect to the server. Please check your internet connection and try again.',
+          'NETWORK_DISCONNECTED',
+          0,
+          true,
+          networkErr,
+        )
+      }
+      throw new AppApiError(
+        networkErr?.message || 'A network error occurred. Please try again.',
+        'NETWORK_ERROR',
+        0,
+        true,
+        networkErr,
+      )
+    }
 
     if (response.status === 401) {
       const errorData = await response.json().catch(() => ({}))
@@ -75,11 +122,13 @@ class HttpClient {
         if (onSessionInvalidated) {
           onSessionInvalidated()
         }
-        throw {
-          status: 401,
-          message: errorData.detail,
-          data: errorData,
-        }
+        throw new AppApiError(
+          'You have been logged out because a new login was detected on another device.',
+          'SESSION_INVALIDATED',
+          401,
+          false,
+          errorData,
+        )
       }
 
       if (!endpoint.includes('/auth/refresh')) {
@@ -120,11 +169,22 @@ class HttpClient {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      throw {
-        status: response.status,
-        message: errorData.message || errorData.detail || 'An error occurred',
-        data: errorData,
-      }
+      const code =
+        errorData.error?.code ||
+        (response.status === 404
+          ? 'NOT_FOUND'
+          : response.status >= 500
+            ? 'SERVER_ERROR'
+            : 'API_ERROR')
+      const message =
+        errorData.error?.message ||
+        errorData.detail ||
+        errorData.message ||
+        (response.status >= 500
+          ? 'The banking service is temporarily unavailable. Please try again shortly.'
+          : 'An unexpected error occurred. Please try again.')
+      const retryable = errorData.error?.retryable ?? (response.status >= 500)
+      throw new AppApiError(message, code, response.status, retryable, errorData)
     }
 
     return response.json()

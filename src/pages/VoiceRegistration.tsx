@@ -41,10 +41,10 @@ function stopMediaStream(stream: MediaStream | null) {
 
 export default function VoiceRegistration() {
   const navigate = useNavigate()
-  const { refreshActiveCustomer } = useAuth()
+  const { refreshActiveCustomer, skipVoiceRegistration, user } = useAuth()
   const { language } = useLanguage()
   const { t } = useTranslation()
-  const activeCustomer = getActiveCustomer()
+  const activeCustomer = getActiveCustomer() || (user ?? null)
   const [phase, setPhase] = useState<Phase>('consent')
   const [consent, setConsent] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -427,17 +427,24 @@ export default function VoiceRegistration() {
     return () => clearInterval(id)
   }, [sheetState, t])
 
-  const skipForNow = () => {
-    if (activeCustomer?.customer_id) {
-      allowVoiceSkip(activeCustomer.customer_id)
+  const skipForNow = async () => {
+    try {
+      await skipVoiceRegistration()
+    } catch (err) {
+      // Fall back to local skip so the user is not trapped if the API is briefly down.
+      console.error('Failed to persist voice skip:', err)
+      const customerId = activeCustomer?.customer_id || user?.customer_id
+      if (customerId) {
+        allowVoiceSkip(customerId)
+      }
     }
     disconnectRtc()
     stopSpeech()
     refreshActiveCustomer()
-    navigate('/home')
+    navigate('/listening', { replace: true })
   }
 
-  const cancelRegistration = () => {
+  const cancelRegistration = async () => {
     disconnectRtc()
     stopSpeech()
     setShowCancelConfirm(false)
@@ -458,11 +465,17 @@ export default function VoiceRegistration() {
     countdownToRecordingRef.current = false
     imageFinalizeLockRef.current = false
     speechDetectedDuringRecordingRef.current = false
-    if (activeCustomer?.customer_id) {
-      allowVoiceSkip(activeCustomer.customer_id)
+    try {
+      await skipVoiceRegistration()
+    } catch (err) {
+      console.error('Failed to persist voice skip on cancel:', err)
+      const customerId = activeCustomer?.customer_id || user?.customer_id
+      if (customerId) {
+        allowVoiceSkip(customerId)
+      }
     }
     refreshActiveCustomer()
-    navigate('/home', { replace: true })
+    navigate('/listening', { replace: true })
   }
 
   const beginImageChallenge = useCallback(() => {

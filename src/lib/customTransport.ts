@@ -15,17 +15,32 @@ function extractHeaders(h: Headers | Record<string, string> | undefined): Record
   return h as Record<string, string>;
 }
 
-/** Backend sometimes returns 404 for /sessions/{id}/api/offer before the session is registered. */
+/** Backend returns 404 or 503 for /sessions/{id}/api/offer before session is registered or when busy. */
 function isSessionNotReadyOfferFailure(status: number, body: string): boolean {
   if (status !== 404 && status !== 409 && status !== 503) return false;
   const text = body.toLowerCase();
   return (
     text.includes('not-yet-ready') ||
     text.includes('not yet ready') ||
-    text.includes('invalid or not-yet-ready session_id') ||
+    text.includes('session_not_found') ||
     text.includes('session_id') ||
-    text.includes('session id')
+    text.includes('session id') ||
+    text.includes('webrtc_transport_busy') ||
+    text.includes('transport busy') ||
+    text.includes('retryable":true') ||
+    text.includes('retryable": true')
   );
+}
+
+function extractErrorMessage(status: number, text: string): string {
+  try {
+    const json = JSON.parse(text);
+    if (json.error?.message) return json.error.message;
+    if (json.detail) return json.detail;
+  } catch { }
+  if (status === 503) return 'Voice connection is busy. Please try again.';
+  if (status === 404) return 'Voice session is not ready or has expired.';
+  return `Voice negotiation failed (${status})`;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -119,6 +134,8 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
         type: pc.localDescription?.type ?? offer.type,
         pc_id: pcId,
         restart_pc: recreatePeerConnection,
+        // First connect must not reuse a stale server-side peer (aiortc mDNS races).
+        force_fresh_peer: !pcId,
         // Pass requestData through so the backend bot receives customer_id etc.
         ...(webrtcRequest?.requestData ? { requestData: webrtcRequest.requestData } : {}),
       };
@@ -159,7 +176,7 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
         const delayMs = Math.min(250 * 2 ** (attempt - 1), 2000);
         console.warn(
           `[CustomTransport] Offer attempt ${attempt}/${maxOfferAttempts} failed ` +
-            `(${lastFailureStatus}): ${lastFailureText}. Retrying in ${delayMs}ms`,
+          `(${lastFailureStatus}): ${lastFailureText}. Retrying in ${delayMs}ms`,
         );
         await sleep(delayMs);
       }
@@ -167,7 +184,7 @@ export class CustomSmallWebRTCTransport extends SmallWebRTCTransport {
       if (!response || !response.ok) {
         this._isNegotiated = false;
         this._isNegotiating = false;
-        throw new Error(`Negotiation failed (${lastFailureStatus}): ${lastFailureText}`);
+        throw new Error(extractErrorMessage(lastFailureStatus, lastFailureText));
       }
 
       const answer = await response.json();

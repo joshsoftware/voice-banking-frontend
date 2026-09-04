@@ -12,15 +12,26 @@ export const balanceApi = {
    * @returns Promise with balance amount
    */
   async fetchBalance(customerId: string, accountId: string): Promise<number> {
-    const response = await fetch(`${API_BASE}/api/balance`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customerId, accountId }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE}/api/balance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId, accountId }),
+      });
+    } catch {
+      throw new Error('Unable to connect to the banking server. Please check your connection and try again.');
+    }
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Failed to fetch balance' }));
-      throw new Error(error.detail || `Failed to fetch balance (${response.status})`);
+      const error = await response.json().catch(() => ({}));
+      const msg =
+        error.error?.message ||
+        error.detail ||
+        (response.status >= 500
+          ? "We're unable to retrieve your account balance right now. Please try again in a moment."
+          : 'Failed to fetch balance');
+      throw new Error(msg);
     }
 
     const data: BalanceResponse = await response.json();

@@ -1,6 +1,6 @@
 import './App.css'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { AuthProvider, useAuth, canEnterListening } from './contexts/AuthContext'
 import { AdminProvider, useAdmin } from './contexts/AdminContext'
 import { LanguageProvider } from '@/i18n/LanguageProvider'
 import Welcome from './pages/Welcome'
@@ -14,8 +14,6 @@ import AdminLogin from './pages/AdminLogin'
 import AdminFeedback from './pages/AdminFeedback'
 import { VoiceSessionProvider } from './contexts/VoiceSessionContext'
 import { PwaInstallPrompt } from './components/pwa/PwaInstallPrompt'
-
-import { isVoiceSkipAllowed, getActiveCustomer, isVoiceRegistered } from '@/lib/customerData'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth()
@@ -38,38 +36,52 @@ const OnboardingRoute = ({
   requiresLanguage?: boolean
   requiresVoice?: boolean
 }) => {
-  const { isAuthenticated, preferredLanguage, isLoading, user } = useAuth()
+  const {
+    isAuthenticated,
+    preferredLanguage,
+    isLoading,
+    user,
+    isVoiceprintRegistered,
+    voiceRegistrationSkipped,
+  } = useAuth()
+  const location = useLocation()
   
   if (isLoading) return <div className="flex h-screen items-center justify-center text-white">Loading...</div>
   
-  // Early return - don't render anything if not authenticated
   if (!isAuthenticated) {
     return <Navigate to="/welcome" replace />
   }
 
-  // Allow users to revisit /language, so we don't automatically forward them here.
-
-
-  // For /voice-registration: redirect back if no language, forward if already registered
+  // /voice-registration: need language; leave automatically unless user explicitly opened enroll UI
   if (requiresLanguage && !requiresVoice) {
     if (!preferredLanguage) {
       return <Navigate to="/language" replace />
     }
-    // Allow users to revisit /voice-registration if they explicitly navigate here (e.g., from the menu)
+    const explicitEnroll = new URLSearchParams(location.search).get('intent') === 'enroll'
+    if (
+      !explicitEnroll &&
+      canEnterListening({
+        isVoiceprintRegistered,
+        voiceRegistrationSkipped,
+        customerId: user?.customer_id,
+      })
+    ) {
+      return <Navigate to="/listening" replace />
+    }
   }
 
-  // For /listening: redirect back if onboarding incomplete
+  // /listening + /home: onboarding must be complete
   if (requiresLanguage && requiresVoice) {
     if (!preferredLanguage) {
       return <Navigate to="/language" replace />
     }
-    // Check localStorage directly to avoid React state timing issues
-    const activeCustomer = getActiveCustomer()
-    const customerId = user?.customer_id || activeCustomer?.customer_id
-    const voiceRegistered = customerId ? isVoiceRegistered(customerId) : false
-    const skipAllowed = customerId ? isVoiceSkipAllowed(customerId) : false
-    
-    if (!voiceRegistered && !skipAllowed) {
+    if (
+      !canEnterListening({
+        isVoiceprintRegistered,
+        voiceRegistrationSkipped,
+        customerId: user?.customer_id,
+      })
+    ) {
       return <Navigate to="/voice-registration" replace />
     }
   }
@@ -78,16 +90,28 @@ const OnboardingRoute = ({
 }
 
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading, preferredLanguage, isVoiceprintRegistered, user } = useAuth()
+  const {
+    isAuthenticated,
+    isLoading,
+    preferredLanguage,
+    isVoiceprintRegistered,
+    voiceRegistrationSkipped,
+    user,
+  } = useAuth()
   
   if (isLoading) return <div className="flex h-screen items-center justify-center text-white">Loading...</div>
   
-  // If authenticated, send to appropriate onboarding step or home
   if (isAuthenticated) {
     if (!preferredLanguage) {
       return <Navigate to="/language" replace />
     }
-    if (!isVoiceprintRegistered && !(user?.customer_id && isVoiceSkipAllowed(user.customer_id))) {
+    if (
+      !canEnterListening({
+        isVoiceprintRegistered,
+        voiceRegistrationSkipped,
+        customerId: user?.customer_id,
+      })
+    ) {
       return <Navigate to="/voice-registration" replace />
     }
     return <Navigate to="/listening" replace />
