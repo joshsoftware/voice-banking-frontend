@@ -139,7 +139,7 @@ export function BalanceCard({ account, customerId }: BalanceCardProps) {
       const fetchedBalance = await balanceApi.fetchBalance(activeAccount.customer_id, activeAccount.account_id)
       setBalance(fetchedBalance)
     } catch (e: any) {
-      setBalanceError(e?.message || 'Failed to fetch balance')
+      setBalanceError(e?.message || "We're unable to retrieve your account balance right now. Please try again in a moment.")
     } finally {
       setBalanceLoading(false)
     }

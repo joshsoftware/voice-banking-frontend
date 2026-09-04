@@ -79,8 +79,13 @@ export default function OtpVerification() {
       } else {
         navigate('/voice-registration', { replace: true })
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid OTP')
+    } catch (err: any) {
+      const msg =
+        err?.message ||
+        (err?.status === 401
+          ? 'Invalid OTP. Please check the code and try again.'
+          : 'Authentication service is temporarily unavailable. Please try again in a few moments.')
+      setError(msg)
     } finally {
       setIsLoading(false)
     }
