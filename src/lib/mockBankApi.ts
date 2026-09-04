@@ -139,14 +139,19 @@ export function pickPrimaryAccount(accounts: BankAccount[]): BankAccount | null 
 
 /** Account ids from mock-bank Java. Balance/transactions still use the Python APIs. */
 export async function fetchAccountsForCustomer(customerId: string): Promise<BankAccount[]> {
-  const response = await fetch(`${JAVA_API_BASE}/accounts/list`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      deviceId: 'false',
-    },
-    body: JSON.stringify({ customerId }),
-  })
+  let response: Response
+  try {
+    response = await fetch(`${JAVA_API_BASE}/accounts/list`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        deviceId: 'false',
+      },
+      body: JSON.stringify({ customerId }),
+    })
+  } catch {
+    throw new Error('Unable to connect to the banking service. Please check your network and try again.')
+  }
 
   const payload = await response.json().catch(() => null)
   if (!response.ok) {
@@ -165,14 +170,19 @@ export async function fetchAccountsForCustomer(customerId: string): Promise<Bank
 
 export async function fetchCustomerByPhone(phone: string): Promise<DemoCustomer> {
   const mobileNumber = normalizePhone(phone)
-  const response = await fetch(`${JAVA_API_BASE}/customers/info/phone-number`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      deviceId: 'false',
-    },
-    body: JSON.stringify({ mobileNumber }),
-  })
+  let response: Response
+  try {
+    response = await fetch(`${JAVA_API_BASE}/customers/info/phone-number`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        deviceId: 'false',
+      },
+      body: JSON.stringify({ mobileNumber }),
+    })
+  } catch {
+    throw new Error('Unable to reach the customer banking database. Please check your internet connection and try again.')
+  }
 
   const payload = (await response.json().catch(() => null)) as MockBankCustomerInfoResponse | Record<string, unknown> | null
   const message = extractErrorMessage(payload, 'Customer not found for this mobile number')

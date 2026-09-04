@@ -788,7 +788,10 @@ export function useSmallWebRTC() {
       client.on('error', (error: any) => {
         console.error('[SmallWebRTC] Error:', error)
         setState('error')
-        pushMsg('status', `Error: ${error.message || 'Connection failed'}`)
+        const friendlyMsg = error?.message && !error.message.includes('500') && !error.message.includes('503')
+          ? error.message
+          : 'Voice connection interrupted. Tap below to reconnect.'
+        pushMsg('status', friendlyMsg)
       })
 
       client.on('disconnected', () => {
@@ -933,7 +936,11 @@ export function useSmallWebRTC() {
       }
 
       sessionOfferRetryRef.current = 0
-      pushMsg('status', `Error: ${message}`)
+      const friendlyMsg =
+        message.includes('404') || message.includes('500') || message.includes('503') || message.includes('failed')
+          ? 'Unable to connect to voice services. Please tap below to retry.'
+          : message
+      pushMsg('status', friendlyMsg)
       setState('error')
     } finally {
       isConnectingRef.current = false
