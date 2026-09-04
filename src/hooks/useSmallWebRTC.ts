@@ -334,7 +334,9 @@ export function useSmallWebRTC() {
   const txnTableHandledThisTurnRef = useRef(false)
   const hasUserSpokenThisSessionRef = useRef(false)
   const hasDetectedUserVoiceRef = useRef(false)
+  const hasWelcomedThisSessionRef = useRef(false)
   const noSoundTimerRef = useRef<number | null>(null)
+  const transcribingTimeoutRef = useRef<number | null>(null)
   const processingTimeoutRef = useRef<number | null>(null)
   const isBackgroundPausedRef = useRef(false)
   const wasMutedBeforeBackgroundRef = useRef(false)
@@ -396,9 +398,14 @@ export function useSmallWebRTC() {
       const normalized = normalizeAssistantMessage(text)
       const userIntentText = (pendingUserIntentRef.current || lastUserTranscriptRef.current || '').trim()
 
-      // Welcome / capability intro: never attach loan or transaction tables.
+      // Welcome / capability intro: never attach loan or transaction tables and only show once per session.
       if (isAssistantWelcomeMessage(normalized)) {
         clearPendingUserIntent(pendingUserIntentRef, lastUserTranscriptRef, pendingStructuredIntentRef)
+        if (hasWelcomedThisSessionRef.current) {
+          console.log('[SmallWebRTC] Skipping duplicate welcome message bubble')
+          return
+        }
+        hasWelcomedThisSessionRef.current = true
         pushMsg('assistant', normalized)
         return
       }
@@ -474,6 +481,28 @@ export function useSmallWebRTC() {
     }, 7000)
   }, [clearNoSoundTimer])
 
+  const clearTranscribingTimeout = useCallback(() => {
+    if (transcribingTimeoutRef.current !== null) {
+      window.clearTimeout(transcribingTimeoutRef.current)
+      transcribingTimeoutRef.current = null
+    }
+  }, [])
+
+  const startTranscribingTimeout = useCallback((currentTurnId: number) => {
+    clearTranscribingTimeout()
+    transcribingTimeoutRef.current = window.setTimeout(() => {
+      if (turnIdRef.current === currentTurnId) {
+        setState(prev => {
+          if (prev === 'transcribing') {
+            console.log('[SmallWebRTC] Transcribing timed out (no speech detected). Resetting to listening.')
+            return 'listening'
+          }
+          return prev
+        })
+      }
+    }, 5000)
+  }, [clearTranscribingTimeout])
+
   const clearProcessingTimeout = useCallback(() => {
     if (processingTimeoutRef.current !== null) {
       window.clearTimeout(processingTimeoutRef.current)
@@ -486,8 +515,8 @@ export function useSmallWebRTC() {
     processingTimeoutRef.current = window.setTimeout(() => {
       if (turnIdRef.current === currentTurnId) {
         setState(prev => {
-          if (prev === 'transcribing' || prev === 'processing' || prev === 'speaking') {
-            console.warn('[SmallWebRTC] Turn timed out waiting for bot completion. Resetting to listening.')
+          if (prev === 'processing' || prev === 'speaking') {
+            console.warn('[SmallWebRTC] Agent processing timed out. Resetting to listening.')
             pushMsg('status', 'Response timed out. Please try speaking again.')
             return 'listening'
           }
@@ -496,6 +525,12 @@ export function useSmallWebRTC() {
       }
     }, 45000)
   }, [clearProcessingTimeout, pushMsg])
+
+  const clearAllTimeouts = useCallback(() => {
+    clearNoSoundTimer()
+    clearTranscribingTimeout()
+    clearProcessingTimeout()
+  }, [clearNoSoundTimer, clearTranscribingTimeout, clearProcessingTimeout])
 
   // ── Force Terminate Local Media ────────────────────────────────────────────
 
@@ -581,8 +616,10 @@ export function useSmallWebRTC() {
     turnIdRef.current = 0
     botTurnIdRef.current = 0
     setIsMicHeld(false)
-    clearNoSoundTimer()
-    clearProcessingTimeout()
+    clearAllTimeouts()
+    hasWelcomedThisSessionRef.current = messages.some(
+      m => m.role === 'assistant' && isAssistantWelcomeMessage(m.text)
+    )
     llmTextBufferRef.current = ''
     llmFlushedRef.current = false
     botTextViaLlmRef.current = false
@@ -686,6 +723,7 @@ export function useSmallWebRTC() {
           return
         }
         console.log('[SmallWebRTC] Bot started speaking')
+        clearTranscribingTimeout()
         try {
           const tracks = client.tracks()
           if (tracks?.bot?.audio) tracks.bot.audio.enabled = true
@@ -708,7 +746,7 @@ export function useSmallWebRTC() {
         if (!llmFlushedRef.current) {
           flushAssistantBubble(llmTextBufferRef.current)
         }
-        clearProcessingTimeout()
+        clearAllTimeouts()
         setState('listening')
       })
 
@@ -752,6 +790,7 @@ export function useSmallWebRTC() {
           text = text.replace(/^\[[a-z]{2}\]\s*/i, '');
         }
         if (text && data.final) {
+          clearTranscribingTimeout()
           hasUserSpokenThisSessionRef.current = true
           pendingUserIntentRef.current = text
           lastUserTranscriptRef.current = text
@@ -765,12 +804,14 @@ export function useSmallWebRTC() {
           botTextViaLlmRef.current = false
           pushMsg('user', text)
           setState('processing')
+          startProcessingTimeout(turnIdRef.current)
         }
       })
 
       // botLlmText fires per streaming token — accumulate into buffer
       client.on('botLlmText', (data: any) => {
         if (turnIdRef.current !== botTurnIdRef.current) return  // Stale prior-turn tokens
+        clearTranscribingTimeout()
         botTextViaLlmRef.current = true
         const token = typeof data === 'string' ? data : (data?.text ?? '')
         console.log('[SmallWebRTC] Bot LLM text token:', token)
@@ -813,7 +854,7 @@ export function useSmallWebRTC() {
       // Error handling
       client.on('error', (error: any) => {
         console.error('[SmallWebRTC] Error:', error)
-        clearProcessingTimeout()
+        clearAllTimeouts()
         setState('error')
         const friendlyMsg = error?.message && !error.message.includes('500') && !error.message.includes('503')
           ? error.message
@@ -832,8 +873,7 @@ export function useSmallWebRTC() {
         globalClientInstance = null
         isMicInputEnabledRef.current = false
         setIsMicHeld(false)
-        clearNoSoundTimer()
-        clearProcessingTimeout()
+        clearAllTimeouts()
         setState('disconnected')
       })
 
@@ -943,8 +983,7 @@ export function useSmallWebRTC() {
 
     } catch (err) {
       console.error('[SmallWebRTC] Connect error:', err)
-      clearNoSoundTimer()
-      clearProcessingTimeout()
+      clearAllTimeouts()
       clientRef.current = null
       globalClientInstance = null
 
@@ -982,8 +1021,7 @@ export function useSmallWebRTC() {
     activeCustomerId,
     activeCustomerName,
     authPreferredLanguage,
-    clearNoSoundTimer,
-    clearProcessingTimeout,
+    clearAllTimeouts,
     forceTerminateLocalMedia,
     language,
     applyTransactionListSignal,
@@ -1026,14 +1064,13 @@ export function useSmallWebRTC() {
       console.error('[SmallWebRTC] Disconnect error:', err)
     }
 
-    clearNoSoundTimer()
-    clearProcessingTimeout()
+    clearAllTimeouts()
     isBackgroundPausedRef.current = false
     isMicInputEnabledRef.current = false
     setIsMicHeld(false)
     setVoiceprintStatus(null)
     setState('disconnected')
-  }, [clearNoSoundTimer, clearProcessingTimeout, forceTerminateLocalMedia])
+  }, [clearAllTimeouts, forceTerminateLocalMedia])
 
   useEffect(() => {
     const pauseSessionForBackground = () => {
@@ -1142,7 +1179,10 @@ export function useSmallWebRTC() {
     if (!client) return
 
     if (enabled) {
-      clearProcessingTimeout()
+      clearAllTimeouts()
+      llmTextBufferRef.current = ''
+      llmFlushedRef.current = true
+      botTextViaLlmRef.current = false
       // Requirement 1: Hold & Speak immediately interrupts the bot locally
       if (state === 'speaking' || audioElRef.current?.srcObject) {
         console.log('[SmallWebRTC] Hold & Speak interrupting bot playback locally')
@@ -1232,9 +1272,9 @@ export function useSmallWebRTC() {
       llmFlushedRef.current = false
       botTextViaLlmRef.current = false
       setState('transcribing')
-      startProcessingTimeout(turnIdRef.current)
+      startTranscribingTimeout(turnIdRef.current)
     }
-  }, [clearNoSoundTimer, clearProcessingTimeout, startNoSoundTimer, startProcessingTimeout, state, pushMsg])
+  }, [clearAllTimeouts, clearNoSoundTimer, startNoSoundTimer, startTranscribingTimeout, state, pushMsg])
 
   const startPushToTalk = useCallback(() => {
     setMicrophoneCapture(true)
@@ -1346,15 +1386,14 @@ export function useSmallWebRTC() {
         clientRef.current = null
         globalClientInstance = null
       }
-      clearNoSoundTimer()
-      clearProcessingTimeout()
+      clearAllTimeouts()
       if (audioElRef.current) {
         audioElRef.current.pause()
         audioElRef.current.srcObject = null
         audioElRef.current = null
       }
     }
-  }, [clearNoSoundTimer, clearProcessingTimeout, forceTerminateLocalMedia])
+  }, [clearAllTimeouts, forceTerminateLocalMedia])
 
   return {
     state,
