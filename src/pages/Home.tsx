@@ -22,7 +22,7 @@ interface HomeProps {
 export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) {
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const { isAuthenticated, refreshActiveCustomer } = useAuth()
+  const { isAuthenticated, refreshActiveCustomer, skipVoiceRegistration } = useAuth()
   const [showVoiceUnregisteredToast, setShowVoiceUnregisteredToast] = useState(false)
   const [showUnregisterConfirm, setShowUnregisterConfirm] = useState(false)
   const [isUnregisteringVoice, setIsUnregisteringVoice] = useState(false)
@@ -61,6 +61,11 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
       await httpClient.delete(`/voiceprint/${encodeURIComponent(voiceCustomerId)}`)
       markVoiceUnregistered(customer.customer_id)
       allowVoiceSkip(customer.customer_id)
+      try {
+        await skipVoiceRegistration()
+      } catch (skipErr) {
+        console.error('Failed to persist skip after unregister:', skipErr)
+      }
       refreshActiveCustomer()
       setShowUnregisterConfirm(false)
       setShowVoiceUnregisteredToast(true)

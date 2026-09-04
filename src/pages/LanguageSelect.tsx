@@ -5,16 +5,23 @@ import { ArrowLeftIcon } from '@/components/ui/icons'
 import { Button } from '@/components/ui/button'
 import { LANGUAGES, type LanguageId } from '@/i18n/languages'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth, canEnterListening } from '@/contexts/AuthContext'
 import { authApi } from '@/lib/authApi'
-import { getActiveCustomer, isVoiceRegistered, isVoiceSkipAllowed } from '@/lib/customerData'
+import { getActiveCustomer } from '@/lib/customerData'
 
 
 export default function LanguageSelect() {
   const navigate = useNavigate()
   const { setLanguage, language } = useLanguage()
   const { t } = useTranslation()
-  const { mobileNumber, isNewUser, setPreferredLanguage } = useAuth()
+  const {
+    mobileNumber,
+    isNewUser,
+    setPreferredLanguage,
+    isVoiceprintRegistered,
+    voiceRegistrationSkipped,
+    user,
+  } = useAuth()
 
   const [selected, setSelected] = useState<LanguageId>(language)
   const [isSaving, setIsSaving] = useState(false)
@@ -33,15 +40,17 @@ export default function LanguageSelect() {
         setPreferredLanguage(selected)
 
         const customer = getActiveCustomer()
-        const voiceOk =
-          customer &&
-          (isVoiceRegistered(customer.customer_id) || isVoiceSkipAllowed(customer.customer_id))
+        const voiceOk = canEnterListening({
+          isVoiceprintRegistered,
+          voiceRegistrationSkipped,
+          customerId: user?.customer_id || customer?.customer_id,
+        })
 
         // First-time onboarding: new user who has not registered or skipped voice yet → voice registration.
         if (isNewUser && !voiceOk) {
           navigate('/voice-registration', { replace: true })
         } else {
-          navigate('/home', { replace: true })
+          navigate('/listening', { replace: true })
         }
       } catch (err) {
         console.error('Failed to save language preference:', err)
@@ -53,7 +62,7 @@ export default function LanguageSelect() {
       // No mobile number available (shouldn't happen) — just navigate with local state
       setLanguage(selected)
       setPreferredLanguage(selected)
-      navigate('/home', { replace: true })
+      navigate('/listening', { replace: true })
     }
   }
 

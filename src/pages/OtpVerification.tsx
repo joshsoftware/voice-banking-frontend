@@ -74,7 +74,7 @@ export default function OtpVerification() {
       // New user or user who hasn't chosen a language yet → language selection
       if (response.is_new_user || !response.preferred_language) {
         navigate('/language', { replace: true })
-      } else if (response.is_voiceprint_registered) {
+      } else if (response.is_voiceprint_registered || response.voice_registration_skipped) {
         navigate('/listening', { replace: true })
       } else {
         navigate('/voice-registration', { replace: true })
