@@ -1,5 +1,6 @@
 import { AUTH_API_BASE} from './constants';
 import { computeDeviceId, getDeviceId } from './device';
+import { httpClient } from './httpClient';
 
 export interface AuthResponse {
   access_token: string;
@@ -11,11 +12,31 @@ export interface AuthResponse {
   is_voiceprint_registered: boolean;
   is_new_user: boolean;
   preferred_language: string | null;
+  voice_registration_skipped?: boolean;
   user?: {
     customer_id: string;
     name: string;
     mobile_number: string;
   };
+}
+
+export interface MeResponse {
+  mobile_number: string;
+  customer_id: string;
+  base_customer_id: string;
+  preferred_language: string | null;
+  is_voiceprint_registered: boolean;
+  voice_registration_skipped: boolean;
+}
+
+export interface SkipVoiceRegistrationResponse {
+  status: string;
+  message: string;
+  voice_registration_skipped: boolean;
+  is_voiceprint_registered: boolean;
+  preferred_language: string | null;
+  customer_id: string;
+  base_customer_id: string;
 }
 
 export interface SetLanguageResponse {
@@ -88,6 +109,15 @@ export const authApi = {
     });
   },
 
+  /** Authoritative onboarding state (uses httpClient so 401 triggers refresh). */
+  async getMe(): Promise<MeResponse> {
+    return httpClient.get<MeResponse>('/auth/me');
+  },
+
+  async skipVoiceRegistration(): Promise<SkipVoiceRegistrationResponse> {
+    return httpClient.post<SkipVoiceRegistrationResponse>('/auth/voice-registration/skip', {});
+  },
+
   async setLanguage(mobile_number: string, language: string): Promise<SetLanguageResponse> {
     const response = await fetch(`${AUTH_API_BASE}/auth/set-language`, {
       method: 'POST',
@@ -96,8 +126,8 @@ export const authApi = {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Failed to set language' }));
-      throw new Error(error.detail || 'Failed to set language');
+      const error = await response.json().catch(() => ({ detail: 'Failed to save language' }));
+      throw new Error(error.detail || 'Failed to save language');
     }
 
     return response.json();

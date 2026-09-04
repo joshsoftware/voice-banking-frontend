@@ -113,7 +113,7 @@ export function Header({
                   className="w-full px-4 py-2 text-left text-sm font-medium hover:bg-gray-100"
                   onClick={() => {
                     setMenuOpen(false)
-                    navigate('/voice-registration')
+                    navigate('/voice-registration?intent=enroll')
                   }}
                 >
                   {t('menuRegisterVoice')}
