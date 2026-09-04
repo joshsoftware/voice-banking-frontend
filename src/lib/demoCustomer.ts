@@ -219,7 +219,7 @@ export function markVoiceUnregistered(customerId: string): void {
   const ids = getRegisteredVoiceCustomerIds().filter((id) => id !== customerId)
   setRegisteredVoiceCustomerIds(ids)
   setActiveCustomerVoiceRegistrationStatus(false)
-  disallowVoiceSkip(customerId)
+  // Do not clear skip here — restore/status sync must not wipe skip entitlement.
 }
 
 export function isVoiceSkipAllowed(customerId: string): boolean {
