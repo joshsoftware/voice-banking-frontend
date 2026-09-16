@@ -2,11 +2,16 @@ import { AUTH_API_BASE} from './constants';
 import { computeDeviceId, getDeviceId } from './device';
 import { httpClient } from './httpClient';
 
-export interface AuthResponse {
+export interface TokenRefreshResponse {
   access_token: string;
   refresh_token: string;
   token_type: string;
   expires_in: number;
+}
+
+export type RefreshTokenResponse = TokenRefreshResponse;
+
+export interface AuthResponse extends TokenRefreshResponse {
   customer_id: string;
   base_customer_id?: string;
   is_voiceprint_registered: boolean;
@@ -80,7 +85,7 @@ export const authApi = {
     return response.json();
   },
 
-  async refreshToken(refresh_token: string): Promise<AuthResponse> {
+  async refreshToken(refresh_token: string): Promise<TokenRefreshResponse> {
     const response = await fetch(`${AUTH_API_BASE}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
