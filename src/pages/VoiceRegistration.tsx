@@ -104,19 +104,24 @@ export default function VoiceRegistration() {
     const enrollSid = enrollmentSessionIdRef.current
     const backendBase = getRegistrationBackendBase()
     const token = localStorage.getItem('voicebank.access_token')
-    const authHeader = token ? { Authorization: `Bearer ${token}` } : {}
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
 
     if (enrollSid) {
       fetch(`${backendBase}/enrollment/${enrollSid}/cancel`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeader },
+        headers,
         keepalive: true,
       }).catch((e) => console.debug('Failed to notify enrollment cancel:', e))
     }
     if (sid) {
       fetch(`${backendBase}/sessions/${sid}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', ...authHeader },
+        headers,
         keepalive: true,
       }).catch((e) => console.debug('Failed to notify session delete:', e))
     }
