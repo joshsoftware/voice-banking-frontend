@@ -26,6 +26,7 @@ import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
 import { allowVoiceSkip, disallowVoiceSkip, getActiveCustomer, markVoiceRegistered } from '@/lib/customerData'
 import { useAuth } from '@/contexts/AuthContext'
 import { getDeviceId } from '@/lib/device'
+import { fetchWithOfferRetry } from '@/lib/webrtcOfferRetry'
 
 type Phase = 'consent' | 'imageChallenge' | 'success'
 const FALLBACK_ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -98,7 +99,31 @@ export default function VoiceRegistration() {
     rtcSessionIdRef.current = rtcSessionId
   }, [rtcSessionId])
 
+  const notifyBackendSessionCleanup = useCallback(() => {
+    const sid = rtcSessionIdRef.current
+    const enrollSid = enrollmentSessionIdRef.current
+    const backendBase = getRegistrationBackendBase()
+    const token = localStorage.getItem('voicebank.access_token')
+    const authHeader = token ? { Authorization: `Bearer ${token}` } : {}
+
+    if (enrollSid) {
+      fetch(`${backendBase}/enrollment/${enrollSid}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader },
+        keepalive: true,
+      }).catch((e) => console.debug('Failed to notify enrollment cancel:', e))
+    }
+    if (sid) {
+      fetch(`${backendBase}/sessions/${sid}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', ...authHeader },
+        keepalive: true,
+      }).catch((e) => console.debug('Failed to notify session delete:', e))
+    }
+  }, [])
+
   const disconnectRtc = useCallback(() => {
+    notifyBackendSessionCleanup()
     stopMediaStream(micStreamRef.current)
     micStreamRef.current = null
     setMicStream(null)
@@ -110,7 +135,7 @@ export default function VoiceRegistration() {
     hasNegotiatedRef.current = false
     negotiatingRef.current = false
     setIsRtcReady(false)
-  }, [])
+  }, [notifyBackendSessionCleanup])
 
   useEffect(() => {
     return () => {
@@ -168,26 +193,33 @@ export default function VoiceRegistration() {
       await pc.setLocalDescription(offer)
       await waitForIceGathering(pc)
       const accessToken = localStorage.getItem('voicebank.access_token')
-      const offerRes = await fetch(`${backendBase}/sessions/${sid}/api/offer`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      const offerRes = await fetchWithOfferRetry(
+        `${backendBase}/sessions/${sid}/api/offer`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+          body: JSON.stringify({
+            sdp: pc.localDescription?.sdp,
+            type: pc.localDescription?.type,
+            pc_id: pcIdRef.current,
+            config: { data_channel_enabled: true },
+            request_data: enrollmentSid
+              ? {
+                  enrollment_session_id: enrollmentSid,
+                  session_id: enrollmentSid,
+                  device_id: getDeviceId(),
+                  customer_id: activeCustomer?.voice_customer_id ?? activeCustomer?.customer_id,
+                  base_customer_id: activeCustomer?.base_customer_id ?? activeCustomer?.customer_id,
+                  auth_session_id: localStorage.getItem('voicebank.auth_session_id') ?? '',
+                }
+              : undefined,
+          }),
         },
-        body: JSON.stringify({
-          sdp: pc.localDescription?.sdp,
-          type: pc.localDescription?.type,
-          pc_id: pcIdRef.current,
-          config: { data_channel_enabled: true },
-          request_data: enrollmentSid
-            ? {
-                enrollment_session_id: enrollmentSid,
-                session_id: enrollmentSid,
-              }
-            : undefined,
-        }),
-      })
-      if (!offerRes.ok) throw new Error(`Offer failed: ${offerRes.status}`)
+        { maxAttempts: 4 },
+      )
       const answer = await offerRes.json()
       if (answer.pc_id || answer.pcId) {
         pcIdRef.current = answer.pc_id || answer.pcId
@@ -288,7 +320,13 @@ export default function VoiceRegistration() {
           'Content-Type': 'application/json',
           ...(rtcAccessToken ? { 'Authorization': `Bearer ${rtcAccessToken}` } : {})
         },
-        body: JSON.stringify({ session_id: enrollmentId }),
+        body: JSON.stringify({
+          session_id: enrollmentId,
+          device_id: getDeviceId(),
+          customer_id: activeCustomer?.voice_customer_id ?? activeCustomer?.customer_id,
+          base_customer_id: activeCustomer?.base_customer_id ?? activeCustomer?.customer_id,
+          auth_session_id: localStorage.getItem('voicebank.auth_session_id') ?? '',
+        }),
       })
       if (!startRtc.ok) throw new Error(`/start failed: ${startRtc.status}`)
       const rtc = await startRtc.json()
