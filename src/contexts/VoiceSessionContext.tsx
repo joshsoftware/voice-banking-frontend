@@ -9,6 +9,8 @@ interface VoiceSessionContextValue {
     isMicHeld: boolean;
     messages: ChatMessage[];
     sessionId: string | null;
+    sessionNotice: string | null;
+    clearSessionNotice: () => void;
     inputSoundStatus: InputSoundStatus | null;
     voiceprintStatus: VoiceprintStatus | null;
     otpSignal: OTPSignal | null;
