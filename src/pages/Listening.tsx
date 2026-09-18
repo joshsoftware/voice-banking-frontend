@@ -17,6 +17,7 @@ export default function Listening() {
     isMicHeld,
     messages,
     sessionId,
+    sessionNotice,
     inputSoundStatus,
     voiceprintStatus,
     otpSignal,
@@ -33,16 +34,16 @@ export default function Listening() {
   const [chatOpen, setChatOpen] = useState(true)
   const customer = getActiveCustomer()
   const { t } = useTranslation()
-  const needsReconnect = state === 'disconnected' || (state === 'idle' && messages.length > 0)
+  const needsReconnect = state === 'disconnected' || state === 'error' || (state === 'idle' && messages.length > 0)
 
   useEffect(() => {
     connect()
   }, [connect])
 
-  // Navigate back only on errors (not on normal disconnect)
+  // Navigate back after a grace period on fatal errors so user has a chance to tap reconnect
   useEffect(() => {
     if (state === 'error') {
-      const timer = setTimeout(() => navigate('/welcome', { replace: true }), 2500)
+      const timer = setTimeout(() => navigate('/welcome', { replace: true }), 10000)
       return () => clearTimeout(timer)
     }
   }, [state, navigate])
@@ -68,8 +69,18 @@ export default function Listening() {
   }
 
   return (
-    <div onClick={() => client?.transport?.initDevices()}>
+    <div>
       <BotAudio client={client} />
+      {sessionNotice ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none fixed left-1/2 top-16 z-[1300] -translate-x-1/2 flex items-center gap-2 rounded-full bg-[var(--color-brand-900)]/95 border border-white/20 px-4 py-2 text-xs font-medium text-white shadow-xl backdrop-blur-md transition-all duration-300"
+        >
+          <span className="size-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+          <span>{sessionNotice}</span>
+        </div>
+      ) : null}
       {soundPopup ? (
         <div className="pointer-events-none fixed left-1/2 top-[52%] z-[1200] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--color-brand-900)]/90 px-4 py-2 text-xs font-medium text-white shadow-lg">
           {soundPopup}
@@ -80,6 +91,7 @@ export default function Listening() {
           chatOpen ? (
             <ListeningSheet
               state={state}
+              sessionNotice={sessionNotice}
               isMuted={isMuted}
               isMicHeld={isMicHeld}
               messages={messages}
@@ -98,7 +110,7 @@ export default function Listening() {
               <div className="rounded-t-3xl bg-[var(--color-surface-card)] px-5 py-6 shadow-[var(--shadow-sheet)]">
                 <div className="mx-auto flex w-full max-w-[356px] flex-col items-center gap-3 px-3 pb-2">
                   {needsReconnect && (
-                    <p className="text-sm font-semibold text-red-500">{t('statusSessionEnded')}</p>
+                    <p className="text-sm font-semibold text-red-500">{sessionNotice || t('statusSessionEnded')}</p>
                   )}
                   <button
                     type="button"

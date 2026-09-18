@@ -274,6 +274,7 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
 
 interface ListeningSheetProps {
   state: WebRTCState
+  sessionNotice?: string | null
   isMuted: boolean
   isMicHeld: boolean
   messages: ChatMessage[]
@@ -291,6 +292,7 @@ interface ListeningSheetProps {
 
 export function ListeningSheet({
   state,
+  sessionNotice,
   isMuted,
   isMicHeld,
   messages,
@@ -307,10 +309,9 @@ export function ListeningSheet({
 }: ListeningSheetProps) {
   const chatBottomRef = useRef<HTMLDivElement>(null)
   const isActive = state === 'listening' || state === 'speaking'
-  const isError = state === 'error'
   const isConnecting = state === 'connecting'
-  const needsReconnect = state === 'disconnected' || (state === 'idle' && messages.length > 0)
-  const showPushToTalk = !needsReconnect && !isError
+  const needsReconnect = state === 'disconnected' || state === 'error' || (state === 'idle' && messages.length > 0)
+  const showPushToTalk = !needsReconnect
   const isPushToTalkDisabled = isConnecting || state === 'idle'
   const showHoldHint = showPushToTalk && state !== 'processing' && state !== 'transcribing' && !isMicHeld && !isPushToTalkDisabled
   const showUserTyping = state === 'transcribing' || (isMicHeld && state === 'listening')
@@ -489,13 +490,15 @@ export function ListeningSheet({
           <div className="flex flex-col flex-1 min-h-0 items-center gap-4 overflow-hidden">
             {/* Status label */}
             <div
-              className={`leading-5 transition-colors duration-300 ${needsReconnect ? 'text-base' : 'text-sm font-medium'} ${needsReconnect ? STATUS_COLORS.disconnected : STATUS_COLORS[state]}`}
+              className={`leading-5 transition-colors duration-300 text-center px-2 ${needsReconnect ? 'text-base font-medium' : 'text-sm font-medium'} ${needsReconnect ? STATUS_COLORS.disconnected : STATUS_COLORS[state]}`}
             >
-              {showHoldHint
-                ? t('statusHoldToSpeak')
-                : needsReconnect && state === 'idle'
-                  ? t('statusSessionEnded')
-                  : statusLabels[state]}
+              {sessionNotice
+                ? sessionNotice
+                : showHoldHint
+                  ? t('statusHoldToSpeak')
+                  : needsReconnect && state === 'idle'
+                    ? t('statusSessionEnded')
+                    : statusLabels[state]}
             </div>
 
             {/* Voiceprint verification badge */}
