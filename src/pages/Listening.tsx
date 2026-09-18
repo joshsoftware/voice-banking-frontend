@@ -69,7 +69,7 @@ export default function Listening() {
   }
 
   return (
-    <div onClick={() => client?.transport?.initDevices()}>
+    <div>
       <BotAudio client={client} />
       {sessionNotice ? (
         <div
