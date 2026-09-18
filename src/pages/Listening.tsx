@@ -144,7 +144,7 @@ export default function Listening() {
                     }`}
                   >
                     <MicIcon width="20" height="20" className="shrink-0" />
-                    <span>{needsReconnect ? t('holdToReconnect') : isMicHeld ? t('releaseToMute') : t('holdToSpeak')}</span>
+                    <span>{needsReconnect ? t('tapToReconnect') : isMicHeld ? t('releaseToMute') : t('holdToSpeak')}</span>
                   </button>
                 </div>
               </div>
