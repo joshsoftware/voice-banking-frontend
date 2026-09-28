@@ -10,6 +10,8 @@ interface HeaderProps {
   onToggleMute?: () => void
   canUnregisterVoice?: boolean
   onUnregisterVoice?: () => void
+  /** Follow-up enrollment: hidden when undefined; `availableFrom` set = shown but not yet allowed. */
+  improveVoice?: { canStart: boolean; availableFrom: string | null }
 }
 
 export function Header({
@@ -18,6 +20,7 @@ export function Header({
   onToggleMute,
   canUnregisterVoice = false,
   onUnregisterVoice,
+  improveVoice,
 }: HeaderProps) {
   const navigate = useNavigate()
   const { logout } = useAuth()
@@ -94,6 +97,22 @@ export function Header({
 
           {menuOpen && (
             <div className="absolute right-0 top-12 z-30 min-w-52 rounded-xl bg-white py-2 text-[var(--color-brand-900)] shadow-[0_12px_30px_rgba(0,0,0,0.2)]">
+              {canUnregisterVoice && improveVoice ? (
+                <button
+                  type="button"
+                  data-testid="home-menu-improve-voice"
+                  disabled={!improveVoice.canStart}
+                  className="w-full px-4 py-2 text-left text-sm font-medium hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-[var(--color-text-muted-2)] disabled:hover:bg-transparent"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    navigate('/voice-registration?intent=enroll&mode=followup')
+                  }}
+                >
+                  {improveVoice.canStart || !improveVoice.availableFrom
+                    ? t('menuImproveVoice')
+                    : t('menuImproveVoiceAvailableFrom', { when: improveVoice.availableFrom })}
+                </button>
+              ) : null}
               {canUnregisterVoice && onUnregisterVoice ? (
                 <button
                   type="button"
