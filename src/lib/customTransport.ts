@@ -15,16 +15,18 @@ function extractHeaders(h: Headers | Record<string, string> | undefined): Record
   return h as Record<string, string>;
 }
 
-/** Backend returns 404 or 503 for /sessions/{id}/api/offer before session is registered or when busy. */
+/**
+ * Only retry truly transient connection issues (e.g. 503 busy or 409 conflict).
+ * 404 SESSION_NOT_FOUND means the session is expired or deleted from active_sessions:
+ * retrying the same URL will never succeed, so fast-fail to allow a fresh /start session.
+ */
 function isSessionNotReadyOfferFailure(status: number, body: string): boolean {
-  if (status !== 404 && status !== 409 && status !== 503) return false;
+  if (status !== 409 && status !== 503) return false;
   const text = body.toLowerCase();
+  if (text.includes('"retryable":false') || text.includes('"retryable": false')) {
+    return false;
+  }
   return (
-    text.includes('not-yet-ready') ||
-    text.includes('not yet ready') ||
-    text.includes('session_not_found') ||
-    text.includes('session_id') ||
-    text.includes('session id') ||
     text.includes('webrtc_transport_busy') ||
     text.includes('transport busy') ||
     text.includes('retryable":true') ||
@@ -39,7 +41,7 @@ function extractErrorMessage(status: number, text: string): string {
     if (json.detail) return json.detail;
   } catch { }
   if (status === 503) return 'Voice connection is busy. Please try again.';
-  if (status === 404) return 'Voice session is not ready or has expired.';
+  if (status === 404) return 'Voice session has expired or is invalid.';
   return `Voice negotiation failed (${status})`;
 }
 

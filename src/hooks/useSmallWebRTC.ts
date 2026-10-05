@@ -319,6 +319,30 @@ export function useSmallWebRTC() {
   const [inputSoundStatus, setInputSoundStatus] = useState<InputSoundStatus | null>(null)
   const [voiceprintStatus, setVoiceprintStatus] = useState<VoiceprintStatus | null>(null)
   const [otpSignal, setOtpSignal] = useState<OTPSignal | null>(null)
+  const [sessionNotice, setSessionNotice] = useState<string | null>(null)
+  const sessionNoticeTimerRef = useRef<number | null>(null)
+
+  const showSessionNotice = useCallback((text: string, durationMs = 3500) => {
+    if (sessionNoticeTimerRef.current) {
+      window.clearTimeout(sessionNoticeTimerRef.current)
+      sessionNoticeTimerRef.current = null
+    }
+    setSessionNotice(text)
+    if (durationMs > 0) {
+      sessionNoticeTimerRef.current = window.setTimeout(() => {
+        setSessionNotice(null)
+        sessionNoticeTimerRef.current = null
+      }, durationMs)
+    }
+  }, [])
+
+  const clearSessionNotice = useCallback(() => {
+    if (sessionNoticeTimerRef.current) {
+      window.clearTimeout(sessionNoticeTimerRef.current)
+      sessionNoticeTimerRef.current = null
+    }
+    setSessionNotice(null)
+  }, [])
 
   const clientRef = useRef<PipecatClient | null>(null)
   const isConnectingRef = useRef(false)
@@ -655,6 +679,11 @@ export function useSmallWebRTC() {
 
       client.on('connected', () => {
         console.log('[SmallWebRTC] Connected — muting mic until hold-to-speak')
+        if (sessionOfferRetryRef.current > 0) {
+          showSessionNotice('Voice session connected', 2000)
+        } else {
+          clearSessionNotice()
+        }
         isMicInputEnabledRef.current = false
         try {
           void client.enableMic(false)
@@ -856,9 +885,14 @@ export function useSmallWebRTC() {
         console.error('[SmallWebRTC] Error:', error)
         clearAllTimeouts()
         setState('error')
-        const friendlyMsg = error?.message && !error.message.includes('500') && !error.message.includes('503')
-          ? error.message
-          : 'Voice connection interrupted. Tap below to reconnect.'
+        const rawMsg = typeof error?.message === 'string' ? error.message : ''
+        const isSessionErr = /session|404|expired|not found/i.test(rawMsg)
+        const friendlyMsg = isSessionErr
+          ? 'Voice session expired or interrupted. Tap below to reconnect.'
+          : rawMsg && !rawMsg.includes('500') && !rawMsg.includes('503')
+            ? rawMsg
+            : 'Voice connection interrupted. Tap below to reconnect.'
+        showSessionNotice(friendlyMsg, 4000)
         pushMsg('status', friendlyMsg)
       })
 
@@ -988,26 +1022,28 @@ export function useSmallWebRTC() {
       globalClientInstance = null
 
       const message = err instanceof Error ? err.message : 'Unknown'
-      const sessionNotReady =
-        /not-yet-ready|invalid or not-yet-ready session_id|negotiation failed \(404\)/i.test(message)
+      const isSessionExpiredOrInvalid =
+        /session_not_found|expired|not-yet-ready|invalid or not-yet-ready|negotiation failed \(404\)/i.test(message)
 
-      // Offer retries in CustomTransport cover short races. If the session still
-      // isn't usable, start a brand-new /start once before surfacing an error.
-      if (sessionNotReady && sessionOfferRetryRef.current < 1) {
+      // If the session was evicted or invalid, start a brand-new /start session immediately.
+      if (isSessionExpiredOrInvalid && sessionOfferRetryRef.current < 2) {
         sessionOfferRetryRef.current += 1
-        console.warn('[SmallWebRTC] Session not ready after offer retries; restarting /start once')
+        console.warn('[SmallWebRTC] Stale or expired session detected; renewing session with fresh /start')
+        showSessionNotice('Voice session expired. Reconnecting...', 4000)
         isConnectingRef.current = false
         window.setTimeout(() => {
           void connect()
-        }, 400)
+        }, 150)
         return
       }
 
       sessionOfferRetryRef.current = 0
-      const friendlyMsg =
-        message.includes('404') || message.includes('500') || message.includes('503') || message.includes('failed')
+      const friendlyMsg = isSessionExpiredOrInvalid
+        ? 'Voice session expired. Please tap below to reconnect.'
+        : message.includes('404') || message.includes('500') || message.includes('503') || message.includes('failed')
           ? 'Unable to connect to voice services. Please tap below to retry.'
           : message
+      showSessionNotice(friendlyMsg, 5000)
       pushMsg('status', friendlyMsg)
       setState('error')
     } finally {
@@ -1107,10 +1143,11 @@ export function useSmallWebRTC() {
         const transport = clientRef.current.transport as any
         const pc = transport?.pc || transport?._pc
         if (pc && (pc.connectionState === 'closed' || pc.connectionState === 'failed'
-            || pc.signalingState === 'closed')) {
-          console.warn('[SmallWebRTC] PeerConnection died while backgrounded, forcing disconnect')
+            || pc.connectionState === 'disconnected' || pc.signalingState === 'closed')) {
+          console.warn('[SmallWebRTC] PeerConnection died or disconnected while backgrounded, renewing session')
           isBackgroundPausedRef.current = false
-          void disconnect()
+          showSessionNotice('Reconnecting voice session...', 3000)
+          void connect()
           return
         }
       } catch (pcCheckErr) {
@@ -1401,6 +1438,8 @@ export function useSmallWebRTC() {
     isMicHeld,
     messages,
     sessionId,
+    sessionNotice,
+    clearSessionNotice,
     inputSoundStatus,
     voiceprintStatus,
     otpSignal,
