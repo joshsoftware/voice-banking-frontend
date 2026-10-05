@@ -119,8 +119,11 @@ class HttpClient {
       
       // Check for specific session invalidation message from backend
       if (errorData.detail === 'Session expired or invalidated') {
+        this.clearTokens()
         if (onSessionInvalidated) {
           onSessionInvalidated()
+        } else {
+          window.location.href = '/welcome'
         }
         throw new AppApiError(
           'You have been logged out because a new login was detected on another device.',
@@ -154,15 +157,79 @@ class HttpClient {
                 Authorization: `Bearer ${data.access_token}`,
               }
               response = await fetch(url, { ...config, headers: retryHeaders })
+
+              // If the retried request is still 401, refresh didn't help and session is dead
+              if (response.status === 401) {
+                const retryErrorData = await response.json().catch(() => ({}))
+                this.clearTokens()
+                if (onSessionInvalidated) {
+                  onSessionInvalidated()
+                } else {
+                  window.location.href = '/welcome'
+                }
+                throw new AppApiError(
+                  retryErrorData.detail || 'Session expired or invalidated. Please log in again.',
+                  'SESSION_INVALIDATED',
+                  401,
+                  false,
+                  retryErrorData,
+                )
+              }
             } else {
               // Refresh failed, logout
               this.clearTokens()
-              window.location.href = '/welcome'
+              if (onSessionInvalidated) {
+                onSessionInvalidated()
+              } else {
+                window.location.href = '/welcome'
+              }
+              throw new AppApiError(
+                'Session expired. Please log in again.',
+                'SESSION_EXPIRED',
+                401,
+                false,
+                errorData,
+              )
             }
           } catch (error) {
+            if (error instanceof AppApiError) throw error
             this.clearTokens()
+            if (onSessionInvalidated) {
+              onSessionInvalidated()
+            } else {
+              window.location.href = '/welcome'
+            }
+            throw new AppApiError(
+              'Session expired. Please log in again.',
+              'SESSION_EXPIRED',
+              401,
+              false,
+              error,
+            )
+          }
+        } else {
+          // No refresh token present, session is unauthenticated
+          this.clearTokens()
+          if (onSessionInvalidated) {
+            onSessionInvalidated()
+          } else {
             window.location.href = '/welcome'
           }
+          throw new AppApiError(
+            'Authentication required. Please log in.',
+            'UNAUTHORIZED',
+            401,
+            false,
+            errorData,
+          )
+        }
+      } else {
+        // If /auth/refresh itself returns 401, clear tokens and redirect
+        this.clearTokens()
+        if (onSessionInvalidated) {
+          onSessionInvalidated()
+        } else {
+          window.location.href = '/welcome'
         }
       }
     }

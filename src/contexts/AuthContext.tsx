@@ -13,6 +13,7 @@ import {
   type DemoCustomer,
 } from '@/lib/customerData';
 import { registerSessionInvalidatedHandler } from '@/lib/httpClient';
+import { computeDeviceId } from '@/lib/device';
 import {
   AUTH_PREFERRED_LANGUAGE_KEY,
   clearLanguageSessionStorage,
@@ -231,14 +232,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAccessToken(storedAccess);
       if (storedRefresh) setRefreshToken(storedRefresh);
 
+      const storedPhone = localStorage.getItem(MOBILE_NUMBER_KEY);
+      if (storedPhone && !localStorage.getItem('voicebank.device_id')) {
+        try {
+          await computeDeviceId(storedPhone);
+        } catch {
+          // ignore device id computation error
+        }
+      }
+
       try {
         const me = await authApi.getMe();
         if (cancelled) return;
         await applyOnboardingFromServer(me);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Session bootstrap failed:', err);
+        const isAuthError =
+          err?.status === 401 ||
+          err?.code === 'SESSION_INVALIDATED' ||
+          err?.code === 'SESSION_EXPIRED' ||
+          err?.code === 'UNAUTHORIZED' ||
+          err?.message?.includes('401') ||
+          err?.message?.toLowerCase().includes('session expired') ||
+          err?.message?.toLowerCase().includes('unauthorized');
+
+        if (isAuthError) {
+          logout();
+          window.location.href = '/welcome';
+          return;
+        }
+
         if (!cancelled) {
-          // httpClient may already have redirected on hard 401; still clear local auth.
           logout();
         }
       } finally {
