@@ -27,3 +27,17 @@ export const VOICEPRINT_API_BASE =
 
 /** Customer identity comes from the mock-bank phone lookup API. */
 export const CUSTOMER_DATA_SOURCE = 'mock-bank-api'
+
+/**
+ * Enrollment step count (build-time flag).
+ * - 3: classic flow — 3 image descriptions
+ * - 6: extended flow — 2 images + 4 short questions (default)
+ * Set via VITE_ENROLLMENT_TOTAL_STEPS=3|6
+ */
+const rawEnrollmentSteps = import.meta.env.VITE_ENROLLMENT_TOTAL_STEPS
+export const ENROLLMENT_TOTAL_STEPS: 3 | 6 = rawEnrollmentSteps === '3' ? 3 : 6
+export const ENROLLMENT_IMAGE_COUNT = ENROLLMENT_TOTAL_STEPS === 3 ? 3 : 2
+export const ENROLLMENT_QUESTION_COUNT = ENROLLMENT_TOTAL_STEPS === 3 ? 0 : 4
+
+/** Multi-session "Improve voice ID" menu + home banner. Off unless VITE_ENABLE_VOICE_FOLLOWUP=true. */
+export const ENABLE_VOICE_FOLLOWUP = import.meta.env.VITE_ENABLE_VOICE_FOLLOWUP === 'true'

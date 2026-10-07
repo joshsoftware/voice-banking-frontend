@@ -12,6 +12,8 @@ services:
         VITE_JAVA_API_BASE: ${VITE_JAVA_API_BASE:-https://voicebanking.joshsoftware.com/api/v1}
         VITE_ADMIN_USERNAME: ${VITE_ADMIN_USERNAME:-admin}
         VITE_ADMIN_PASSWORD: ${VITE_ADMIN_PASSWORD:-VoiceBank@2026}
+        VITE_ENROLLMENT_TOTAL_STEPS: ${VITE_ENROLLMENT_TOTAL_STEPS:-6}
+        VITE_ENABLE_VOICE_FOLLOWUP: ${VITE_ENABLE_VOICE_FOLLOWUP:-false}
     ports:
       - "8085:80"
     restart: unless-stopped

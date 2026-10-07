@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { MobileContainer } from '@/components/ui/mobile-container'
 import { MicIcon, VolumeIcon } from '@/components/ui/icons'
 import { Button } from '@/components/ui/button'
@@ -7,7 +7,13 @@ import { Waveform } from '@/components/ui/waveform'
 import { ImageDescribeSheet, type ImageDescribeSheetState } from '@/components/voice-registration/ImageDescribeSheet'
 import { VoiceRegistrationSuccess } from '@/components/voice-registration/VoiceRegistrationSuccess'
 import { useMicLevel } from '@/hooks/useMicLevel'
-import { API_BASE, VOICEPRINT_API_BASE } from '@/lib/constants'
+import {
+  API_BASE,
+  ENROLLMENT_IMAGE_COUNT,
+  ENROLLMENT_QUESTION_COUNT,
+  ENROLLMENT_TOTAL_STEPS,
+  VOICEPRINT_API_BASE,
+} from '@/lib/constants'
 import {
   ensureSpeechVoicesLoaded,
   getImageAudioUrl,
@@ -19,16 +25,28 @@ import {
 } from '@/lib/speech'
 import {
   pickRandomRegistrationImages,
-  VOICE_REGISTRATION_STEP_COUNT,
   type VoiceRegistrationImageItem,
 } from '@/data/voiceRegistrationImages'
+import {
+  pickRegistrationQuestions,
+  type VoiceRegistrationQuestion,
+} from '@/data/voiceRegistrationQuestions'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
+import type { LanguageId } from '@/i18n/languages'
 import { allowVoiceSkip, disallowVoiceSkip, getActiveCustomer, markVoiceRegistered } from '@/lib/customerData'
 import { useAuth } from '@/contexts/AuthContext'
 import { getDeviceId } from '@/lib/device'
 import { fetchWithOfferRetry } from '@/lib/webrtcOfferRetry'
 
 type Phase = 'consent' | 'imageChallenge' | 'success'
+// Two long picture descriptions anchor the voiceprint; four short answers match real in-call turns.
+type RegistrationStep =
+  | { kind: 'image'; image: VoiceRegistrationImageItem }
+  | { kind: 'question'; question: VoiceRegistrationQuestion }
+const IMAGE_RECORD_SECONDS = 15
+const QUESTION_RECORD_SECONDS = 8
+const recordSecondsFor = (step: RegistrationStep | undefined) =>
+  step?.kind === 'question' ? QUESTION_RECORD_SECONDS : IMAGE_RECORD_SECONDS
 const FALLBACK_ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
 const NO_VOICE_WARNING_DELAY_MS = 2500
 const normalizeBase = (url: string) => url.replace(/\/+$/, '')
@@ -42,6 +60,11 @@ function stopMediaStream(stream: MediaStream | null) {
 
 export default function VoiceRegistration() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  // Follow-up session on a later day for an already-registered user: strengthens the existing voiceprint.
+  const isFollowup = searchParams.get('mode') === 'followup'
+  const [followupSessions, setFollowupSessions] = useState<{ current: number; total: number } | null>(null)
+  const [followupRejected, setFollowupRejected] = useState(false)
   const { refreshActiveCustomer, skipVoiceRegistration, user } = useAuth()
   const { language } = useLanguage()
   const { t } = useTranslation()
@@ -70,10 +93,10 @@ export default function VoiceRegistration() {
   const negotiatingRef = useRef(false)
   const hasNegotiatedRef = useRef(false)
   const imageFinalizeLockRef = useRef(false)
-  const sessionImagesRef = useRef<VoiceRegistrationImageItem[]>([])
+  const sessionStepsRef = useRef<RegistrationStep[]>([])
 
-  const [sessionImages, setSessionImages] = useState<VoiceRegistrationImageItem[]>([])
-  const [imageIndex, setImageIndex] = useState(0)
+  const [sessionSteps, setSessionSteps] = useState<RegistrationStep[]>([])
+  const [stepIndex, setStepIndex] = useState(0)
   const [sheetState, setSheetState] = useState<ImageDescribeSheetState>('micIdle')
   const [countdown, setCountdown] = useState(3)
   const [recordProgress, setRecordProgress] = useState(0)
@@ -85,7 +108,8 @@ export default function VoiceRegistration() {
     phase === 'imageChallenge' && sheetState === 'recording' ? micStream : null
   )
 
-  const canStart = useMemo(() => consent && !loading, [consent, loading])
+  // Consent was already given at the first enrollment, so follow-up sessions don't ask again.
+  const canStart = useMemo(() => (consent || isFollowup) && !loading, [consent, isFollowup, loading])
 
   useEffect(() => {
     micStreamRef.current = micStream
@@ -247,7 +271,8 @@ export default function VoiceRegistration() {
       const startPayload = {
         customer_id: activeCustomer?.voice_customer_id ?? activeCustomer?.customer_id ?? 'test-user',
         device_id: getDeviceId(),
-        total_steps: sessionImagesRef.current.length || VOICE_REGISTRATION_STEP_COUNT,
+        total_steps: sessionStepsRef.current.length || ENROLLMENT_TOTAL_STEPS,
+        mode: isFollowup ? 'followup' : 'initial',
       }
       // Support both backend mounting styles:
       // 1) <base>/start
@@ -383,7 +408,7 @@ export default function VoiceRegistration() {
     } finally {
       connectingRtcRef.current = false
     }
-  }, [disconnectRtc, negotiate])
+  }, [disconnectRtc, negotiate, isFollowup])
 
   useEffect(() => {
     if (phase !== 'imageChallenge') return
@@ -396,7 +421,31 @@ export default function VoiceRegistration() {
     speechDetectedDuringRecordingRef.current = false
     imageFinalizeLockRef.current = false
     countdownToRecordingRef.current = false
-  }, [imageIndex, phase])
+  }, [stepIndex, phase])
+
+  // Tells the backend this step's recording starts now, so its buffer drops earlier audio
+  // (e.g. the question being read aloud). Non-fatal: the backend falls back to its old window.
+  const beginBackendStep = useCallback(async (stepNumber: number) => {
+    const sid = enrollmentSessionIdRef.current
+    if (!sid) return
+    const accessToken = localStorage.getItem('voicebank.access_token')
+    try {
+      const res = await fetch(
+        `${getRegistrationBackendBase()}/enrollment/${encodeURIComponent(sid)}/begin-step`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+          body: JSON.stringify({ step_index: stepNumber }),
+        },
+      )
+      if (!res.ok) console.warn('Enrollment begin-step failed:', res.status)
+    } catch (e) {
+      console.warn('Enrollment begin-step error:', e)
+    }
+  }, [])
 
   useEffect(() => {
     if (sheetState !== 'countdown' || countdown > 0) return
@@ -407,6 +456,9 @@ export default function VoiceRegistration() {
         if (!pcRef.current || !micStreamRef.current) {
           await startEnrollmentRealtime()
         }
+        stopSpeech()
+        setIsPlayingAudio(false)
+        await beginBackendStep(stepIndex + 1)
         setRecordProgress(0)
         setShowNoVoiceDetected(false)
         speechDetectedDuringRecordingRef.current = false
@@ -418,7 +470,7 @@ export default function VoiceRegistration() {
         countdownToRecordingRef.current = false
       }
     })()
-  }, [sheetState, countdown, startEnrollmentRealtime])
+  }, [sheetState, countdown, startEnrollmentRealtime, beginBackendStep, stepIndex])
 
   useEffect(() => {
     if (sheetState !== 'countdown' || countdown <= 0) return
@@ -447,6 +499,9 @@ export default function VoiceRegistration() {
     return () => window.clearTimeout(id)
   }, [sheetState])
 
+  const currentStep = sessionSteps[stepIndex]
+  const currentRecordSeconds = recordSecondsFor(currentStep)
+
   useEffect(() => {
     if (sheetState !== 'recording') return
     const id = window.setInterval(() => {
@@ -466,11 +521,21 @@ export default function VoiceRegistration() {
         }
         return n
       })
-    }, 150) // 100 ticks × 150ms = 15s (matches copy + backend capture)
+    }, (currentRecordSeconds * 1000) / 100) // 100 ticks per recording (15s picture, 8s answer)
     return () => clearInterval(id)
-  }, [sheetState, t])
+  }, [sheetState, t, currentRecordSeconds])
+
+  const leaveFollowup = () => {
+    disconnectRtc()
+    stopSpeech()
+    navigate('/listening', { replace: true })
+  }
 
   const skipForNow = async () => {
+    if (isFollowup) {
+      leaveFollowup()
+      return
+    }
     try {
       await skipVoiceRegistration()
     } catch (err) {
@@ -488,6 +553,11 @@ export default function VoiceRegistration() {
   }
 
   const cancelRegistration = async () => {
+    if (isFollowup) {
+      setShowCancelConfirm(false)
+      leaveFollowup()
+      return
+    }
     disconnectRtc()
     stopSpeech()
     setShowCancelConfirm(false)
@@ -495,9 +565,9 @@ export default function VoiceRegistration() {
     setRtcSessionId(null)
     enrollmentSessionIdRef.current = null
     rtcSessionIdRef.current = null
-    sessionImagesRef.current = []
-    setSessionImages([])
-    setImageIndex(0)
+    sessionStepsRef.current = []
+    setSessionSteps([])
+    setStepIndex(0)
     setSheetState('micIdle')
     setCountdown(3)
     setRecordProgress(0)
@@ -521,12 +591,20 @@ export default function VoiceRegistration() {
     navigate('/listening', { replace: true })
   }
 
+  const activeCustomerId = activeCustomer?.customer_id
   const beginImageChallenge = useCallback(() => {
-    const picked = pickRandomRegistrationImages(VOICE_REGISTRATION_STEP_COUNT)
-    sessionImagesRef.current = picked
-    setSessionImages(picked)
+    const steps: RegistrationStep[] = [
+      ...pickRandomRegistrationImages(ENROLLMENT_IMAGE_COUNT, activeCustomerId).map(
+        (image): RegistrationStep => ({ kind: 'image', image }),
+      ),
+      ...pickRegistrationQuestions(ENROLLMENT_QUESTION_COUNT, activeCustomerId).map(
+        (question): RegistrationStep => ({ kind: 'question', question }),
+      ),
+    ]
+    sessionStepsRef.current = steps
+    setSessionSteps(steps)
     stopSpeech()
-    setImageIndex(0)
+    setStepIndex(0)
     setSheetState('micIdle')
     setCountdown(3)
     setRecordProgress(0)
@@ -534,7 +612,7 @@ export default function VoiceRegistration() {
     countdownToRecordingRef.current = false
     setEnrollError(null)
     setPhase('imageChallenge')
-  }, [])
+  }, [activeCustomerId])
 
   const goToImageChallenge = () => {
     beginImageChallenge()
@@ -567,9 +645,23 @@ export default function VoiceRegistration() {
     }
   }
 
-  const playImageDescription = async () => {
-    const item = sessionImages[imageIndex]
-    if (!item) return
+  const speakLocalized = async (texts: Record<LanguageId, string>) => {
+    try {
+      await ensureSpeechVoicesLoaded()
+      if (language !== 'en' && !isLanguageSupported(language)) {
+        setAudioSupportMessage(t('voiceRegistrationAudioLanguageUnsupported'))
+        speakText(texts.en, 'en', () => setIsPlayingAudio(false))
+        return
+      }
+      speakText(texts[language] || texts.en, language, () => setIsPlayingAudio(false))
+    } catch {
+      setIsPlayingAudio(false)
+    }
+  }
+
+  const playStepPrompt = async () => {
+    const step = sessionSteps[stepIndex]
+    if (!step) return
 
     if (isPlayingAudio || isAudioPlaying()) {
       stopSpeech()
@@ -580,27 +672,20 @@ export default function VoiceRegistration() {
     setAudioSupportMessage(null)
     setIsPlayingAudio(true)
 
+    if (step.kind === 'question') {
+      await speakLocalized(step.question.prompts)
+      return
+    }
+
+    const item = step.image
     const audioUrl = getImageAudioUrl(item.id, language)
     playAudioUrl(
       audioUrl,
       () => {
         setIsPlayingAudio(false)
       },
-      async () => {
-        // Fallback to browser speech synthesis if static audio is unavailable
-        try {
-          await ensureSpeechVoicesLoaded()
-          const localizedDescription = item.spokenDescriptions[language] || item.spokenDescriptions.en
-          if (language !== 'en' && !isLanguageSupported(language)) {
-            setAudioSupportMessage(t('voiceRegistrationAudioLanguageUnsupported'))
-            speakText(item.spokenDescriptions.en, 'en', () => setIsPlayingAudio(false))
-            return
-          }
-          speakText(localizedDescription, language, () => setIsPlayingAudio(false))
-        } catch {
-          setIsPlayingAudio(false)
-        }
-      }
+      // Fallback to browser speech synthesis if static audio is unavailable
+      () => speakLocalized(item.spokenDescriptions),
     )
   }
 
@@ -647,22 +732,34 @@ export default function VoiceRegistration() {
           'Content-Type': 'application/json',
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify({ step_index: imageIndex + 1 }),
+        body: JSON.stringify({
+          step_index: stepIndex + 1,
+          step_kind: currentStep?.kind ?? 'image',
+          capture_seconds: currentRecordSeconds,
+        }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         const detail = (err as { detail?: string }).detail
         console.warn('Enrollment submit-step failed:', detail || res.status)
+        if (isFollowup && res.status === 400 && stepIndex >= sessionSteps.length - 1) {
+          // The whole session didn't sound like the saved voiceprint; the backend discarded it.
+          setFollowupRejected(true)
+          return
+        }
         setShowAudioFailedPopup(true)
         return
       }
       const data = await res.json()
-      if (data.status === 'enrolled' || imageIndex >= sessionImages.length - 1) {
+      if (data.status === 'session_added') {
+        setFollowupSessions({ current: data.sessions_completed, total: data.max_sessions })
+      }
+      if (data.status === 'enrolled' || data.status === 'session_added' || stepIndex >= sessionSteps.length - 1) {
         setEnrollError(null)  // Clear any previous errors on success
         setPhase('success')
       } else {
-        setEnrollError(null)  // Clear errors when moving to next image
-        setImageIndex((i) => i + 1)
+        setEnrollError(null)  // Clear errors when moving to next step
+        setStepIndex((i) => i + 1)
       }
     } catch (e) {
       console.warn('Enrollment submit-step error:', e)
@@ -686,7 +783,7 @@ export default function VoiceRegistration() {
     }, 100)
   }
 
-  const currentImage = sessionImages[imageIndex]
+  const isQuestionStep = currentStep?.kind === 'question'
 
   return (
     <MobileContainer gradient={false}>
@@ -695,7 +792,29 @@ export default function VoiceRegistration() {
           phase === 'imageChallenge' ? 'pb-0' : 'px-5 pb-2 pt-4'
         }`}
       >
-        {phase === 'success' ? (
+        {phase === 'success' && isFollowup ? (
+          <div
+            data-testid="voice-followup-success"
+            className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-5 pb-6 pt-6 text-center"
+          >
+            <div className="grid size-[68px] place-items-center rounded-full bg-[rgba(32,114,178,0.12)] text-3xl text-[var(--color-brand-500)]">
+              ✓
+            </div>
+            <h1 className="text-2xl font-bold text-[var(--color-brand-900)]">{t('voiceFollowupSuccessTitle')}</h1>
+            {followupSessions ? (
+              <p className="text-sm text-[var(--color-text-muted-1)]">
+                {t('voiceFollowupSuccessBody', followupSessions)}
+              </p>
+            ) : null}
+            <Button
+              type="button"
+              onClick={leaveFollowup}
+              className="mt-2 h-14 w-full max-w-[320px] rounded-full text-base font-semibold"
+            >
+              {t('voiceFollowupBackToBanking')}
+            </Button>
+          </div>
+        ) : phase === 'success' ? (
           <div className="flex min-h-0 flex-1 flex-col px-5 pb-6 pt-6">
             <VoiceRegistrationSuccess
               onStartBanking={handleStartBanking}
@@ -718,32 +837,46 @@ export default function VoiceRegistration() {
                 {t('voiceRegistrationSetupPrefix')}{' '}
               </h1>
               <h1 className="text-xl font-bold leading-snug text-[var(--color-brand-900)]">
-                <span className="text-[var(--color-brand-500)]">{t('voiceRegistrationSetupHighlight')}</span>
+                <span className="text-[var(--color-brand-500)]">
+                  {t(isQuestionStep ? 'voiceRegistrationSetupHighlightQuestion' : 'voiceRegistrationSetupHighlight')}
+                </span>
               </h1>
-              <p className="mt-2 text-sm text-[var(--color-text-muted-2)]">{t('voiceRegistrationSpeakDurationInstruction')}</p>
+              <p className="mt-2 text-sm text-[var(--color-text-muted-2)]">
+                {t(isQuestionStep ? 'voiceRegistrationAnswerInstruction' : 'voiceRegistrationSpeakDurationInstruction')}
+              </p>
               <p className="mt-1 text-xs text-[var(--color-text-muted-3)]">
-                {t('voiceRegistrationImageXOfY', {
-                  current: imageIndex + 1,
-                  total: sessionImages.length,
+                {t('voiceRegistrationStepXOfY', {
+                  current: stepIndex + 1,
+                  total: sessionSteps.length,
                 })}
               </p>
             </div>
 
             <div className="relative mx-auto mt-4 flex min-h-0 w-full max-w-[320px] flex-1 flex-col pb-[220px]">
               <div className="relative flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-white shadow-[var(--shadow-card)]">
-                {currentImage ? (
+                {currentStep?.kind === 'image' ? (
                   <img
-                    src={currentImage.src}
+                    src={currentStep.image.src}
                     alt=""
                     className="h-full w-full object-cover"
                     draggable={false}
                   />
                 ) : null}
+                {currentStep?.kind === 'question' ? (
+                  <div
+                    data-testid="voice-registration-question"
+                    className="flex h-full w-full items-center justify-center px-6 py-16 text-center"
+                  >
+                    <p className="text-xl font-semibold leading-snug text-[var(--color-brand-900)] text-balance">
+                      {currentStep.question.prompts[language] || currentStep.question.prompts.en}
+                    </p>
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   data-testid="voice-registration-play-audio-btn"
-                  aria-label={t('voiceRegistrationPlayImageDescription')}
-                  onClick={() => void playImageDescription()}
+                  aria-label={t(isQuestionStep ? 'voiceRegistrationPlayQuestion' : 'voiceRegistrationPlayImageDescription')}
+                  onClick={() => void playStepPrompt()}
                   className={`absolute right-3 top-3 grid size-10 place-items-center rounded-full shadow-[var(--shadow-mute)] transition-all active:scale-95 ${
                     isPlayingAudio
                       ? 'bg-[var(--color-brand-500)] text-white shadow-md'
@@ -789,10 +922,10 @@ export default function VoiceRegistration() {
                 <MicIcon className="h-10 w-10" />
               </div>
               <h1 className="mt-3 text-center text-2xl font-bold leading-snug tracking-tight text-[var(--color-brand-900)] text-balance">
-                {t('voiceRegistrationEnableTitle')}
+                {t(isFollowup ? 'voiceFollowupIntroTitle' : 'voiceRegistrationEnableTitle')}
               </h1>
               <p className="mt-1.5 max-w-[340px] text-center text-sm font-medium leading-snug text-[var(--color-text-muted-1)] text-balance">
-                {t('voiceRegistrationEnableSubtitle')}
+                {t(isFollowup ? 'voiceFollowupIntroSubtitle' : 'voiceRegistrationEnableSubtitle')}
               </p>
             </div>
 
@@ -832,10 +965,17 @@ export default function VoiceRegistration() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold leading-snug text-[var(--color-brand-900)]">
-                          {t('voiceRegistrationBenefitStepsTitle')}
+                          {t('voiceRegistrationBenefitStepsTitle', { count: ENROLLMENT_TOTAL_STEPS })}
                         </div>
                         <p className="mt-0.5 text-xs leading-[1.35] text-[var(--color-text-muted-1)]">
-                          {t('voiceRegistrationBenefitStepsDesc')}
+                          {ENROLLMENT_QUESTION_COUNT > 0
+                            ? t('voiceRegistrationBenefitStepsDesc', {
+                                images: ENROLLMENT_IMAGE_COUNT,
+                                questions: ENROLLMENT_QUESTION_COUNT,
+                              })
+                            : t('voiceRegistrationBenefitStepsDescImagesOnly', {
+                                images: ENROLLMENT_IMAGE_COUNT,
+                              })}
                         </p>
                       </div>
                     </div>
@@ -857,7 +997,7 @@ export default function VoiceRegistration() {
               </div>
             )}
 
-            {phase === 'consent' ? (
+            {phase === 'consent' && !isFollowup ? (
               <label className="mx-auto mt-5 flex w-full max-w-[320px] shrink-0 items-start gap-3 px-5 text-xs leading-snug text-[var(--color-brand-900)]">
                 <input
                   type="checkbox"
@@ -884,7 +1024,9 @@ export default function VoiceRegistration() {
                   disabled={!canStart}
                   className="h-14 w-full rounded-full text-base font-semibold disabled:bg-[#c8d4e2] disabled:text-white"
                 >
-                  {loading ? t('voiceRegistrationStarting') : t('voiceRegistrationStartCta')}
+                  {loading
+                    ? t('voiceRegistrationStarting')
+                    : t(isFollowup ? 'voiceFollowupStartCta' : 'voiceRegistrationStartCta')}
                 </Button>
               ) : (
                 <Button
@@ -908,11 +1050,36 @@ export default function VoiceRegistration() {
                 onClick={skipForNow}
                 className="w-full pb-0.5 text-center text-base font-medium text-[var(--color-text-muted-1)]"
               >
-                {t('voiceRegistrationSkipForNow')}
+                {t(isFollowup ? 'voiceFollowupNotNow' : 'voiceRegistrationSkipForNow')}
               </button>
             </div>
           </>
         )}
+        {followupRejected ? (
+          <div
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 px-6 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="voice-followup-rejected-title"
+          >
+            <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-[0_24px_60px_rgba(0,0,0,0.28)]">
+              <h2 id="voice-followup-rejected-title" className="text-lg font-bold text-[var(--color-brand-900)]">
+                {t('voiceFollowupRejectedTitle')}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-muted-2)]">
+                {t('voiceFollowupRejectedBody')}
+              </p>
+              <button
+                type="button"
+                data-testid="voice-followup-rejected-ok"
+                onClick={leaveFollowup}
+                className="mt-6 h-12 w-full rounded-full bg-[var(--color-brand-500)] text-sm font-semibold text-white shadow-md transition-colors hover:opacity-95"
+              >
+                {t('voiceFollowupBackToBanking')}
+              </button>
+            </div>
+          </div>
+        ) : null}
         {showAudioFailedPopup ? (
           <div
             className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 px-6 backdrop-blur-sm"
