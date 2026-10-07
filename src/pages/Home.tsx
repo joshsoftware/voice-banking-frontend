@@ -12,8 +12,10 @@ import {
   markVoiceUnregistered,
 } from '@/lib/customerData'
 import { httpClient } from '@/lib/httpClient'
+import { ENABLE_VOICE_FOLLOWUP } from '@/lib/constants'
 import { getEnrollmentStatus, type EnrollmentStatus } from '@/lib/voiceprintApi'
 
+// Kept for when VITE_ENABLE_VOICE_FOLLOWUP=true (Improve voice ID / multi-session enrollment).
 const FOLLOWUP_DISMISS_KEY_PREFIX = 'voicebank.voiceFollowupPromptDismissed.'
 const FOLLOWUP_PATH = '/voice-registration?intent=enroll&mode=followup'
 
@@ -45,7 +47,8 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
   const [followupDismissedToday, setFollowupDismissedToday] = useState(false)
 
   useEffect(() => {
-    if (!voiceRegistered || !voiceCustomerId) {
+    // Follow-up UI is env-gated; leave this block in place for re-enable.
+    if (!ENABLE_VOICE_FOLLOWUP || !voiceRegistered || !voiceCustomerId) {
       setEnrollStatus(null)
       return
     }
@@ -74,14 +77,18 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
     }
   }
 
+  // Improve voice ID — only when VITE_ENABLE_VOICE_FOLLOWUP=true
   const improveVoice =
-    enrollStatus?.is_registered && enrollStatus.sessions_completed < enrollStatus.max_sessions
+    ENABLE_VOICE_FOLLOWUP &&
+    enrollStatus?.is_registered &&
+    enrollStatus.sessions_completed < enrollStatus.max_sessions
       ? {
           canStart: enrollStatus.can_add_session,
           availableFrom: enrollStatus.next_eligible_at ? formatAvailableFrom(enrollStatus.next_eligible_at) : null,
         }
       : undefined
-  const showFollowupPrompt = Boolean(enrollStatus?.followup_due) && !followupDismissedToday
+  const showFollowupPrompt =
+    ENABLE_VOICE_FOLLOWUP && Boolean(enrollStatus?.followup_due) && !followupDismissedToday
   useEffect(() => {
     if (!isAuthenticated || !customer) {
       navigate('/welcome', { replace: true })

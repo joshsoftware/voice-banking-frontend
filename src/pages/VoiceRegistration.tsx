@@ -7,7 +7,13 @@ import { Waveform } from '@/components/ui/waveform'
 import { ImageDescribeSheet, type ImageDescribeSheetState } from '@/components/voice-registration/ImageDescribeSheet'
 import { VoiceRegistrationSuccess } from '@/components/voice-registration/VoiceRegistrationSuccess'
 import { useMicLevel } from '@/hooks/useMicLevel'
-import { API_BASE, VOICEPRINT_API_BASE } from '@/lib/constants'
+import {
+  API_BASE,
+  ENROLLMENT_IMAGE_COUNT,
+  ENROLLMENT_QUESTION_COUNT,
+  ENROLLMENT_TOTAL_STEPS,
+  VOICEPRINT_API_BASE,
+} from '@/lib/constants'
 import {
   ensureSpeechVoicesLoaded,
   getImageAudioUrl,
@@ -19,12 +25,10 @@ import {
 } from '@/lib/speech'
 import {
   pickRandomRegistrationImages,
-  VOICE_REGISTRATION_IMAGE_COUNT,
   type VoiceRegistrationImageItem,
 } from '@/data/voiceRegistrationImages'
 import {
   pickRegistrationQuestions,
-  VOICE_REGISTRATION_QUESTION_COUNT,
   type VoiceRegistrationQuestion,
 } from '@/data/voiceRegistrationQuestions'
 import { useLanguage, useTranslation } from '@/i18n/LanguageHooks'
@@ -267,8 +271,7 @@ export default function VoiceRegistration() {
       const startPayload = {
         customer_id: activeCustomer?.voice_customer_id ?? activeCustomer?.customer_id ?? 'test-user',
         device_id: getDeviceId(),
-        total_steps:
-          sessionStepsRef.current.length || VOICE_REGISTRATION_IMAGE_COUNT + VOICE_REGISTRATION_QUESTION_COUNT,
+        total_steps: sessionStepsRef.current.length || ENROLLMENT_TOTAL_STEPS,
         mode: isFollowup ? 'followup' : 'initial',
       }
       // Support both backend mounting styles:
@@ -591,10 +594,10 @@ export default function VoiceRegistration() {
   const activeCustomerId = activeCustomer?.customer_id
   const beginImageChallenge = useCallback(() => {
     const steps: RegistrationStep[] = [
-      ...pickRandomRegistrationImages(VOICE_REGISTRATION_IMAGE_COUNT, activeCustomerId).map(
+      ...pickRandomRegistrationImages(ENROLLMENT_IMAGE_COUNT, activeCustomerId).map(
         (image): RegistrationStep => ({ kind: 'image', image }),
       ),
-      ...pickRegistrationQuestions(VOICE_REGISTRATION_QUESTION_COUNT, activeCustomerId).map(
+      ...pickRegistrationQuestions(ENROLLMENT_QUESTION_COUNT, activeCustomerId).map(
         (question): RegistrationStep => ({ kind: 'question', question }),
       ),
     ]
@@ -962,10 +965,17 @@ export default function VoiceRegistration() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold leading-snug text-[var(--color-brand-900)]">
-                          {t('voiceRegistrationBenefitStepsTitle')}
+                          {t('voiceRegistrationBenefitStepsTitle', { count: ENROLLMENT_TOTAL_STEPS })}
                         </div>
                         <p className="mt-0.5 text-xs leading-[1.35] text-[var(--color-text-muted-1)]">
-                          {t('voiceRegistrationBenefitStepsDesc')}
+                          {ENROLLMENT_QUESTION_COUNT > 0
+                            ? t('voiceRegistrationBenefitStepsDesc', {
+                                images: ENROLLMENT_IMAGE_COUNT,
+                                questions: ENROLLMENT_QUESTION_COUNT,
+                              })
+                            : t('voiceRegistrationBenefitStepsDescImagesOnly', {
+                                images: ENROLLMENT_IMAGE_COUNT,
+                              })}
                         </p>
                       </div>
                     </div>
