@@ -96,9 +96,8 @@ function to16kInt16(input: Float32Array, sampleRate: number): Int16Array {
 }
 
 function concatInt16(a: Int16Array, b: Int16Array): Int16Array {
-  if (a.length === 0) return b
   const out = new Int16Array(a.length + b.length)
-  out.set(a, 0)
+  if (a.length) out.set(a, 0)
   out.set(b, a.length)
   return out
 }
@@ -110,7 +109,7 @@ export function attachBrowserRawCapture(opts: {
 }): { stop: () => void; flush: () => void } {
   let stopped = false
   let ctx: AudioContext | null = null
-  let pending = new Int16Array(0)
+  let pending: Int16Array<ArrayBufferLike> = new Int16Array(0)
   const settingsJson = JSON.stringify(opts.track.getSettings())
 
   const flush = () => {
