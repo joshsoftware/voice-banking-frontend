@@ -41,3 +41,16 @@ export const ENROLLMENT_QUESTION_COUNT = ENROLLMENT_TOTAL_STEPS === 3 ? 0 : 4
 
 /** Multi-session "Improve voice ID" menu + home banner. Off unless VITE_ENABLE_VOICE_FOLLOWUP=true. */
 export const ENABLE_VOICE_FOLLOWUP = import.meta.env.VITE_ENABLE_VOICE_FOLLOWUP === 'true'
+
+/**
+ * Browser noise suppression (Chrome `noiseSuppression`) for STT, enrollment,
+ * and in-call verification. On unless VITE_DISABLE_BROWSER_NOISE_CANCELLATION=true.
+ */
+export const DISABLE_BROWSER_NOISE_CANCELLATION =
+  import.meta.env.VITE_DISABLE_BROWSER_NOISE_CANCELLATION === 'true'
+
+/** `{ audio: true }` left the browser noise suppressor on. This is the env-gated replacement. */
+export function micAudioConstraint(): true | MediaTrackConstraints {
+  if (!DISABLE_BROWSER_NOISE_CANCELLATION) return true
+  return { noiseSuppression: false }
+}

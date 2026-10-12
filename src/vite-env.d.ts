@@ -10,6 +10,8 @@ interface ImportMetaEnv {
   readonly VITE_ENROLLMENT_TOTAL_STEPS?: '3' | '6'
   /** `true` to show Improve voice ID / follow-up enrollment UI */
   readonly VITE_ENABLE_VOICE_FOLLOWUP?: string
+  /** `true` to turn off browser noiseSuppression on STT, enrollment, and verification mics */
+  readonly VITE_DISABLE_BROWSER_NOISE_CANCELLATION?: string
 }
 
 interface ImportMeta {

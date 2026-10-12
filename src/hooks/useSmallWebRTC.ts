@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { PipecatClient } from '@pipecat-ai/client-js'
 import { CustomSmallWebRTCTransport } from '@/lib/customTransport'
-import { API_BASE } from '@/lib/constants'
+import { API_BASE, DISABLE_BROWSER_NOISE_CANCELLATION } from '@/lib/constants'
 import { getActiveCustomer, isVoiceRegistered } from '@/lib/customerData'
 import { getDeviceId } from '@/lib/device'
 import { useTranslation } from '@/i18n/LanguageHooks'
@@ -10,6 +10,36 @@ import { useAuth } from '@/contexts/AuthContext'
 
 // Helper to get client instance (for audio component)
 let globalClientInstance: PipecatClient | null = null
+
+/** STT and in-call verification. No-op unless VITE_DISABLE_BROWSER_NOISE_CANCELLATION=true. */
+async function disableBrowserNoiseSuppression(client: PipecatClient): Promise<void> {
+  if (!DISABLE_BROWSER_NOISE_CANCELLATION) return
+  const daily = (client.transport as {
+    mediaManager?: { _daily?: { updateInputSettings?: (settings: unknown) => Promise<unknown> } }
+  })?.mediaManager?._daily
+  if (daily?.updateInputSettings) {
+    try {
+      await daily.updateInputSettings({
+        audio: { settings: { noiseSuppression: false } },
+      })
+    } catch (err) {
+      console.warn('[mic] could not update Daily mic settings', err)
+    }
+  }
+  const track = client.tracks().local?.audio
+  if (!track) return
+  try {
+    await track.applyConstraints({ noiseSuppression: false })
+  } catch (err) {
+    console.warn('[mic] applyConstraints failed', err)
+  }
+  const settings = track.getSettings()
+  if (settings.noiseSuppression === false) {
+    console.log('[mic] browser noise suppression is off', settings)
+  } else {
+    console.error('[mic] browser noise suppression is still on', settings)
+  }
+}
 
 // ─── Beep ─────────────────────────────────────────────────────────────────────
 
@@ -697,6 +727,7 @@ export function useSmallWebRTC() {
 
       client.on('botReady', () => {
         console.log('[SmallWebRTC] Bot ready — mic muted until hold-to-speak')
+        void disableBrowserNoiseSuppression(client)
         isBotReadyRef.current = true
         isMicInputEnabledRef.current = false
         setIsMicHeld(false)
@@ -786,6 +817,9 @@ export function useSmallWebRTC() {
       // already fired and is lost.
       client.on('trackStarted', (track: MediaStreamTrack, participant: unknown) => {
         console.log('[SmallWebRTC] trackStarted:', { kind: track.kind, participant })
+        if (track.kind === 'audio' && participant != null) {
+          void disableBrowserNoiseSuppression(client)
+        }
         // Only play remote (bot) audio tracks. Local mic tracks also fire this
         // event but come with a participant argument — skip those to avoid
         // playing back the user's own voice as a weird echo/artifact.
@@ -1267,6 +1301,7 @@ export function useSmallWebRTC() {
       void (async () => {
         try {
           void client.enableMic(true)
+          await disableBrowserNoiseSuppression(client)
           const tracks = client.tracks()
           if (tracks?.local?.audio) tracks.local.audio.enabled = true
         } catch (err) {

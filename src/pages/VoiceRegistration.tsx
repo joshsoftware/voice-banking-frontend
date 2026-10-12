@@ -12,6 +12,7 @@ import {
   ENROLLMENT_IMAGE_COUNT,
   ENROLLMENT_QUESTION_COUNT,
   ENROLLMENT_TOTAL_STEPS,
+  micAudioConstraint,
   VOICEPRINT_API_BASE,
 } from '@/lib/constants'
 import {
@@ -372,7 +373,12 @@ export default function VoiceRegistration() {
 
       let stream: MediaStream
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        // stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream = await navigator.mediaDevices.getUserMedia({ audio: micAudioConstraint() })
+        const track = stream.getAudioTracks()[0]
+        if (track) {
+          console.log('[enrollment] mic settings', track.getSettings())
+        }
       } catch (mediaError) {
         // Handle getUserMedia specific errors
         if (mediaError instanceof DOMException) {
@@ -624,7 +630,8 @@ export default function VoiceRegistration() {
     setMicError(null)
     try {
       // Test microphone access early to provide immediate feedback
-      const testStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // const testStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const testStream = await navigator.mediaDevices.getUserMedia({ audio: micAudioConstraint() })
       // Stop the test stream immediately since we just wanted to check permission
       stopMediaStream(testStream)
       beginImageChallenge()
