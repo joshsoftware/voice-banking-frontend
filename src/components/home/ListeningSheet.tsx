@@ -155,11 +155,38 @@ function getLocalizedTableHeading(tableTitle: string | undefined, t: ReturnType<
 
 // ─── Chat bubble ──────────────────────────────────────────────────────────────
 
+function formatInr(amount: number) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2,
+  }).format(amount)
+}
+
+function TotalAmountRow({ label, amount }: { label: string; amount: number }) {
+  return (
+    <div className="mb-1.5 flex items-center justify-between rounded-md bg-white/15 px-2 py-1.5">
+      <span className="text-[10px] font-medium uppercase tracking-wide text-white/90">
+        {label}
+      </span>
+      <span className="text-sm font-semibold tabular-nums text-white">
+        {formatInr(amount)}
+      </span>
+    </div>
+  )
+}
+
 function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
   const { t } = useTranslation()
   const items = msg.transactions ?? []
   const heading = getLocalizedTableHeading(msg.tableTitle, t)
-  const showTotalSpent = typeof msg.totalSpent === 'number' && Number.isFinite(msg.totalSpent)
+  const credited = msg.totalCredited
+  const debited = msg.totalDebited
+  const showDirectionTotals =
+    (typeof credited === 'number' && Number.isFinite(credited)) ||
+    (typeof debited === 'number' && Number.isFinite(debited))
+  const showTotalSpent =
+    !showDirectionTotals && typeof msg.totalSpent === 'number' && Number.isFinite(msg.totalSpent)
 
   if (items.length === 0) {
     return (
@@ -184,19 +211,14 @@ function RecentTransactionsBubble({ msg }: { msg: ChatMessage }) {
       <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/90">
         {heading}
       </div>
+      {typeof credited === 'number' && Number.isFinite(credited) ? (
+        <TotalAmountRow label={t('totalCredited')} amount={credited} />
+      ) : null}
+      {typeof debited === 'number' && Number.isFinite(debited) ? (
+        <TotalAmountRow label={t('totalDebited')} amount={debited} />
+      ) : null}
       {showTotalSpent ? (
-        <div className="mb-1.5 flex items-center justify-between rounded-md bg-white/15 px-2 py-1.5">
-          <span className="text-[10px] font-medium uppercase tracking-wide text-white/90">
-            {t('totalSpent')}
-          </span>
-          <span className="text-sm font-semibold tabular-nums text-white">
-            {new Intl.NumberFormat('en-IN', {
-              style: 'currency',
-              currency: 'INR',
-              maximumFractionDigits: 2,
-            }).format(msg.totalSpent!)}
-          </span>
-        </div>
+        <TotalAmountRow label={t('totalSpent')} amount={msg.totalSpent!} />
       ) : null}
       <div className="space-y-1">
         {items.map((item, idx) => {
