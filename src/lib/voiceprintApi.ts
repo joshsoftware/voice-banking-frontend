@@ -1,5 +1,22 @@
 import { httpClient } from './httpClient'
 
+/** Enrollment sessions on file and whether another (follow-up) session can / should be recorded. */
+export interface EnrollmentStatus {
+  is_registered: boolean
+  sessions_completed: number
+  max_sessions: number
+  first_session_at: string | null
+  last_session_at: string | null
+  next_eligible_at: string | null
+  can_add_session: boolean
+  followup_due: boolean
+  reason: string | null
+}
+
+export function getEnrollmentStatus(voiceCustomerId: string): Promise<EnrollmentStatus> {
+  return httpClient.get<EnrollmentStatus>(`/enrollment/status/${encodeURIComponent(voiceCustomerId)}`)
+}
+
 /**
  * Voiceprint REST API — aligned with `voice-banking-frontend/src/lib/api.ts`.
  * Backend expects multipart `files` (min 3 clips) at POST .../enrollment/enroll/{user_id}.
