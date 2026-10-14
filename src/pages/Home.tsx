@@ -12,6 +12,20 @@ import {
   markVoiceUnregistered,
 } from '@/lib/customerData'
 import { httpClient } from '@/lib/httpClient'
+import { ENABLE_VOICE_FOLLOWUP } from '@/lib/constants'
+import { getEnrollmentStatus, type EnrollmentStatus } from '@/lib/voiceprintApi'
+
+// Kept for when VITE_ENABLE_VOICE_FOLLOWUP=true (Improve voice ID / multi-session enrollment).
+const FOLLOWUP_DISMISS_KEY_PREFIX = 'voicebank.voiceFollowupPromptDismissed.'
+const FOLLOWUP_PATH = '/voice-registration?intent=enroll&mode=followup'
+
+function localDay(): string {
+  return new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in the device's time zone
+}
+
+function formatAvailableFrom(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' })
+}
 
 interface HomeProps {
   bottomSheet?: ReactNode
@@ -28,6 +42,53 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
   const [isUnregisteringVoice, setIsUnregisteringVoice] = useState(false)
   const customer = getActiveCustomer()
   const voiceRegistered = customer ? isVoiceRegistered(customer.customer_id) : false
+  const voiceCustomerId = customer ? (customer.voice_customer_id ?? customer.customer_id) : null
+  const [enrollStatus, setEnrollStatus] = useState<EnrollmentStatus | null>(null)
+  const [followupDismissedToday, setFollowupDismissedToday] = useState(false)
+
+  useEffect(() => {
+    // Follow-up UI is env-gated; leave this block in place for re-enable.
+    if (!ENABLE_VOICE_FOLLOWUP || !voiceRegistered || !voiceCustomerId) {
+      setEnrollStatus(null)
+      return
+    }
+    let cancelled = false
+    getEnrollmentStatus(voiceCustomerId)
+      .then((s) => {
+        if (!cancelled) setEnrollStatus(s)
+      })
+      .catch((e) => console.debug('Enrollment status unavailable:', e))
+    try {
+      setFollowupDismissedToday(localStorage.getItem(FOLLOWUP_DISMISS_KEY_PREFIX + voiceCustomerId) === localDay())
+    } catch {
+      setFollowupDismissedToday(false)
+    }
+    return () => {
+      cancelled = true
+    }
+  }, [voiceRegistered, voiceCustomerId])
+
+  const dismissFollowupForToday = () => {
+    setFollowupDismissedToday(true)
+    try {
+      if (voiceCustomerId) localStorage.setItem(FOLLOWUP_DISMISS_KEY_PREFIX + voiceCustomerId, localDay())
+    } catch {
+      // Storage unavailable: the prompt simply shows again next time.
+    }
+  }
+
+  // Improve voice ID — only when VITE_ENABLE_VOICE_FOLLOWUP=true
+  const improveVoice =
+    ENABLE_VOICE_FOLLOWUP &&
+    enrollStatus?.is_registered &&
+    enrollStatus.sessions_completed < enrollStatus.max_sessions
+      ? {
+          canStart: enrollStatus.can_add_session,
+          availableFrom: enrollStatus.next_eligible_at ? formatAvailableFrom(enrollStatus.next_eligible_at) : null,
+        }
+      : undefined
+  const showFollowupPrompt =
+    ENABLE_VOICE_FOLLOWUP && Boolean(enrollStatus?.followup_due) && !followupDismissedToday
   useEffect(() => {
     if (!isAuthenticated || !customer) {
       navigate('/welcome', { replace: true })
@@ -93,8 +154,38 @@ export default function Home({ bottomSheet, isMuted, onToggleMute }: HomeProps) 
                 onToggleMute={onToggleMute}
                 canUnregisterVoice={voiceRegistered}
                 onUnregisterVoice={() => setShowUnregisterConfirm(true)}
+                improveVoice={improveVoice}
               />
               <BalanceCard customerId={customer?.customer_id} />
+              {showFollowupPrompt && (
+                <div
+                  data-testid="voice-followup-banner"
+                  className="mt-4 rounded-2xl bg-white/95 px-4 py-3 text-[var(--color-brand-900)] shadow-[var(--shadow-card)]"
+                >
+                  <p className="text-sm font-semibold">{t('voiceFollowupBannerTitle')}</p>
+                  <p className="mt-0.5 text-xs leading-snug text-[var(--color-text-muted-1)]">
+                    {t('voiceFollowupBannerBody')}
+                  </p>
+                  <div className="mt-2.5 flex gap-2">
+                    <button
+                      type="button"
+                      data-testid="voice-followup-banner-start"
+                      onClick={() => navigate(FOLLOWUP_PATH)}
+                      className="h-9 flex-1 rounded-full bg-[var(--color-brand-500)] text-sm font-semibold text-white"
+                    >
+                      {t('voiceFollowupBannerStart')}
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="voice-followup-banner-later"
+                      onClick={dismissFollowupForToday}
+                      className="h-9 flex-1 rounded-full bg-[var(--color-surface-app)] text-sm font-semibold text-[var(--color-brand-900)]"
+                    >
+                      {t('voiceFollowupBannerLater')}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

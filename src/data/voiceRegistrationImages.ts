@@ -132,15 +132,48 @@ export const VOICE_REGISTRATION_IMAGES: VoiceRegistrationImageItem[] = [
   },
 ]
 
-export const VOICE_REGISTRATION_STEP_COUNT = 3
+export const VOICE_REGISTRATION_IMAGE_COUNT = 2
 
-export function pickRandomRegistrationImages(
-  count = VOICE_REGISTRATION_STEP_COUNT,
-): VoiceRegistrationImageItem[] {
-  const shuffled = [...VOICE_REGISTRATION_IMAGES]
+const RECENT_IMAGES_KEY_PREFIX = 'voicebank.enrollment.recentImages.'
+
+function shuffleImages(items: VoiceRegistrationImageItem[]): VoiceRegistrationImageItem[] {
+  const shuffled = [...items]
   for (let i = shuffled.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1))
     ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
-  return shuffled.slice(0, Math.min(count, shuffled.length))
+  return shuffled
+}
+
+function readRecentImageIds(customerId: string | undefined): string[] {
+  if (!customerId) return []
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(RECENT_IMAGES_KEY_PREFIX + customerId) ?? '[]')
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Picks distinct pictures, preferring ones this customer hasn't described on this device before, so
+ * follow-up enrollment sessions on later days get new pictures.
+ */
+export function pickRandomRegistrationImages(
+  count = VOICE_REGISTRATION_IMAGE_COUNT,
+  customerId?: string,
+): VoiceRegistrationImageItem[] {
+  const recent = new Set(readRecentImageIds(customerId))
+  const fresh = shuffleImages(VOICE_REGISTRATION_IMAGES.filter((img) => !recent.has(img.id)))
+  const seen = shuffleImages(VOICE_REGISTRATION_IMAGES.filter((img) => recent.has(img.id)))
+  const picked = [...fresh, ...seen].slice(0, Math.min(count, VOICE_REGISTRATION_IMAGES.length))
+  if (customerId) {
+    try {
+      const history = [...recent, ...picked.map((img) => img.id)].slice(-VOICE_REGISTRATION_IMAGES.length)
+      localStorage.setItem(RECENT_IMAGES_KEY_PREFIX + customerId, JSON.stringify(history))
+    } catch {
+      // Storage unavailable: repeats across sessions become possible, never within one.
+    }
+  }
+  return picked
 }
