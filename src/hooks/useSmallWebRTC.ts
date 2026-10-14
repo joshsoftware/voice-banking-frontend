@@ -4,6 +4,7 @@ import { CustomSmallWebRTCTransport } from '@/lib/customTransport'
 import { API_BASE, DISABLE_BROWSER_NOISE_CANCELLATION } from '@/lib/constants'
 import { getActiveCustomer, isVoiceRegistered } from '@/lib/customerData'
 import { getDeviceId } from '@/lib/device'
+import { beginRawTurn, endRawTurn, isRawMicEnabled, setRawTurnTarget } from '@/lib/rawMic'
 import { useTranslation } from '@/i18n/LanguageHooks'
 import { LANGUAGE_IDS, type LanguageId } from '@/i18n/languages'
 import { useAuth } from '@/contexts/AuthContext'
@@ -95,6 +96,20 @@ export type InputSoundStatus = 'voice_detected' | 'no_sound'
 export interface VoiceprintStatus {
   verified: boolean
   score: number
+  padScore?: number
+  padMargin?: number
+  padVerified?: boolean
+  /** % chance the voice is not a clone (Spectra), 50 is the pass line. */
+  clonePct?: number
+  cloneVerified?: boolean
+  /** % chance the voice is live and not a recording played through a speaker (low-frequency check). */
+  replayPct?: number
+  /** undefined: the check was not part of this turn. false: it could not run (too little speech, no baseline). */
+  replayEvaluated?: boolean
+  replayFlagged?: boolean
+  replayReason?: string
+  /** Set when the browser audio for the turn was missing, so the clone and replay checks failed. */
+  livenessIssue?: string
   ts: number
 }
 
@@ -975,7 +990,24 @@ export function useSmallWebRTC() {
           const verified = !!data.verified
           const score = typeof data.score === 'number' ? data.score : 0
           console.log(`[SmallWebRTC] Voiceprint verification: verified=${verified}, score=${score}`)
-          setVoiceprintStatus({ verified, score, ts: Date.now() })
+          const padScore = typeof data.pad_score === 'number' ? data.pad_score : undefined
+          const padVerified = typeof data.pad_verified === 'boolean' ? data.pad_verified : undefined
+          const padMargin = typeof data.pad_margin === 'number' ? data.pad_margin : undefined
+          setVoiceprintStatus({
+            verified,
+            score,
+            padScore,
+            padMargin,
+            padVerified,
+            clonePct: typeof data.clone_pct === 'number' ? data.clone_pct : undefined,
+            cloneVerified: typeof data.clone_verified === 'boolean' ? data.clone_verified : undefined,
+            replayPct: typeof data.replay_pct === 'number' ? data.replay_pct : undefined,
+            replayEvaluated: typeof data.lf_evaluated === 'boolean' ? data.lf_evaluated : undefined,
+            replayFlagged: typeof data.lf_flagged === 'boolean' ? data.lf_flagged : undefined,
+            replayReason: typeof data.lf_reason === 'string' ? data.lf_reason : undefined,
+            livenessIssue: typeof data.liveness_issue === 'string' ? data.liveness_issue : undefined,
+            ts: Date.now(),
+          })
         } else if (data?.type === 'TRANSACTION_LIST') {
           // Push immediately — do not wait for LLM text flush (signal often arrives first).
           applyTransactionListSignal(data as TransactionListSignal)
@@ -1042,6 +1074,7 @@ export function useSmallWebRTC() {
             mobile_number: activeCustomer?.mobile_number ?? '',
             device_id: getDeviceId(),
             auth_session_id: localStorage.getItem('voicebank.auth_session_id') ?? '',
+            raw_mic: isRawMicEnabled(),
           },
         }),
       })
@@ -1055,6 +1088,7 @@ export function useSmallWebRTC() {
       const startData = await startRes.json()
       const sid: string = startData.sessionId ?? startData.session_id ?? null
       if (sid) setSessionId(sid)
+      setRawTurnTarget(sid && isRawMicEnabled() ? `${API_BASE}/sessions/${sid}/raw-turn` : null)
 
       const offerEndpoint = sid
         ? `${API_BASE}/sessions/${sid}/api/offer`
@@ -1128,6 +1162,7 @@ export function useSmallWebRTC() {
   // ── Disconnect ─────────────────────────────────────────────────────────────
 
   const disconnect = useCallback(async () => {
+    setRawTurnTarget(null)
     const client = clientRef.current
     if (!client) {
       // Client already torn down (e.g. server-side disconnect). Keep disconnected
@@ -1324,6 +1359,7 @@ export function useSmallWebRTC() {
       void (async () => {
         try {
           void client.enableMic(true)
+          beginRawTurn() // browser-raw clip for this turn starts here, seeded with the last 1 s
           await disableBrowserNoiseSuppression(client)
           const tracks = client.tracks()
           if (tracks?.local?.audio) tracks.local.audio.enabled = true
@@ -1346,6 +1382,7 @@ export function useSmallWebRTC() {
       clearNoSoundTimer()
       setInputSoundStatus(null)
 
+      endRawTurn() // ends the clip after a short tail and uploads it as one piece
       try {
         void client.enableMic(false)
         const tracks = client.tracks()

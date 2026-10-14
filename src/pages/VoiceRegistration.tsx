@@ -37,6 +37,7 @@ import type { LanguageId } from '@/i18n/languages'
 import { allowVoiceSkip, disallowVoiceSkip, getActiveCustomer, markVoiceRegistered } from '@/lib/customerData'
 import { useAuth } from '@/contexts/AuthContext'
 import { getDeviceId } from '@/lib/device'
+import { isRawMicEnabled, setRawCaptureTarget } from '@/lib/rawMic'
 import { fetchWithOfferRetry } from '@/lib/webrtcOfferRetry'
 
 type Phase = 'consent' | 'imageChallenge' | 'success'
@@ -153,6 +154,7 @@ export default function VoiceRegistration() {
   }, [])
 
   const disconnectRtc = useCallback(() => {
+    setRawCaptureTarget(null)
     notifyBackendSessionCleanup()
     stopMediaStream(micStreamRef.current)
     micStreamRef.current = null
@@ -272,6 +274,7 @@ export default function VoiceRegistration() {
       const startPayload = {
         customer_id: activeCustomer?.voice_customer_id ?? activeCustomer?.customer_id ?? 'test-user',
         device_id: getDeviceId(),
+        customer_name: activeCustomer?.name ?? '',
         total_steps: sessionStepsRef.current.length || ENROLLMENT_TOTAL_STEPS,
         mode: isFollowup ? 'followup' : 'initial',
       }
@@ -367,6 +370,7 @@ export default function VoiceRegistration() {
         : FALLBACK_ICE_SERVERS
       setRtcSessionId(sid)
       rtcSessionIdRef.current = sid
+      setRawCaptureTarget(isRawMicEnabled() ? `${backendBase}/sessions/${sid}/raw-capture` : null)
 
       const pc = new RTCPeerConnection({ iceServers })
       pcRef.current = pc

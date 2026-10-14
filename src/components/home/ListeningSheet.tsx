@@ -312,6 +312,36 @@ interface ListeningSheetProps {
   showMuteControl?: boolean
 }
 
+/** Small rounded status pill used by the voice checks. */
+function StatusPill({
+  tone,
+  fading,
+  title,
+  children,
+}: {
+  tone: 'ok' | 'bad' | 'neutral'
+  fading: boolean
+  title?: string
+  children: React.ReactNode
+}) {
+  const colours = {
+    ok: ['bg-emerald-100 text-emerald-700', 'bg-emerald-500'],
+    bad: ['bg-red-100 text-red-700', 'bg-red-500'],
+    neutral: ['bg-slate-100 text-slate-600', 'bg-slate-400'],
+  }[tone]
+  return (
+    <div
+      title={title}
+      className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium shadow-sm transition-opacity duration-700 ${
+        fading ? 'opacity-0' : 'opacity-100'
+      } ${colours[0]}`}
+    >
+      <span className={`inline-block size-2 rounded-full ${colours[1]}`} />
+      {children}
+    </div>
+  )
+}
+
 export function ListeningSheet({
   state,
   sessionNotice,
@@ -525,21 +555,59 @@ export function ListeningSheet({
 
             {/* Voiceprint verification badge */}
             {showVpBadge && voiceprintStatus && (
-              <div
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium shadow-sm transition-opacity duration-700 ${
-                  vpFading ? 'opacity-0' : 'opacity-100'
-                } ${
-                  voiceprintStatus.verified
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-red-100 text-red-700'
-                }`}
-              >
-                <span className={`inline-block size-2 rounded-full ${
-                  voiceprintStatus.verified ? 'bg-emerald-500' : 'bg-red-500'
-                }`} />
-                {voiceprintStatus.verified
-                  ? `Voice Matched (${(voiceprintStatus.score * 100).toFixed(0)}%)`
-                  : `Voice Not Matched (${(voiceprintStatus.score * 100).toFixed(0)}%)`}
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <div
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium shadow-sm transition-opacity duration-700 ${
+                    vpFading ? 'opacity-0' : 'opacity-100'
+                  } ${
+                    voiceprintStatus.verified
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-red-100 text-red-700'
+                  }`}
+                >
+                  <span className={`inline-block size-2 rounded-full ${
+                    voiceprintStatus.verified ? 'bg-emerald-500' : 'bg-red-500'
+                  }`} />
+                  {voiceprintStatus.verified
+                    ? `Voice Matched (${(voiceprintStatus.score * 100).toFixed(0)}%)`
+                    : `Voice Not Matched (${(voiceprintStatus.score * 100).toFixed(0)}%)`}
+                </div>
+                {/* Liveness pills: one for cloned voices, one for recordings played through a speaker. 50% is the pass line. */}
+                {voiceprintStatus.livenessIssue ? (
+                  <StatusPill tone="bad" fading={vpFading} title={voiceprintStatus.livenessIssue}>
+                    Mic audio not received
+                  </StatusPill>
+                ) : (
+                  <>
+                    {voiceprintStatus.clonePct !== undefined && (
+                      <StatusPill
+                        tone={(voiceprintStatus.cloneVerified ?? voiceprintStatus.clonePct >= 50) ? 'ok' : 'bad'}
+                        fading={vpFading}
+                        title={`${voiceprintStatus.clonePct}% chance this is a real voice and not a clone (passes at 50% or more)`}
+                      >
+                        Clone check {voiceprintStatus.clonePct}%
+                      </StatusPill>
+                    )}
+                    {voiceprintStatus.replayEvaluated !== undefined &&
+                      (voiceprintStatus.replayEvaluated && voiceprintStatus.replayPct !== undefined ? (
+                        <StatusPill
+                          tone={voiceprintStatus.replayFlagged ? 'bad' : 'ok'}
+                          fading={vpFading}
+                          title={`${voiceprintStatus.replayPct}% chance this is a live voice and not a recording played through a speaker (passes at 50% or more)`}
+                        >
+                          Replay check {voiceprintStatus.replayPct}%
+                        </StatusPill>
+                      ) : (
+                        <StatusPill
+                          tone="neutral"
+                          fading={vpFading}
+                          title={voiceprintStatus.replayReason || 'The replay check did not run for this turn'}
+                        >
+                          Replay check n/a
+                        </StatusPill>
+                      ))}
+                  </>
+                )}
               </div>
             )}
 
