@@ -12,6 +12,8 @@ interface ImportMetaEnv {
   readonly VITE_ENABLE_VOICE_FOLLOWUP?: string
   /** `true` to turn off browser noiseSuppression on STT, enrollment, and verification mics */
   readonly VITE_DISABLE_BROWSER_NOISE_CANCELLATION?: string
+  /** ms between uploads of the enrollment mic stream (250-2000, default 1500) */
+  readonly VITE_RAWMIC_FLUSH_MS?: string
 }
 
 interface ImportMeta {

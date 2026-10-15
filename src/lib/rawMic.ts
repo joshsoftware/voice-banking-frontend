@@ -15,9 +15,11 @@
  * last 1 s is kept; pressing starts a clip seeded with that 1 s; releasing ends it (plus a short tail) and the clip
  * is uploaded as one numbered piece. Enrollment (setRawCaptureTarget) still streams continuously.
  */
+import { RAWMIC_FLUSH_MS } from '@/lib/constants'
+
 const STORAGE_KEY = 'rawMic'
 const TARGET_RATE = 16000
-const FLUSH_MS = 500
+const FLUSH_MS = RAWMIC_FLUSH_MS
 const PREROLL_SAMPLES = TARGET_RATE // 1 s, same as the server's RawAudioTap pre-roll
 const TAIL_MS = 400
 const MAX_TURN_SAMPLES = TARGET_RATE * 60
