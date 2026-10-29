@@ -434,9 +434,6 @@ export function useSmallWebRTC() {
   const assistantHoldRef = useRef(false)
   /** The ack's own stop already happened; the next stop is the real answer. */
   const ackPausedRef = useRef(false)
-  /** Drop ack text. Audio only. Cleared on the second LLM start (the real answer). */
-  const ackSilentRef = useRef(false)
-  const ackStartsRef = useRef(0)
   /** True once botLlmText tokens arrive; botTranscript must not push per-chunk. */
   const botTextViaLlmRef = useRef(false)
   const lastUserTranscriptRef = useRef<string>('')
@@ -829,8 +826,6 @@ export function useSmallWebRTC() {
         botTextViaLlmRef.current = false
         assistantHoldRef.current = false
         ackPausedRef.current = false
-        ackSilentRef.current = false
-        ackStartsRef.current = 0
         txnTableHandledThisTurnRef.current = false
         setOtpSignal(null)  // Reset OTP state for new turn
         // Stay in listening while holding — typing bubble only after release (transcribing)
@@ -952,27 +947,18 @@ export function useSmallWebRTC() {
           botTextViaLlmRef.current = false
           assistantHoldRef.current = false
           ackPausedRef.current = false
-          ackSilentRef.current = false
-          ackStartsRef.current = 0
           pushMsg('user', text)
           setState('processing')
           startProcessingTimeout(turnIdRef.current)
         }
       })
 
-      // A second start in the same turn is the real answer. The first is the spoken ack.
+      // The ack never reaches here as bot-llm-* (it's TTSSpeakFrame-only, and the
+      // backend strips its text from bot-output/bot-tts too) — this only ever
+      // fires for the real reply.
       client.on('botLlmStarted', () => {
         if (turnIdRef.current !== botTurnIdRef.current) return
         clearProcessingTimeout()
-        if (ackSilentRef.current) {
-          ackStartsRef.current += 1
-          if (ackStartsRef.current < 2) return
-          ackSilentRef.current = false
-          llmTextBufferRef.current = ''
-          llmFlushedRef.current = false
-          botTextViaLlmRef.current = false
-          return
-        }
         if (llmFlushedRef.current) {
           llmTextBufferRef.current = ''
           llmFlushedRef.current = false
@@ -983,7 +969,6 @@ export function useSmallWebRTC() {
       // botLlmText fires per streaming token — accumulate into buffer
       client.on('botLlmText', (data: any) => {
         if (turnIdRef.current !== botTurnIdRef.current) return  // Stale prior-turn tokens
-        if (ackSilentRef.current) return
         clearTranscribingTimeout()
         clearProcessingTimeout()
         botTextViaLlmRef.current = true
@@ -1003,11 +988,6 @@ export function useSmallWebRTC() {
           botTextViaLlmRef.current = false
           return
         }
-        if (ackSilentRef.current) {
-          llmTextBufferRef.current = ''
-          botTextViaLlmRef.current = false
-          return
-        }
         flushAssistantBubble(llmTextBufferRef.current)
         botTextViaLlmRef.current = false
       })
@@ -1016,7 +996,7 @@ export function useSmallWebRTC() {
       client.on('botTtsText', (data: any) => {
         console.log('[SmallWebRTC] Bot TTS text:', data)
         if (turnIdRef.current !== botTurnIdRef.current) return
-        if (ackSilentRef.current || llmFlushedRef.current) return
+        if (llmFlushedRef.current) return
         const text = typeof data === 'string' ? data : data?.text
         if (text) flushAssistantBubble(text)
       })
@@ -1025,7 +1005,7 @@ export function useSmallWebRTC() {
       client.on('botTranscript', (data: any) => {
         console.log('[SmallWebRTC] Bot transcript:', data)
         if (turnIdRef.current !== botTurnIdRef.current) return
-        if (ackSilentRef.current || llmFlushedRef.current || botTextViaLlmRef.current) return
+        if (llmFlushedRef.current || botTextViaLlmRef.current) return
         const text = typeof data === 'string' ? data : data?.text
         if (text) llmTextBufferRef.current += text
       })
@@ -1087,13 +1067,12 @@ export function useSmallWebRTC() {
             ts: Date.now(),
           })
         } else if (data?.type === 'ASSISTANT_HOLD') {
-          // Gates the "processing" bubble across both botStartedSpeaking (stay
-        // in processing through the ack's own audio) and botStoppedSpeaking
-        // (stay in processing after it ends, until the real reply starts) —
-          // the ack never reaches here as bot-llm-*/bot-tts text (backend
-          // strips it before sending), so ackSilentRef/ackStartsRef are not
-          // involved; leave them alone so the real reply's text still flows
-          // through botLlmStarted/botLlmText normally.
+          // Gates the "processing" bubble across both botStartedSpeaking
+          // (stay in processing through the ack's own audio) and
+          // botStoppedSpeaking (stay in processing after it ends, until the
+          // real reply starts). The ack's text never reaches the UI at all —
+          // the backend strips it from bot-output/bot-tts before sending —
+          // so no separate text-suppression flag is needed here.
           assistantHoldRef.current = data.active !== false
           if (!assistantHoldRef.current) {
             ackPausedRef.current = false
@@ -1370,7 +1349,7 @@ export function useSmallWebRTC() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [clearNoSoundTimer, disconnect, startNoSoundTimer])
+  }, [clearNoSoundTimer, connect, showSessionNotice, startNoSoundTimer])
 
   // ── Auth-aware cleanup ─────────────────────────────────────────────────────
   // Disconnect WebRTC session when user logs out to prevent resource leaks
