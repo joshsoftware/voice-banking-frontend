@@ -42,6 +42,29 @@ async function disableBrowserNoiseSuppression(client: PipecatClient): Promise<vo
   }
 }
 
+/** True once the peer connection is unusable (closed/failed/disconnected). Mobile
+ *  browsers frequently kill the connection while backgrounded without any event
+ *  we reliably observe, so callers must re-check this rather than trust prior state. */
+export function isConnectionDead(client: PipecatClient | null): boolean {
+  if (!client) return true
+  try {
+    const transport = client.transport as any
+    const pc = transport?.pc || transport?._pc
+    if (
+      pc &&
+      (pc.connectionState === 'closed' ||
+        pc.connectionState === 'failed' ||
+        pc.connectionState === 'disconnected' ||
+        pc.signalingState === 'closed')
+    ) {
+      return true
+    }
+  } catch {
+    // Can't inspect transport internals — assume alive rather than force a reconnect.
+  }
+  return false
+}
+
 // ─── Beep ─────────────────────────────────────────────────────────────────────
 
 /** Resolves once the beep is audibly started (~120 ms). */
@@ -407,6 +430,10 @@ export function useSmallWebRTC() {
   const audioElRef = useRef<HTMLAudioElement | null>(null)
   const llmTextBufferRef = useRef<string>('')
   const llmFlushedRef = useRef(false)
+  /** True after a spoken ack until the real answer finishes. The ack is not a chat bubble. */
+  const assistantHoldRef = useRef(false)
+  /** The ack's own stop already happened; the next stop is the real answer. */
+  const ackPausedRef = useRef(false)
   /** True once botLlmText tokens arrive; botTranscript must not push per-chunk. */
   const botTextViaLlmRef = useRef(false)
   const lastUserTranscriptRef = useRef<string>('')
@@ -607,7 +634,7 @@ export function useSmallWebRTC() {
     processingTimeoutRef.current = window.setTimeout(() => {
       if (turnIdRef.current === currentTurnId) {
         setState(prev => {
-          if (prev === 'processing' || prev === 'speaking') {
+          if (prev === 'processing') {
             console.warn('[SmallWebRTC] Agent processing timed out. Resetting to listening.')
             pushMsg('status', 'Response timed out. Please try speaking again.')
             return 'listening'
@@ -797,6 +824,8 @@ export function useSmallWebRTC() {
         llmTextBufferRef.current = ''  // Drop stale assistant text from previous turn
         llmFlushedRef.current = false  // Reset flush flag for new turn
         botTextViaLlmRef.current = false
+        assistantHoldRef.current = false
+        ackPausedRef.current = false
         txnTableHandledThisTurnRef.current = false
         setOtpSignal(null)  // Reset OTP state for new turn
         // Stay in listening while holding — typing bubble only after release (transcribing)
@@ -822,6 +851,7 @@ export function useSmallWebRTC() {
         }
         console.log('[SmallWebRTC] Bot started speaking')
         clearTranscribingTimeout()
+        clearProcessingTimeout()
         try {
           const tracks = client.tracks()
           if (tracks?.bot?.audio) tracks.bot.audio.enabled = true
@@ -831,7 +861,11 @@ export function useSmallWebRTC() {
         if (audioElRef.current && audioElRef.current.paused) {
           audioElRef.current.play().catch(() => {})
         }
-        setState('speaking')
+        // The ack plays as audio only — keep showing "processing" through it
+        // instead of flipping to "speaking" and back (see ASSISTANT_HOLD).
+        if (!assistantHoldRef.current || ackPausedRef.current) {
+          setState('speaking')
+        }
       })
 
       client.on('botStoppedSpeaking', () => {
@@ -840,6 +874,14 @@ export function useSmallWebRTC() {
           console.log('[SmallWebRTC] Ignoring botStoppedSpeaking state change — stale turn')
           return
         }
+        if (assistantHoldRef.current && !ackPausedRef.current) {
+          ackPausedRef.current = true
+          llmTextBufferRef.current = ''
+          setState('processing')
+          return
+        }
+        assistantHoldRef.current = false
+        ackPausedRef.current = false
         // Flush any remaining buffer not yet flushed by botLlmStopped
         if (!llmFlushedRef.current) {
           flushAssistantBubble(llmTextBufferRef.current)
@@ -903,9 +945,30 @@ export function useSmallWebRTC() {
           llmTextBufferRef.current = ''
           llmFlushedRef.current = false
           botTextViaLlmRef.current = false
+          assistantHoldRef.current = false
+          ackPausedRef.current = false
           pushMsg('user', text)
           setState('processing')
           startProcessingTimeout(turnIdRef.current)
+        }
+      })
+
+      // The ack never reaches here as bot-llm-* (it's TTSSpeakFrame-only, and the
+      // backend strips its text from bot-output/bot-tts too) — this only ever
+      // fires for the real reply.
+      client.on('botLlmStarted', () => {
+        if (turnIdRef.current !== botTurnIdRef.current) return
+        clearProcessingTimeout()
+        // The real reply is unambiguously starting now. If the ack's own
+        // botStoppedSpeaking never arrived (e.g. its TTS synthesis produced
+        // no audio events), assistantHoldRef would otherwise stay stuck
+        // "on" and the real reply's own stop would be misread as the ack's —
+        // dropping its text and leaving the UI parked on "processing".
+        ackPausedRef.current = true
+        if (llmFlushedRef.current) {
+          llmTextBufferRef.current = ''
+          llmFlushedRef.current = false
+          botTextViaLlmRef.current = false
         }
       })
 
@@ -913,6 +976,7 @@ export function useSmallWebRTC() {
       client.on('botLlmText', (data: any) => {
         if (turnIdRef.current !== botTurnIdRef.current) return  // Stale prior-turn tokens
         clearTranscribingTimeout()
+        clearProcessingTimeout()
         botTextViaLlmRef.current = true
         const token = typeof data === 'string' ? data : (data?.text ?? '')
         console.log('[SmallWebRTC] Bot LLM text token:', token)
@@ -1008,6 +1072,17 @@ export function useSmallWebRTC() {
             livenessIssue: typeof data.liveness_issue === 'string' ? data.liveness_issue : undefined,
             ts: Date.now(),
           })
+        } else if (data?.type === 'ASSISTANT_HOLD') {
+          // Gates the "processing" bubble across both botStartedSpeaking
+          // (stay in processing through the ack's own audio) and
+          // botStoppedSpeaking (stay in processing after it ends, until the
+          // real reply starts). The ack's text never reaches the UI at all —
+          // the backend strips it from bot-output/bot-tts before sending —
+          // so no separate text-suppression flag is needed here.
+          assistantHoldRef.current = data.active !== false
+          if (!assistantHoldRef.current) {
+            ackPausedRef.current = false
+          }
         } else if (data?.type === 'TRANSACTION_LIST') {
           // Push immediately — do not wait for LLM text flush (signal often arrives first).
           applyTransactionListSignal(data as TransactionListSignal)
@@ -1227,24 +1302,21 @@ export function useSmallWebRTC() {
 
     const resumeSessionFromBackground = () => {
       if (!clientRef.current) return
-      if (!isBackgroundPausedRef.current) return
 
-      // Check if the underlying peer connection is still alive.
-      // Mobile browsers frequently close WebRTC connections while backgrounded.
-      try {
-        const transport = clientRef.current.transport as any
-        const pc = transport?.pc || transport?._pc
-        if (pc && (pc.connectionState === 'closed' || pc.connectionState === 'failed'
-            || pc.connectionState === 'disconnected' || pc.signalingState === 'closed')) {
-          console.warn('[SmallWebRTC] PeerConnection died or disconnected while backgrounded, renewing session')
-          isBackgroundPausedRef.current = false
-          showSessionNotice('Reconnecting voice session...', 3000)
-          void connect()
-          return
-        }
-      } catch (pcCheckErr) {
-        console.warn('[SmallWebRTC] Error checking PC state on resume:', pcCheckErr)
+      // Always re-validate the connection on return to foreground, even if we
+      // never observed the 'hidden' transition (mobile app-switches sometimes
+      // suspend JS before that event is dispatched) — otherwise a connection
+      // that died while backgrounded is never detected, and Hold & Speak stays
+      // permanently stuck waiting on a botReady that will never come again.
+      if (isConnectionDead(clientRef.current)) {
+        console.warn('[SmallWebRTC] PeerConnection died or disconnected while backgrounded, renewing session')
+        isBackgroundPausedRef.current = false
+        showSessionNotice('Reconnecting voice session...', 3000)
+        void connect()
+        return
       }
+
+      if (!isBackgroundPausedRef.current) return
 
       console.log('[SmallWebRTC] App returned to foreground, restoring mic and bot audio')
       isBackgroundPausedRef.current = false
@@ -1283,7 +1355,7 @@ export function useSmallWebRTC() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [clearNoSoundTimer, disconnect, startNoSoundTimer])
+  }, [clearNoSoundTimer, connect, showSessionNotice, startNoSoundTimer])
 
   // ── Auth-aware cleanup ─────────────────────────────────────────────────────
   // Disconnect WebRTC session when user logs out to prevent resource leaks
@@ -1343,8 +1415,18 @@ export function useSmallWebRTC() {
       }
 
       if (!isReady) {
-        console.warn('[SmallWebRTC] Hold & Speak requested before readiness conditions met. Waiting...')
         pendingHoldRequestRef.current = true
+        // If the connection actually died (e.g. OS killed it while the app was
+        // backgrounded and the visibilitychange-driven recovery missed it),
+        // waiting here does nothing — botReady only fires once per connection,
+        // so a stale pending request would never be drained. Reconnect instead.
+        if (isConnectionDead(client)) {
+          console.warn('[SmallWebRTC] Hold & Speak requested on a dead connection. Reconnecting...')
+          showSessionNotice('Reconnecting voice session...', 3000)
+          void connect()
+        } else {
+          console.warn('[SmallWebRTC] Hold & Speak requested before readiness conditions met. Waiting...')
+        }
         return
       }
 
@@ -1406,7 +1488,7 @@ export function useSmallWebRTC() {
       setState('transcribing')
       startTranscribingTimeout(turnIdRef.current)
     }
-  }, [clearAllTimeouts, clearNoSoundTimer, startNoSoundTimer, startTranscribingTimeout, state, pushMsg])
+  }, [clearAllTimeouts, clearNoSoundTimer, connect, showSessionNotice, startNoSoundTimer, startTranscribingTimeout, state, pushMsg])
 
   const startPushToTalk = useCallback(() => {
     setMicrophoneCapture(true)
