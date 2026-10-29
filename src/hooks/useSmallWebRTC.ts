@@ -45,7 +45,7 @@ async function disableBrowserNoiseSuppression(client: PipecatClient): Promise<vo
 /** True once the peer connection is unusable (closed/failed/disconnected). Mobile
  *  browsers frequently kill the connection while backgrounded without any event
  *  we reliably observe, so callers must re-check this rather than trust prior state. */
-function isConnectionDead(client: PipecatClient | null): boolean {
+export function isConnectionDead(client: PipecatClient | null): boolean {
   if (!client) return true
   try {
     const transport = client.transport as any
@@ -959,6 +959,12 @@ export function useSmallWebRTC() {
       client.on('botLlmStarted', () => {
         if (turnIdRef.current !== botTurnIdRef.current) return
         clearProcessingTimeout()
+        // The real reply is unambiguously starting now. If the ack's own
+        // botStoppedSpeaking never arrived (e.g. its TTS synthesis produced
+        // no audio events), assistantHoldRef would otherwise stay stuck
+        // "on" and the real reply's own stop would be misread as the ack's —
+        // dropping its text and leaving the UI parked on "processing".
+        ackPausedRef.current = true
         if (llmFlushedRef.current) {
           llmTextBufferRef.current = ''
           llmFlushedRef.current = false
