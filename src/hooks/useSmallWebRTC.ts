@@ -42,6 +42,29 @@ async function disableBrowserNoiseSuppression(client: PipecatClient): Promise<vo
   }
 }
 
+/** True once the peer connection is unusable (closed/failed/disconnected). Mobile
+ *  browsers frequently kill the connection while backgrounded without any event
+ *  we reliably observe, so callers must re-check this rather than trust prior state. */
+function isConnectionDead(client: PipecatClient | null): boolean {
+  if (!client) return true
+  try {
+    const transport = client.transport as any
+    const pc = transport?.pc || transport?._pc
+    if (
+      pc &&
+      (pc.connectionState === 'closed' ||
+        pc.connectionState === 'failed' ||
+        pc.connectionState === 'disconnected' ||
+        pc.signalingState === 'closed')
+    ) {
+      return true
+    }
+  } catch {
+    // Can't inspect transport internals — assume alive rather than force a reconnect.
+  }
+  return false
+}
+
 // ─── Beep ─────────────────────────────────────────────────────────────────────
 
 /** Resolves once the beep is audibly started (~120 ms). */
@@ -614,7 +637,7 @@ export function useSmallWebRTC() {
     processingTimeoutRef.current = window.setTimeout(() => {
       if (turnIdRef.current === currentTurnId) {
         setState(prev => {
-          if (prev === 'processing' || prev === 'speaking') {
+          if (prev === 'processing') {
             console.warn('[SmallWebRTC] Agent processing timed out. Resetting to listening.')
             pushMsg('status', 'Response timed out. Please try speaking again.')
             return 'listening'
@@ -833,6 +856,7 @@ export function useSmallWebRTC() {
         }
         console.log('[SmallWebRTC] Bot started speaking')
         clearTranscribingTimeout()
+        clearProcessingTimeout()
         try {
           const tracks = client.tracks()
           if (tracks?.bot?.audio) tracks.bot.audio.enabled = true
@@ -939,6 +963,7 @@ export function useSmallWebRTC() {
       // A second start in the same turn is the real answer. The first is the spoken ack.
       client.on('botLlmStarted', () => {
         if (turnIdRef.current !== botTurnIdRef.current) return
+        clearProcessingTimeout()
         if (ackSilentRef.current) {
           ackStartsRef.current += 1
           if (ackStartsRef.current < 2) return
@@ -960,6 +985,7 @@ export function useSmallWebRTC() {
         if (turnIdRef.current !== botTurnIdRef.current) return  // Stale prior-turn tokens
         if (ackSilentRef.current) return
         clearTranscribingTimeout()
+        clearProcessingTimeout()
         botTextViaLlmRef.current = true
         const token = typeof data === 'string' ? data : (data?.text ?? '')
         console.log('[SmallWebRTC] Bot LLM text token:', token)
@@ -1291,24 +1317,21 @@ export function useSmallWebRTC() {
 
     const resumeSessionFromBackground = () => {
       if (!clientRef.current) return
-      if (!isBackgroundPausedRef.current) return
 
-      // Check if the underlying peer connection is still alive.
-      // Mobile browsers frequently close WebRTC connections while backgrounded.
-      try {
-        const transport = clientRef.current.transport as any
-        const pc = transport?.pc || transport?._pc
-        if (pc && (pc.connectionState === 'closed' || pc.connectionState === 'failed'
-            || pc.connectionState === 'disconnected' || pc.signalingState === 'closed')) {
-          console.warn('[SmallWebRTC] PeerConnection died or disconnected while backgrounded, renewing session')
-          isBackgroundPausedRef.current = false
-          showSessionNotice('Reconnecting voice session...', 3000)
-          void connect()
-          return
-        }
-      } catch (pcCheckErr) {
-        console.warn('[SmallWebRTC] Error checking PC state on resume:', pcCheckErr)
+      // Always re-validate the connection on return to foreground, even if we
+      // never observed the 'hidden' transition (mobile app-switches sometimes
+      // suspend JS before that event is dispatched) — otherwise a connection
+      // that died while backgrounded is never detected, and Hold & Speak stays
+      // permanently stuck waiting on a botReady that will never come again.
+      if (isConnectionDead(clientRef.current)) {
+        console.warn('[SmallWebRTC] PeerConnection died or disconnected while backgrounded, renewing session')
+        isBackgroundPausedRef.current = false
+        showSessionNotice('Reconnecting voice session...', 3000)
+        void connect()
+        return
       }
+
+      if (!isBackgroundPausedRef.current) return
 
       console.log('[SmallWebRTC] App returned to foreground, restoring mic and bot audio')
       isBackgroundPausedRef.current = false
@@ -1407,8 +1430,18 @@ export function useSmallWebRTC() {
       }
 
       if (!isReady) {
-        console.warn('[SmallWebRTC] Hold & Speak requested before readiness conditions met. Waiting...')
         pendingHoldRequestRef.current = true
+        // If the connection actually died (e.g. OS killed it while the app was
+        // backgrounded and the visibilitychange-driven recovery missed it),
+        // waiting here does nothing — botReady only fires once per connection,
+        // so a stale pending request would never be drained. Reconnect instead.
+        if (isConnectionDead(client)) {
+          console.warn('[SmallWebRTC] Hold & Speak requested on a dead connection. Reconnecting...')
+          showSessionNotice('Reconnecting voice session...', 3000)
+          void connect()
+        } else {
+          console.warn('[SmallWebRTC] Hold & Speak requested before readiness conditions met. Waiting...')
+        }
         return
       }
 
@@ -1470,7 +1503,7 @@ export function useSmallWebRTC() {
       setState('transcribing')
       startTranscribingTimeout(turnIdRef.current)
     }
-  }, [clearAllTimeouts, clearNoSoundTimer, startNoSoundTimer, startTranscribingTimeout, state, pushMsg])
+  }, [clearAllTimeouts, clearNoSoundTimer, connect, showSessionNotice, startNoSoundTimer, startTranscribingTimeout, state, pushMsg])
 
   const startPushToTalk = useCallback(() => {
     setMicrophoneCapture(true)
