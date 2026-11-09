@@ -23,6 +23,8 @@ export const VOICE_REGISTRATION_IMAGES: VoiceRegistrationImageItem[] = [
       bn: 'পাঁচটি শিশু বড় জানালার পাশে কার্পেটে বসে উজ্জ্বল ঘরে আনন্দের সাথে রঙিন ছবি আঁকছে।',
       mr: 'पाच मुले मोठ्या खिडकीजवळ गालिच्यावर बसून उजळ हॉलमध्ये आनंदाने रंगीत चित्रे काढत आहेत.',
       gu: 'પાંચ બાળકો મોટી બારી પાસે ગાલિચા પર બેસીને પ્રકાશિત હોલમાં આનંદથી રંગબેરંગી ચિત્રો દોરી રહ્યા છે.',
+      es: 'Cinco niños están sentados en una alfombra junto a una gran ventana, pintando alegremente dibujos de colores en un salón luminoso.',
+      pt: 'Cinco crianças estão sentadas num tapete perto de uma janela grande, pintando alegremente desenhos coloridos em uma sala iluminada.',
     },
   },
   {
@@ -38,6 +40,8 @@ export const VOICE_REGISTRATION_IMAGES: VoiceRegistrationImageItem[] = [
       bn: 'চারটি শিশু সবুজে ভরা বাগানে দুটি কুকুরের সাথে উজ্জ্বল দুপুরের রোদে ফ্রিসবি ছুঁড়ে আনন্দে খেলছে।',
       mr: 'चार मुले हिरव्यागार बागेत दोन कुत्र्यांसोबत तेजस्वी दुपारच्या उन्हात फ्रिस्बी फेकत आनंदाने खेळत आहेत.',
       gu: 'ચાર બાળકો હરિયાળા બગીચામાં બે કુતરાઓ સાથે તેજસ્વી બપોરના સૂર્યપ્રકાશમાં ફ્રિસ્બી ફેંકીને આનંદથી રમી રહ્યા છે.',
+      es: 'Cuatro niños juegan felices con dos perros en un jardín muy verde, lanzando un frisbi bajo el sol brillante de la tarde.',
+      pt: 'Quatro crianças brincam alegremente com dois cachorros em um jardim bem verde, jogando um frisbee sob o sol forte da tarde.',
     },
   },
   {
@@ -53,6 +57,8 @@ export const VOICE_REGISTRATION_IMAGES: VoiceRegistrationImageItem[] = [
       bn: 'উজ্জ্বল আধুনিক সাদা রান্নাঘরে কাঠের স্টুলে দাঁড়িয়ে থাকা ছোট ছেলেকে চুলায় রান্না করতে একজন মা সাহায্য করছেন।',
       mr: 'उजळ, आधुनिक पांढऱ्या स्वयंपाकघरात लाकडी स्टूलवर उभ्या असलेल्या आपल्या लहान मुलाला आई गॅसजवळ स्वयंपाक करायला मदत करत आहे.',
       gu: 'ઉજળી આધુનિક સફેદ રસોડામાં લાકડાના સ્ટૂલ પર ઉભેલા પોતાના નાનકડા દીકરાને માતા સ્ટોવ પર રસોઈમાં મદદ કરી રહી છે.',
+      es: 'Una madre ayuda a su hijo pequeño, subido a un taburete de madera, a cocinar en el fogón de una cocina blanca, moderna y luminosa.',
+      pt: 'Uma mãe ajuda o filho pequeno, em pé num banquinho de madeira, a cozinhar no fogão de uma cozinha branca, moderna e iluminada.',
     },
   },
   {
@@ -68,6 +74,8 @@ export const VOICE_REGISTRATION_IMAGES: VoiceRegistrationImageItem[] = [
       bn: 'লম্বা কোঁকড়া চুলের এক যুবতী ট্যান রঙের লেদার সোফায় বসে উজ্জ্বল ঘরে জানালার পাশে টেডি বিয়ারের কাছে বই পড়ছে।',
       mr: 'लांब कुरळ्या केसांसह एक तरुणी तपकिरी लेदर सोफ्यावर बसून, खिडकीजवळ उजळ हॉलमध्ये टेडी बिअरजवळ पुस्तक वाचत आहे.',
       gu: 'લાંબા વાળવાળી યુવતી તપકિરી લેધર સોફા પર બેસીને, બારી પાસેના ઉજળા હોલમાં ટેડી બિયરની બાજુમાં પુસ્તક વાંચી રહી છે.',
+      es: 'Una joven de pelo largo y rizado está sentada en un sofá de cuero marrón claro, leyendo un libro junto a unos osos de peluche en un salón luminoso cerca de una ventana.',
+      pt: 'Uma jovem de cabelo longo e cacheado está sentada num sofá de couro caramelo, lendo um livro ao lado de ursinhos de pelúcia em uma sala iluminada perto da janela.',
     },
   },
   {
@@ -83,6 +91,8 @@ export const VOICE_REGISTRATION_IMAGES: VoiceRegistrationImageItem[] = [
       bn: 'একটি আনন্দময় বহু প্রজন্মের পরিবার রোদে ভরা ঘরে রঙিন খাবারে ভরা ডাইনিং টেবিলে একসাথে খেতে খেতে হাসছে।',
       mr: 'आनंदी बहुपिढीय कुटुंब उन्हाळ्याच्या प्रकाशात रंगीत पदार्थांनी भरलेल्या जेवणाच्या टेबलावर एकत्र जेवत हसत आहे.',
       gu: 'ખુશહાલ બહુપેઢીનું પરિવાર સૂર્યપ્રકાશથી ભરેલા રૂમમાં રંગબેરંગી વાનગીઓથી ભરેલી ટેબલ પર સાથે ભોજન કરીને હસી રહ્યું છે.',
+      es: 'Una familia feliz de varias generaciones comparte una comida en una mesa llena de platos de colores, sonriendo y riendo en una habitación soleada.',
+      pt: 'Uma família feliz de várias gerações faz uma refeição junta em uma mesa cheia de pratos coloridos, sorrindo e rindo em uma sala ensolarada.',
     },
   },
   {
@@ -98,6 +108,8 @@ export const VOICE_REGISTRATION_IMAGES: VoiceRegistrationImageItem[] = [
       bn: 'ডোরাকাটা সোয়েটার পরা ছোট ছেলেটি বসার ঘরে কার্পেটে হাঁটু গেড়ে সাবধানে কাপড় ভাঁজ করে সুন্দরভাবে সাজাচ্ছে।',
       mr: 'पट्ट्यांचा स्वेटर घातलेला लहान मुलगा हॉलमध्ये गालिच्यावर गुडघे टेकून कपडे काळजीपूर्वक दुमडून नीटनेटके ढीग लावत आहे.',
       gu: 'ધારીદાર સ્વેટર પહેરેલો નાનો છોકરો લિવિંગ રૂમમાં ગાલિચા પર ઘૂંટણ મારી કાળજીપૂર્વક કપડાં વીંટીને સરસ રીતે ગોઠવી રહ્યો છે.',
+      es: 'Un niño con un jersey de rayas está arrodillado sobre una alfombra en el salón, doblando la ropa con cuidado en una pila ordenada.',
+      pt: 'Um menino de suéter listrado está ajoelhado num tapete da sala, dobrando roupas com cuidado em uma pilha arrumada.',
     },
   },
   {
@@ -113,6 +125,8 @@ export const VOICE_REGISTRATION_IMAGES: VoiceRegistrationImageItem[] = [
       bn: 'একটি ছোট মেয়ে নীল রঙের জল দেওয়ার ক্যান ধরে উজ্জ্বল ঘরে সাদা শেল্ফে রাখা গমলার গাছে আস্তে আস্তে জল দিচ্ছে।',
       mr: 'एक लहान मुलगी निळ्या रंगाचा पाण्याचा कॅन धरून, उजळ घरात पांढऱ्या शेल्फवर ठेवलेल्या कुंडीतल्या रोपाला हळूवारपणे पाणी घालत आहे.',
       gu: 'નાની છોકરી વાદળી રંગનું પાણીનું કેન પકડીને, ઉજળા ઘરમાં સફેદ શેલ્ફ પર રાખેલા ગમલાના છોડને ધીમે ધીમે પાણી આપી રહી છે.',
+      es: 'Una niña sostiene una regadera azul y riega con cuidado una planta en maceta sobre una estantería blanca en una casa luminosa.',
+      pt: 'Uma menina segura um regador azul e rega com cuidado uma planta em vaso sobre uma prateleira branca em uma casa iluminada.',
     },
   },
   {
@@ -128,6 +142,8 @@ export const VOICE_REGISTRATION_IMAGES: VoiceRegistrationImageItem[] = [
       bn: 'ইয়ারফোন পরা এক যুবতী কাঠের ডেস্কে ল্যাপটপ খুলে বসে কমলা ফুলের ফুলদানির পাশে অনলাইন মিটিংয়ে যোগ দিচ্ছে।',
       mr: 'इयरफोन घातलेली तरुणी लाकडी डेस्कवर लॅपटॉप उघडून बसली आहे आणि केशरी फुलांच्या फुलदाणीजवळ ऑनलाइन बैठकीत सहभागी होत आहे.',
       gu: 'ઇયરફોન પહેરેલી યુવતી લાકડાની ડેસ્ક પર લેપટોપ ખોલીને બેઠી છે અને કેસરી ફૂલોના ફૂલદાની પાસે ઓનલાઇન મીટિંગમાં ભાગ લઈ રહી છે.',
+      es: 'Una joven sonriente con auriculares está sentada en un escritorio de madera con el portátil abierto, participando en una reunión en línea junto a un jarrón con flores naranjas.',
+      pt: 'Uma jovem sorridente de fones de ouvido está sentada a uma mesa de madeira com o notebook aberto, participando de uma reunião on-line ao lado de um vaso de flores laranja.',
     },
   },
 ]

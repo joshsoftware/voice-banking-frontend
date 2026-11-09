@@ -23,6 +23,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'আজ সকালের জলখাবারে আপনি কী খেয়েছেন, আর সেটা কেমন লেগেছে?',
       mr: 'आज नाश्त्याला तुम्ही काय खाल्ले, आणि ते तुम्हाला आवडले का?',
       gu: 'આજે નાસ્તામાં તમે શું ખાધું, અને તે તમને ગમ્યું?',
+      es: '¿Qué desayunaste hoy y te gustó?',
+      pt: 'O que você comeu no café da manhã hoje, e gostou?',
     },
   },
   {
@@ -37,6 +39,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'আজ আপনার ওখানে আবহাওয়া কেমন?',
       mr: 'आज तुमच्याकडे हवामान कसे आहे?',
       gu: 'આજે તમારે ત્યાં હવામાન કેવું છે?',
+      es: '¿Qué tiempo hace hoy donde estás?',
+      pt: 'Como está o tempo hoje onde você está?',
     },
   },
   {
@@ -51,6 +55,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'কোন উৎসব আপনার সবচেয়ে প্রিয়, আর আপনি সেটা কীভাবে পালন করেন?',
       mr: 'तुम्हाला कोणता सण सर्वात जास्त आवडतो, आणि तुम्ही तो कसा साजरा करता?',
       gu: 'તમને કયો તહેવાર સૌથી વધુ ગમે છે, અને તમે તેને કેવી રીતે ઉજવો છો?',
+      es: '¿Qué fiesta es la que más disfrutas y cómo la celebras?',
+      pt: 'Qual festa você mais gosta, e como você a comemora?',
     },
   },
   {
@@ -65,6 +71,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'কোনো একদিন আপনি কোন জায়গায় বেড়াতে যেতে চান, আর কেন?',
       mr: 'तुम्हाला एखाद्या दिवशी कोणत्या ठिकाणी फिरायला जायला आवडेल, आणि का?',
       gu: 'તમે કોઈ દિવસ કઈ જગ્યાએ ફરવા જવા માંગો છો, અને શા માટે?',
+      es: '¿Qué lugar te gustaría visitar algún día y por qué?',
+      pt: 'Que lugar você gostaria de visitar algum dia, e por quê?',
     },
   },
   {
@@ -79,6 +87,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'ছুটির দিনে আপনি সাধারণত কী করতে ভালোবাসেন?',
       mr: 'सुट्टीच्या दिवशी तुम्हाला सहसा काय करायला आवडते?',
       gu: 'રજાના દિવસે તમને સામાન્ય રીતે શું કરવું ગમે છે?',
+      es: '¿Qué te suele gustar hacer los fines de semana?',
+      pt: 'O que você costuma gostar de fazer nos fins de semana?',
     },
   },
   {
@@ -93,6 +103,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'আপনি এখন যে ঘরে বসে আছেন, সেটার বর্ণনা দিন।',
       mr: 'तुम्ही आत्ता ज्या खोलीत बसला आहात, तिचे वर्णन करा.',
       gu: 'તમે અત્યારે જે રૂમમાં બેઠા છો તેનું વર્ણન કરો.',
+      es: 'Describe la habitación en la que estás sentado ahora mismo.',
+      pt: 'Descreva o cômodo em que você está sentado agora.',
     },
   },
   {
@@ -107,6 +119,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'আপনার প্রিয় খাবার কোনটা, আর সেটার কী আপনার ভালো লাগে?',
       mr: 'तुमचा आवडता पदार्थ कोणता, आणि त्यात तुम्हाला काय आवडते?',
       gu: 'તમારી મનપસંદ વાનગી કઈ છે, અને તેમાં તમને શું ગમે છે?',
+      es: '¿Cuál es tu plato favorito y qué te gusta de él?',
+      pt: 'Qual é o seu prato favorito, e do que você gosta nele?',
     },
   },
   {
@@ -121,6 +135,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'সম্প্রতি দেখা এমন একটা সিনেমা বা শো-এর কথা বলুন যেটা আপনার ভালো লেগেছে।',
       mr: 'अलीकडे पाहिलेल्या आणि आवडलेल्या एखाद्या चित्रपटाबद्दल किंवा शोबद्दल सांगा.',
       gu: 'તાજેતરમાં જોયેલી અને ગમેલી કોઈ ફિલ્મ કે શો વિશે જણાવો.',
+      es: 'Cuéntanos sobre una película o serie que hayas disfrutado hace poco.',
+      pt: 'Conte para nós sobre um filme ou programa que você curtiu recentemente.',
     },
   },
   {
@@ -135,6 +151,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'আপনি আপনার শহরে বা এলাকায় সাধারণত কীভাবে যাতায়াত করেন?',
       mr: 'तुम्ही तुमच्या शहरात किंवा गावात सहसा कसा प्रवास करता?',
       gu: 'તમે તમારા શહેર કે ગામમાં સામાન્ય રીતે કેવી રીતે અવરજવર કરો છો?',
+      es: '¿Cómo te sueles mover por tu pueblo o ciudad?',
+      pt: 'Como você costuma se locomover pela sua cidade?',
     },
   },
   {
@@ -149,6 +167,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'আপনি কী ধরনের গান শুনতে ভালোবাসেন?',
       mr: 'तुम्हाला कोणत्या प्रकारचे संगीत ऐकायला आवडते?',
       gu: 'તમને કેવું સંગીત સાંભળવું ગમે છે?',
+      es: '¿Qué tipo de música te gusta escuchar?',
+      pt: 'Que tipo de música você gosta de ouvir?',
     },
   },
   {
@@ -163,6 +183,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'আপনার একটা সাধারণ সকাল কেমন কাটে?',
       mr: 'तुमची नेहमीची सकाळ कशी असते?',
       gu: 'તમારી સામાન્ય સવાર કેવી હોય છે?',
+      es: '¿Cómo es una mañana normal para ti?',
+      pt: 'Como é uma manhã típica para você?',
     },
   },
   {
@@ -177,6 +199,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'আপনার একটা শখের কথা বলুন, আর সেটা কীভাবে শুরু হয়েছিল?',
       mr: 'तुमचा एखादा छंद सांगा, आणि तो तुम्ही कसा सुरू केला?',
       gu: 'તમારા કોઈ શોખ વિશે જણાવો, અને તમે તે કેવી રીતે શરૂ કર્યો?',
+      es: '¿Qué afición disfrutas y cómo empezaste con ella?',
+      pt: 'Qual é um hobby de que você gosta, e como você começou?',
     },
   },
   {
@@ -191,6 +215,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'কোন ঋতু আপনার সবচেয়ে ভালো লাগে, আর কেন?',
       mr: 'तुम्हाला कोणता ऋतू सर्वात जास्त आवडतो, आणि का?',
       gu: 'તમને કઈ ઋતુ સૌથી વધુ ગમે છે, અને શા માટે?',
+      es: '¿Qué estación del año te gusta más y por qué?',
+      pt: 'Qual estação do ano você mais gosta, e por quê?',
     },
   },
   {
@@ -205,6 +231,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'বন্ধুরা রাতের খাবারে এলে আপনি কী রান্না করবেন?',
       mr: 'मित्र जेवायला आले तर तुम्ही काय बनवाल?',
       gu: 'જો મિત્રો રાત્રે જમવા આવે, તો તમે શું બનાવશો?',
+      es: '¿Qué cocinarías si unos amigos vinieran a cenar?',
+      pt: 'O que você cozinharia se amigos viessem jantar?',
     },
   },
   {
@@ -219,6 +247,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'এমন একটা বাজার বা দোকানের কথা বলুন যেখানে যেতে আপনার ভালো লাগে।',
       mr: 'तुम्हाला जायला आवडणाऱ्या एखाद्या बाजाराबद्दल किंवा दुकानाबद्दल सांगा.',
       gu: 'કોઈ બજાર કે દુકાન વિશે જણાવો જ્યાં જવું તમને ગમે છે.',
+      es: 'Cuéntanos sobre un mercado o una tienda que te guste visitar.',
+      pt: 'Conte para nós sobre uma feira ou loja que você gosta de visitar.',
     },
   },
   {
@@ -233,6 +263,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'কোন খেলা খেলতে বা দেখতে আপনি ভালোবাসেন?',
       mr: 'तुम्हाला कोणता खेळ खेळायला किंवा पाहायला आवडतो?',
       gu: 'તમને કઈ રમત રમવી કે જોવી ગમે છે?',
+      es: '¿Qué deporte o juego te gusta practicar o ver?',
+      pt: 'Que esporte ou jogo você gosta de praticar ou assistir?',
     },
   },
   {
@@ -247,6 +279,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'আপনার ভালো লাগা একটা বই বা গল্পের কথা বলুন।',
       mr: 'तुम्हाला आवडलेल्या एखाद्या पुस्तकाबद्दल किंवा गोष्टीबद्दल सांगा.',
       gu: 'તમને ગમેલા કોઈ પુસ્તક કે વાર્તા વિશે જણાવો.',
+      es: 'Cuéntanos sobre un libro o una historia que te haya gustado.',
+      pt: 'Conte para nós sobre um livro ou uma história de que você gostou.',
     },
   },
   {
@@ -261,6 +295,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'গতকাল সন্ধ্যায় আপনি কী করেছিলেন?',
       mr: 'काल संध्याकाळी तुम्ही काय केले?',
       gu: 'ગઈકાલે સાંજે તમે શું કર્યું?',
+      es: '¿Qué hiciste ayer por la tarde?',
+      pt: 'O que você fez ontem à noite?',
     },
   },
   {
@@ -275,6 +311,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'কোন ফল আপনার সবচেয়ে প্রিয়, আর কেন?',
       mr: 'तुम्हाला कोणते फळ सर्वात जास्त आवडते, आणि का?',
       gu: 'તમને કયું ફળ સૌથી વધુ ગમે છે, અને શા માટે?',
+      es: '¿Qué fruta te gusta más y por qué?',
+      pt: 'Qual fruta você mais gosta, e por quê?',
     },
   },
   {
@@ -289,6 +327,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'আপনার কাছে একটা নিখুঁত ছুটির দিন কেমন?',
       mr: 'तुमच्यासाठी सुट्टीचा उत्तम दिवस कसा असतो?',
       gu: 'તમારા માટે રજાનો સંપૂર્ણ દિવસ કેવો હોય?',
+      es: '¿Cómo sería para ti un día libre perfecto?',
+      pt: 'Como seria um dia de folga perfeito para você?',
     },
   },
   {
@@ -303,6 +343,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'আপনার পছন্দের একটা প্রাণীর কথা বলুন।',
       mr: 'तुम्हाला आवडणाऱ्या एखाद्या प्राण्याबद्दल सांगा.',
       gu: 'તમને ગમતા કોઈ પ્રાણી વિશે જણાવો.',
+      es: 'Cuéntanos sobre un animal que te guste.',
+      pt: 'Conte para nós sobre um animal de que você gosta.',
     },
   },
   {
@@ -317,6 +359,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'আপনি চা পছন্দ করেন না কফি, আর কীভাবে খেতে ভালোবাসেন?',
       mr: 'तुम्हाला चहा आवडतो की कॉफी, आणि तुम्ही ती कशी घेता?',
       gu: 'તમને ચા ગમે છે કે કોફી, અને તમે તે કેવી રીતે પીઓ છો?',
+      es: '¿Prefieres té o café, y cómo te gusta tomarlo?',
+      pt: 'Você prefere chá ou café, e como gosta de tomar?',
     },
   },
   {
@@ -331,6 +375,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'বিশ্রাম নিতে আপনি কোথায় যেতে ভালোবাসেন?',
       mr: 'आराम करण्यासाठी तुम्हाला कुठे जायला आवडते?',
       gu: 'આરામ કરવા માટે તમને ક્યાં જવું ગમે છે?',
+      es: '¿Adónde te gusta ir para relajarte?',
+      pt: 'Aonde você gosta de ir para relaxar?',
     },
   },
   {
@@ -345,6 +391,8 @@ export const VOICE_REGISTRATION_QUESTIONS: VoiceRegistrationQuestion[] = [
       bn: 'সম্প্রতি আপনি নতুন কী শিখেছেন?',
       mr: 'अलीकडे तुम्ही कोणती नवीन गोष्ट शिकलात?',
       gu: 'તાજેતરમાં તમે કઈ નવી વાત શીખ્યા?',
+      es: '¿Qué has aprendido de nuevo últimamente?',
+      pt: 'O que você aprendeu de novo recentemente?',
     },
   },
 ]
