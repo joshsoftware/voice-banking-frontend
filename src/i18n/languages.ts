@@ -1,4 +1,4 @@
-export type LanguageId = 'en' | 'hi' | 'ta' | 'kn' | 'te' | 'ml' | 'bn' | 'mr' | 'gu'
+export type LanguageId = 'en' | 'hi' | 'ta' | 'kn' | 'te' | 'ml' | 'bn' | 'mr' | 'gu' | 'es' | 'pt'
 
 export interface LanguageOption {
   id: LanguageId
@@ -16,6 +16,8 @@ export const LANGUAGES: LanguageOption[] = [
   { id: 'bn', label: 'বাংলা', subtitle: 'Bengali' },
   { id: 'mr', label: 'मराठी', subtitle: 'Marathi' },
   { id: 'gu', label: 'ગુજરાતી', subtitle: 'Gujarati' },
+  { id: 'es', label: 'Español', subtitle: 'Spanish' },
+  { id: 'pt', label: 'Português', subtitle: 'Portuguese' },
 ]
 
 export const DEFAULT_LANGUAGE: LanguageId = 'en'

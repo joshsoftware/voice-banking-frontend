@@ -1,0 +1,43 @@
+services:
+  voice-banking-frontend-blue:
+    container_name: voice-banking-frontend-blue
+    image: voice-banking-frontend-blue:deploy
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-https://voicebanking-dev.joshsoftware.com}
+        VITE_AUTH_API_BASE: ${VITE_AUTH_API_BASE:-https://voicebanking-dev.joshsoftware.com}
+        VITE_VOICEPRINT_API_BASE: ${VITE_VOICEPRINT_API_BASE:-http://localhost:7860}
+        VITE_ADMIN_USERNAME: ${VITE_ADMIN_USERNAME:-admin}
+        VITE_ADMIN_PASSWORD: ${VITE_ADMIN_PASSWORD:-VoiceBank@2026}
+        VITE_RAWMIC_FLUSH_MS: ${VITE_RAWMIC_FLUSH_MS:-1500}
+        VITE_ENROLLMENT_TOTAL_STEPS: ${VITE_ENROLLMENT_TOTAL_STEPS:-6}
+        VITE_ENABLE_VOICE_FOLLOWUP: ${VITE_ENABLE_VOICE_FOLLOWUP:-false}
+        VITE_DISABLE_BROWSER_NOISE_CANCELLATION: ${VITE_DISABLE_BROWSER_NOISE_CANCELLATION:-true}
+        VITE_JAVA_API_BASE: ${VITE_JAVA_API_BASE}
+    ports:
+      - "8085:80"
+    restart: unless-stopped
+
+
+  voice-banking-frontend-green:
+    container_name: voice-banking-frontend-green
+    image: voice-banking-frontend-green:deploy
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-https://voicebanking.joshsoftware.com}
+        VITE_AUTH_API_BASE: ${VITE_AUTH_API_BASE:-https://voicebanking.joshsoftware.com}
+        VITE_VOICEPRINT_API_BASE: ${VITE_VOICEPRINT_API_BASE:-http://localhost:7860}
+        VITE_ADMIN_USERNAME: ${VITE_ADMIN_USERNAME:-admin}
+        VITE_ADMIN_PASSWORD: ${VITE_ADMIN_PASSWORD:-VoiceBank@2026}
+        VITE_RAWMIC_FLUSH_MS: ${VITE_RAWMIC_FLUSH_MS:-1500}
+        VITE_JAVA_API_BASE: ${VITE_JAVA_API_BASE}
+        VITE_ENROLLMENT_TOTAL_STEPS: ${VITE_ENROLLMENT_TOTAL_STEPS:-6}
+        VITE_ENABLE_VOICE_FOLLOWUP: ${VITE_ENABLE_VOICE_FOLLOWUP:-false}
+        VITE_DISABLE_BROWSER_NOISE_CANCELLATION: ${VITE_DISABLE_BROWSER_NOISE_CANCELLATION:-true}
+    ports:
+      - "8086:80"
+    restart: unless-stopped
