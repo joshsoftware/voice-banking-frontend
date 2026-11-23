@@ -160,6 +160,8 @@ The registration page tracks:
 | `bn` | Bengali |
 | `mr` | Marathi |
 | `gu` | Gujarati |
+| `es` | Spanish |
+| `pt` | Portuguese |
 
 ### Language Resolution
 

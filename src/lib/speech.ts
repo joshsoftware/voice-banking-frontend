@@ -10,6 +10,8 @@ export const SPEECH_LOCALE_BY_LANGUAGE: Record<LanguageId, string> = {
   bn: 'bn-IN',
   mr: 'mr-IN',
   gu: 'gu-IN',
+  es: 'es-ES',
+  pt: 'pt-BR',
 }
 
 const VOICE_LOAD_TIMEOUT_MS = 800
